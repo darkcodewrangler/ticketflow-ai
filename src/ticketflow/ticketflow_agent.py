@@ -2,13 +2,11 @@
 from datetime import datetime
 import json
 import time
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
-from enum import Enum
+from typing import  Dict
 import asyncio
 import logging
 from src.ticketflow.vector_search_engine import VectorSearchEngine
-from openai import OpenAIClient
+from openai import OpenAI
 from src.ticketflow.external_tools_manager import ExternalToolsManager
 from src.ticketflow.ticket import Ticket
 from ticketflow.workflow import AgentState, WorkflowStep
@@ -16,7 +14,7 @@ from ticketflow.workflow import AgentState, WorkflowStep
 class SmartTicketFlowAgent:
     def __init__(self):
         self.vector_search = VectorSearchEngine()
-        self.llm_client = OpenAIClient()
+        self.llm_client = OpenAI()
         self.external_tools = ExternalToolsManager()
         self.logger = logging.getLogger(__name__)
         
@@ -313,7 +311,7 @@ class SmartTicketFlowAgent:
                 ticket_id=state.ticket.id
             )
             
-        # Add more action types as needed
+        # TODO: Add more action types as needed
         else:
             raise ValueError(f"Unknown action type: {action_type}")
 

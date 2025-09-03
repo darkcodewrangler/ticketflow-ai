@@ -1,3 +1,7 @@
+from typing import Dict, List
+from ticketflow.ticket import Ticket
+
+
 class SmartVectorSearch:
     async def contextual_search(self, ticket: Ticket, context: Dict) -> List[SimilarCase]:
         """Search with additional context weighting"""

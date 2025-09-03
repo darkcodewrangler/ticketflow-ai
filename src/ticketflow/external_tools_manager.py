@@ -1,17 +1,22 @@
 from typing import Dict
+from openai import OpenAI
 from slack_sdk import WebClient as SlackClient
 import resend
 from src.ticketflow.config import config
 
 resend.api_key=config.RESEND_API_KEY
 
+client=OpenAI(
+    api_key=config.OPENAI_API_KEY,
+    base_url=config.OPENAI_BASE_URL
+)
 class ExternalToolsManager:
     """Handles all external integrations"""
     
     def __init__(self):
         self.slack_client = SlackClient()
         self.email_client = resend
-
+        self.ai_client = client
         self.ticket_system = TicketSystemClient()
     
     async def resolve_ticket(self, ticket_id: str, resolution: str, confidence: float) -> Dict:

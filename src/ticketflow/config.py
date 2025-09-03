@@ -20,11 +20,15 @@ class Config:
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     # OpenAI settings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_BASE_URL: Optional[str] = os.getenv("OPENAI_BASE_URL", None)
     
     # App settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    
+    if not TIDB_HOST or not TIDB_PORT or not TIDB_USER or not TIDB_PASSWORD or not TIDB_DATABASE:
+        raise ValueError("One or more TiDB environment variables are not set")
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY environment variable is not set")
     @property
     def database_url(self) -> str:
         """Get database connection URL"""
