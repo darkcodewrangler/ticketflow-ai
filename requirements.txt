@@ -1,0 +1,35 @@
+# Web Framework
+fastapi==0.116.1
+uvicorn==0.35.0
+websockets==15.0.1
+
+# Database
+pymysql==1.1.2
+sqlalchemy==2.0.43
+tidb-vector==0.0.15
+
+# AI and ML
+openai==1.105.0
+numpy==2.3.2
+scikit-learn==1.7.1
+
+# Data Processing
+pandas==2.3.2
+beautifulsoup4==4.13.5
+requests==2.32.5
+python-multipart==0.0.20
+
+# External Integrations
+slack-sdk==3.36.0
+resend==2.13.1
+
+# Utilities
+python-dotenv==1.1.1
+pydantic==2.5.2
+asyncio-mqtt==0.16.2
+
+# Development Tools
+pytest==8.4.1
+pytest-asyncio==1.1.0
+black==25.1.0
+flake8==7.3.0
