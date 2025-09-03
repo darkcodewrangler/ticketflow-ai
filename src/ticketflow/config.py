@@ -16,7 +16,8 @@ class Config:
     TIDB_USER: str = os.getenv("TIDB_USER", "root")
     TIDB_PASSWORD: str = os.getenv("TIDB_PASSWORD", "")
     TIDB_DATABASE: str = os.getenv("TIDB_DATABASE", "ticketflow")
-    
+
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     # OpenAI settings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     
