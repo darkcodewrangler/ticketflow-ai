@@ -9,6 +9,8 @@ from sqlalchemy import desc, and_, or_, text
 from datetime import datetime, timedelta
 import json
 
+from ticketflow import ticket
+
 from .models import Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics
 from .schemas import TicketCreateRequest, KnowledgeBaseCreateRequest
 from ..utils.vector_utils import vector_manager
@@ -67,7 +69,7 @@ class TicketOperations:
         """
         Find similar tickets using TiDB native vector similarity search
         """
-        if not ticket.combined_vector:
+        if ticket.combined_vector is None or len(ticket.combined_vector) == 0:
             return []
         
         # Use TiDB's native vector search with VEC_COSINE_DISTANCE
