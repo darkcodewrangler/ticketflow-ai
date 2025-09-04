@@ -2,7 +2,7 @@ from typing import Dict
 from openai import OpenAI
 from slack_sdk import WebClient as SlackClient
 import resend
-from src.ticketflow.config import config
+from .config import config
 
 resend.api_key=config.RESEND_API_KEY
 

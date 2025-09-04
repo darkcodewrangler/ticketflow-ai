@@ -8,6 +8,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .connection import Base
 import enum
+from tidb_vector.sqlalchemy import VectorType
 
 # Enums for consistent values
 class TicketStatus(str, enum.Enum):
@@ -59,11 +60,11 @@ class Ticket(Base):
     similar_cases_found = Column(Integer, default=0)
     kb_articles_used = Column(Integer, default=0)
     
-    # Note: Vector columns will be added later when we integrate TiDB Vector
-    # For now, we'll store embeddings as JSON (not ideal but functional)
-    title_vector = Column(JSON)  # Will be VECTOR(3072) in TiDB
-    description_vector = Column(JSON)  # Will be VECTOR(3072) in TiDB
-    combined_vector = Column(JSON)  # Will be VECTOR(3072) in TiDB
+    # TiDB native VECTOR columns (3072 dimensions for text-embeddings)
+    title_vector = Column(VectorType(3072))
+    description_vector = Column(VectorType(3072))
+    combined_vector = Column(VectorType(3072))
+    
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -106,11 +107,11 @@ class KnowledgeBaseArticle(Base):
     unhelpful_votes = Column(Integer, default=0)
     last_accessed = Column(DateTime(timezone=True))
     
-    # Vector embeddings (JSON for now, VECTOR later)
-    title_vector = Column(JSON)
-    content_vector = Column(JSON)
-    summary_vector = Column(JSON)
-    
+    # Vector embeddings (3072 dimensions for text-embeddings)
+    title_vector = Column(VectorType(3072))
+    content_vector = Column(VectorType(3072))
+    summary_vector = Column(VectorType(3072))
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

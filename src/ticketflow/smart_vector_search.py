@@ -1,5 +1,5 @@
 from typing import Dict, List
-from ticketflow.ticket import Ticket
+from .ticket import Ticket
 
 
 class SmartVectorSearch:

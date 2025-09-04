@@ -7,9 +7,9 @@ import asyncio
 import logging
 from src.ticketflow.vector_search_engine import VectorSearchEngine
 from openai import OpenAI
-from src.ticketflow.external_tools_manager import ExternalToolsManager
-from src.ticketflow.ticket import Ticket
-from ticketflow.workflow import AgentState, WorkflowStep
+from .external_tools_manager import ExternalToolsManager
+from .ticket import Ticket
+from .workflow import AgentState, WorkflowStep
 
 class SmartTicketFlowAgent:
     def __init__(self):
