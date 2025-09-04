@@ -16,6 +16,7 @@ class Config:
     TIDB_USER: str = os.getenv("TIDB_USER", "root")
     TIDB_PASSWORD: str = os.getenv("TIDB_PASSWORD", "")
     TIDB_DATABASE: str = os.getenv("TIDB_DATABASE", "ticketflow")
+    TIDB_CA: str = os.getenv("TIDB_CA", "")  # Path to CA cert if needed
 
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     # OpenAI settings
@@ -43,7 +44,7 @@ class Config:
     @property
     def database_url(self) -> str:
         """Get database connection URL"""
-        return f"mysql+pymysql://{self.TIDB_USER}:{self.TIDB_PASSWORD}@{self.TIDB_HOST}:{self.TIDB_PORT}/{self.TIDB_DATABASE}"
+        return f"mysql+pymysql://{self.TIDB_USER}:{self.TIDB_PASSWORD}@{self.TIDB_HOST}:{self.TIDB_PORT}/{self.TIDB_DATABASE}?ssl_ca={self.TIDB_CA}"
 
 # Create global config instance
 config = Config()

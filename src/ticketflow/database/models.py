@@ -1,6 +1,6 @@
 """
 SQLAlchemy models for TicketFlow AI database
-These represent your database tables as Python classes
+These represent database tables as Python classes
 """
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, Enum, DECIMAL, JSON, ForeignKey, Index
@@ -79,6 +79,7 @@ class Ticket(Base):
         Index('idx_category_status', 'category', 'status'),
         Index('idx_created_at', 'created_at'),
         Index('idx_user_id', 'user_id'),
+        Index('idx_resolution_type', 'resolution_type'),
     )
 
 class KnowledgeBaseArticle(Base):
@@ -154,6 +155,7 @@ class AgentWorkflow(Base):
         Index('idx_workflow_ticket_id', 'ticket_id'),
         Index('idx_workflow_status', 'status'),
         Index('idx_workflow_started_at', 'started_at'),
+        Index('idx_workflow_completed_at', 'completed_at'),
     )
 
 class PerformanceMetrics(Base):
