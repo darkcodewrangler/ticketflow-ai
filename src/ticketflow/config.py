@@ -25,10 +25,21 @@ class Config:
     # App settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    if not TIDB_HOST or not TIDB_PORT or not TIDB_USER or not TIDB_PASSWORD or not TIDB_DATABASE:
-        raise ValueError("One or more TiDB environment variables are not set")
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY environment variable is not set")
+    def validate(self) -> bool:
+        """Check if all required config is present"""
+        if not self.TIDB_HOST:
+            print("❌ TIDB_HOST not set in .env")
+            return False
+        if not self.TIDB_USER:
+            print("❌ TIDB_USER not set in .env")
+            return False
+        if not self.TIDB_PASSWORD:
+            print("❌ TIDB_PASSWORD not set in .env")
+            return False
+        if not self.OPENAI_API_KEY:
+            print("⚠️  OPENAI_API_KEY not set in .env (needed for embeddings)")
+            
+        return True
     @property
     def database_url(self) -> str:
         """Get database connection URL"""
