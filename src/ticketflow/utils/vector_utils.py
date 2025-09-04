@@ -38,6 +38,7 @@ class VectorManager:
             payload = {
                 "model": self.embedding_model,
                 "task": self.embedding_task,
+                'dimensions': self.embedding_dimensions,
                 "input": [{
                     "text":text.strip()
                 }],
@@ -73,6 +74,7 @@ class VectorManager:
             
             payload = {
                "model": self.embedding_model,
+               "dimensions": self.embedding_dimensions,
                 "task": self.embedding_task,
                 "input": [{
                     "text":text.strip()

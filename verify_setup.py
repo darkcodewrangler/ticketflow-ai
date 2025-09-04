@@ -48,7 +48,7 @@ def main():
         ("pydantic", "Pydantic"),
         ("requests", "Requests"),
         ("dotenv", "Python-dotenv"),
-        ("tidb_vector", "TiDBVector"),
+        ("pytidb", "TiDB"),
     ]
     
     success_count = 0
