@@ -18,6 +18,7 @@ class VectorManager:
         self.embedding_task='text-matching'
         self.jina_api_key = config.JINA_API_KEY
         self.jina_api_url = "https://api.jina.ai/v1/embeddings"
+        self.embedding_type = "float"
     async def generate_embedding(self, text: str) -> List[float]:
         """
         Generate Jina embedding for text
@@ -40,7 +41,7 @@ class VectorManager:
                 "input": [{
                     "text":text.strip()
                 }],
-                "encoding_format": "float"
+                "embedding_type": self.embedding_type
             }
             
             response = requests.post(self.jina_api_url, headers=headers, json=payload)
@@ -76,7 +77,7 @@ class VectorManager:
                 "input": [{
                     "text":text.strip()
                 }],
-                "encoding_format": "float"
+                "embedding_type": self.embedding_type
             }
             
             response = requests.post(self.jina_api_url, headers=headers, json=payload, timeout=30)
