@@ -1,27 +1,26 @@
 """
 Vector embedding utilities for TicketFlow AI
-Handles OpenAI embeddings and TiDB vector storage
+Handles Jina embeddings and TiDB vector storage
 """
 
 import json
 import numpy as np
 from typing import List, Optional, Union
-import openai
+import requests
 from ..config import config
-
-# Initialize OpenAI client
-openai.api_key = config.OPENAI_API_KEY
 
 class VectorManager:
     """Manages vector embeddings and TiDB vector operations"""
     
     def __init__(self):
-        self.embedding_model = "text-embedding-3-large"  # 3072 dimensions
-        self.embedding_dimensions = 3072
-    
+        self.embedding_model = "jina-embeddings-v4"  # 2048 dimensions
+        self.embedding_dimensions = 2048
+        self.embedding_task='text-matching'
+        self.jina_api_key = config.JINA_API_KEY
+        self.jina_api_url = "https://api.jina.ai/v1/embeddings"
     async def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate OpenAI embedding for text
+        Generate Jina embedding for text
         
         Args:
             text: Text to embed
@@ -30,17 +29,65 @@ class VectorManager:
             List of floats representing the embedding vector
         """
         try:
-            response = await openai.embeddings.acreate(
-                model=self.embedding_model,
-                input=text.strip()
-            )
-            embedding = response.data[0].embedding
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.jina_api_key}"
+            }
+            
+            payload = {
+                "model": self.embedding_model,
+                "task": self.embedding_task,
+                "input": [{
+                    "text":text.strip()
+                }],
+                "encoding_format": "float"
+            }
+            
+            response = requests.post(self.jina_api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            
+            result = response.json()
+            embedding = result["data"][0]["embedding"]
+            
+            # Ensure we have the right number of dimensions
+            if len(embedding) != self.embedding_dimensions:
+                print(f"⚠️ Warning: Expected {self.embedding_dimensions} dimensions, got {len(embedding)}")
+            
             return embedding
+            
         except Exception as e:
-            print(f"❌ Error generating embedding: {e}")
+            print(f"❌ Error generating Jina embedding: {e}")
             # Return zero vector as fallback
             return [0.0] * self.embedding_dimensions
     
+    def generate_embedding_sync(self, text: str) -> List[float]:
+        """
+        Synchronous version for cases where async isn't available
+        """
+        try:
+            headers = {
+                "Content-Type": "application/json", 
+                "Authorization": f"Bearer {self.jina_api_key}"
+            }
+            
+            payload = {
+               "model": self.embedding_model,
+                "task": self.embedding_task,
+                "input": [{
+                    "text":text.strip()
+                }],
+                "encoding_format": "float"
+            }
+            
+            response = requests.post(self.jina_api_url, headers=headers, json=payload, timeout=30)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result["data"][0]["embedding"]
+            
+        except Exception as e:
+            print(f"❌ Error generating Jina embedding (sync): {e}")
+            return [0.0] * self.embedding_dimensions
     def embedding_to_string(self, embedding: List[float]) -> str:
         """
         Convert embedding list to string format for database storage
@@ -96,9 +143,9 @@ class VectorManager:
         combined_embedding = await self.generate_embedding(combined_text)
         
         return {
-            "title_vector": self.embedding_to_string(title_embedding),
-            "description_vector": self.embedding_to_string(description_embedding),
-            "combined_vector": self.embedding_to_string(combined_embedding)
+            "title_vector": title_embedding,
+            "description_vector": description_embedding,
+            "combined_vector": combined_embedding
         }
 
 # Global vector manager instance

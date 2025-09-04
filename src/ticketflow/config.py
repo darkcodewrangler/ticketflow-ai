@@ -22,7 +22,8 @@ class Config:
     # OpenAI settings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_BASE_URL: Optional[str] = os.getenv("OPENAI_BASE_URL", None)
-    
+    # Jina AI settings
+    JINA_API_KEY: str = os.getenv("JINA_API_KEY", "")
     # App settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
@@ -38,7 +39,11 @@ class Config:
             print("❌ TIDB_PASSWORD not set in .env")
             return False
         if not self.OPENAI_API_KEY:
-            print("⚠️  OPENAI_API_KEY not set in .env (needed for embeddings)")
+            print("⚠️  OPENAI_API_KEY not set in .env (needed for chats)")
+        if not self.JINA_API_KEY:
+            print("⚠️  JINA_API_KEY not set in .env (needed for embeddings)")
+        if not self.RESEND_API_KEY:
+            print("⚠️  RESEND_API_KEY not set in .env (needed for email sending)")
             
         return True
     @property

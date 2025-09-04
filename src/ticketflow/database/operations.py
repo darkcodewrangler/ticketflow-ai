@@ -5,7 +5,7 @@ High-level functions for CRUD operations with vector support
 
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, and_, or_
+from sqlalchemy import desc, and_, or_, text
 from datetime import datetime, timedelta
 import json
 
@@ -14,7 +14,7 @@ from .schemas import TicketCreateRequest, KnowledgeBaseCreateRequest
 from ..utils.vector_utils import vector_manager
 
 class TicketOperations:
-    """High-level ticket operations"""
+    """High-level ticket operations with TiDB vector search"""
     
     @staticmethod
     async def create_ticket(session: Session, ticket_data: TicketCreateRequest) -> Ticket:
@@ -27,7 +27,7 @@ class TicketOperations:
             ticket_data.description
         )
         
-        # Create ticket with embeddings
+        # Create ticket with embeddings (TiDB native vectors)
         ticket = Ticket(
             title=ticket_data.title,
             description=ticket_data.description,
@@ -63,56 +63,58 @@ class TicketOperations:
         ).order_by(desc(Ticket.created_at)).limit(limit).all()
     
     @staticmethod
-    async def find_similar_tickets(session: Session, ticket: Ticket, limit: int = 10, min_similarity: float = 0.7) -> List[Dict]:
+    async def find_similar_tickets(session: Session, ticket: Ticket, limit: int = 10, min_similarity: float = 0.75) -> List[Dict]:
         """
-        Find similar tickets using vector similarity
-        For now, we'll use Python-based similarity calculation
-        Later, this will use TiDB's native vector search
+        Find similar tickets using TiDB native vector similarity search
         """
         if not ticket.combined_vector:
             return []
         
-        # Get query vector
-        query_vector = vector_manager.string_to_embedding(ticket.combined_vector)
-        if not query_vector:
-            return []
+        # Use TiDB's native vector search with VEC_COSINE_DISTANCE
+        # VEC_COSINE_DISTANCE returns distance (0 = identical, higher = more different)
+        # We convert to similarity score: similarity = 1 - distance
+        sql = text("""
+            SELECT 
+                id, title, description, resolution, category, priority, resolved_at, resolution_type,
+                VEC_COSINE_DISTANCE(combined_vector, :query_vector) as distance,
+                (1 - VEC_COSINE_DISTANCE(combined_vector, :query_vector)) as similarity_score
+            FROM tickets 
+            WHERE status = 'resolved' 
+              AND id != :ticket_id
+              AND combined_vector IS NOT NULL
+              AND VEC_COSINE_DISTANCE(combined_vector, :query_vector) <= :max_distance
+            ORDER BY distance ASC
+            LIMIT :limit_count
+        """)
         
-        # Get resolved tickets to compare against
-        resolved_tickets = session.query(Ticket).filter(
-            and_(
-                Ticket.status == "resolved",
-                Ticket.id != ticket.id,
-                Ticket.combined_vector.isnot(None)
-            )
-        ).limit(100).all()  # Limit for performance
+        max_distance = 1 - min_similarity  # Convert similarity to distance threshold
+        
+        result = session.execute(sql, {
+            'query_vector': ticket.combined_vector,
+            'ticket_id': ticket.id,
+            'max_distance': max_distance,
+            'limit_count': limit
+        })
         
         similar_tickets = []
+        for row in result:
+            similar_tickets.append({
+                "ticket_id": row.id,
+                "title": row.title,
+                "description": row.description,
+                "resolution": row.resolution,
+                "category": row.category,
+                "priority": row.priority,
+                "resolved_at": row.resolved_at,
+                "resolution_type": row.resolution_type,
+                "similarity_score": float(row.similarity_score),
+                "distance": float(row.distance)
+            })
         
-        for candidate in resolved_tickets:
-            candidate_vector = vector_manager.string_to_embedding(candidate.combined_vector)
-            if not candidate_vector:
-                continue
-            
-            similarity = vector_manager.cosine_similarity(query_vector, candidate_vector)
-            
-            if similarity >= min_similarity:
-                similar_tickets.append({
-                    "ticket": candidate,
-                    "similarity_score": similarity,
-                    "title": candidate.title,
-                    "description": candidate.description,
-                    "resolution": candidate.resolution,
-                    "category": candidate.category,
-                    "resolved_at": candidate.resolved_at
-                })
-        
-        # Sort by similarity score (highest first)
-        similar_tickets.sort(key=lambda x: x["similarity_score"], reverse=True)
-        
-        return similar_tickets[:limit]
+        return similar_tickets
 
 class KnowledgeBaseOperations:
-    """Knowledge base operations"""
+    """Knowledge base operations with TiDB vector search"""
     
     @staticmethod
     async def create_article(session: Session, article_data: KnowledgeBaseCreateRequest) -> KnowledgeBaseArticle:
@@ -135,9 +137,9 @@ class KnowledgeBaseOperations:
             source_url=article_data.source_url,
             source_type=article_data.source_type,
             author=article_data.author,
-            title_vector=vector_manager.embedding_to_string(title_embedding),
-            content_vector=vector_manager.embedding_to_string(content_embedding),
-            summary_vector=vector_manager.embedding_to_string(summary_embedding) if summary_embedding else None
+            title_vector=title_embedding,
+            content_vector=content_embedding,
+            summary_vector=summary_embedding
         )
         
         session.add(article)
@@ -148,38 +150,46 @@ class KnowledgeBaseOperations:
     
     @staticmethod
     async def search_articles(session: Session, query: str, limit: int = 5, min_similarity: float = 0.6) -> List[Dict]:
-        """Search knowledge base articles using vector similarity"""
+        """Search knowledge base articles using TiDB native vector similarity"""
         
         # Generate query embedding
         query_embedding = await vector_manager.generate_embedding(query)
         
-        # Get all articles
-        articles = session.query(KnowledgeBaseArticle).filter(
-            KnowledgeBaseArticle.content_vector.isnot(None)
-        ).limit(50).all()  # Limit for performance
+        # Use TiDB's native vector search
+        sql = text("""
+            SELECT 
+                id, title, content, category, tags, source_url,
+                VEC_COSINE_DISTANCE(content_vector, :query_vector) as distance,
+                (1 - VEC_COSINE_DISTANCE(content_vector, :query_vector)) as similarity_score
+            FROM kb_articles 
+            WHERE content_vector IS NOT NULL
+              AND VEC_COSINE_DISTANCE(content_vector, :query_vector) <= :max_distance
+            ORDER BY distance ASC
+            LIMIT :limit_count
+        """)
+        
+        max_distance = 1 - min_similarity
+        
+        result = session.execute(sql, {
+            'query_vector': query_embedding,
+            'max_distance': max_distance,
+            'limit_count': limit
+        })
         
         similar_articles = []
+        for row in result:
+            similar_articles.append({
+                "article_id": row.id,
+                "title": row.title,
+                "content": row.content[:200] + "..." if len(row.content) > 200 else row.content,
+                "category": row.category,
+                "tags": row.tags,
+                "source_url": row.source_url,
+                "similarity_score": float(row.similarity_score),
+                "distance": float(row.distance)
+            })
         
-        for article in articles:
-            article_vector = vector_manager.string_to_embedding(article.content_vector)
-            if not article_vector:
-                continue
-            
-            similarity = vector_manager.cosine_similarity(query_embedding, article_vector)
-            
-            if similarity >= min_similarity:
-                similar_articles.append({
-                    "article": article,
-                    "similarity_score": similarity,
-                    "title": article.title,
-                    "content": article.content[:200] + "...",  # Truncated for display
-                    "category": article.category
-                })
-        
-        # Sort by similarity
-        similar_articles.sort(key=lambda x: x["similarity_score"], reverse=True)
-        
-        return similar_articles[:limit]
+        return similar_articles
 
 class WorkflowOperations:
     """Agent workflow operations"""

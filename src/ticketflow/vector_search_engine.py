@@ -10,7 +10,7 @@ from tidb_vector import TiDBVectorClient
 class VectorSearchEngine:
     def __init__(self):
         self.tidb_client = TiDBVectorClient()
-        self.embedding_model = "text-embedding-3-large"  # 3072 dimensions
+        self.embedding_model = "openai/text-embedding-3-large"  # 3072 dimensions
         
     async def generate_embedding(self, text: str) -> np.ndarray:
         """Generate embeddings using OpenAI's latest model"""

@@ -60,11 +60,10 @@ class Ticket(Base):
     similar_cases_found = Column(Integer, default=0)
     kb_articles_used = Column(Integer, default=0)
     
-    # TiDB native VECTOR columns (3072 dimensions for text-embeddings)
-    title_vector = Column(VectorType(3072))
-    description_vector = Column(VectorType(3072))
-    combined_vector = Column(VectorType(3072))
-    
+    # TiDB native VECTOR columns (2048 dimensions for text-embeddings)
+    title_vector = Column(VectorType(2048))
+    description_vector = Column(VectorType(2048))
+    combined_vector = Column(VectorType(2048))
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -107,10 +106,10 @@ class KnowledgeBaseArticle(Base):
     unhelpful_votes = Column(Integer, default=0)
     last_accessed = Column(DateTime(timezone=True))
     
-    # Vector embeddings (3072 dimensions for text-embeddings)
-    title_vector = Column(VectorType(3072))
-    content_vector = Column(VectorType(3072))
-    summary_vector = Column(VectorType(3072))
+    # Vector embeddings (2048 dimensions for text-embeddings)
+    title_vector = Column(VectorType(2048))
+    content_vector = Column(VectorType(2048))
+    summary_vector = Column(VectorType(2048))
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
