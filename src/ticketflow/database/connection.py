@@ -48,7 +48,38 @@ class PyTiDBManager:
             logger.error(f"❌ PyTiDB connection failed: {e}")
             self._connected = False
             return False
-    
+    def drop_db(self) -> bool:
+        """
+        Drop the entire database - use with caution!
+        """
+        if not self._connected or not self.client:
+            raise Exception("Not connected to database. Call connect() first.")
+        
+        try:
+            if self.client.has_database(f"{config.TIDB_DATABASE}"):
+               self.client.drop_database(f"{config.TIDB_DATABASE}")
+            logger.info(f"✅ Database '{config.TIDB_DATABASE}' dropped successfully!")
+         
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to drop database: {e}")
+            return False
+    def create_db(self) -> bool:
+        """
+        Create the database if it doesn't exist
+        """
+        if not self._connected or not self.client:
+            raise Exception("Not connected to database. Call connect() first.")
+        
+        try:
+            if not self.client.has_database(f"{config.TIDB_DATABASE}"):
+               self.client.create_database(f"{config.TIDB_DATABASE}")
+               self.client.use_database (f"{config.TIDB_DATABASE}")
+            logger.info(f"✅ Database '{config.TIDB_DATABASE}' created successfully!")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to create database: {e}")
+            return False
     def initialize_tables(self, drop_existing: bool = False) -> bool:
         """
         Initialize all tables with PyTiDB models

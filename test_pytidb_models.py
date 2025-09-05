@@ -27,7 +27,13 @@ def test_pytidb_models():
         return False
     
     print("✅ Connected successfully!")
-    
+    success_drop = db_manager.drop_db()
+    if success_drop:
+        print("  🗑️ Dropped existing database (if any)")
+
+    success_create = db_manager.create_db()
+    if success_create:
+       print("  🆕 Created new database")
     # Initialize tables
     print("\n2. Initializing tables with AI features...")
     if not db_manager.initialize_tables(drop_existing=True):

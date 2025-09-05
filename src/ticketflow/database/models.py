@@ -13,7 +13,7 @@ from enum import Enum
 
 from ..config import config
 
-text_embed = EmbeddingFunction('jina_ai/jina-embeddings-v4')
+text_embed = EmbeddingFunction(model_name='jina_ai/jina-embeddings-v4')
 
 # Enums for data consistency
 class TicketStatus(str, Enum):
@@ -81,8 +81,15 @@ class Ticket(TableModel):
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Creation timestamp")
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Last update timestamp")
     resolved_at: Optional[str] = Field(default=None, description="Resolution timestamp")
-    workflows = Relationship("AgentWorkflow", back_populates="ticket")
 
+
+    workflows = Relationship(sa_relationship="AgentWorkflow", back_populates="ticket")
+    class Config:
+        # Enable PyTiDB's automatic embedding generation
+        auto_embed_text_fields = True  # This tells PyTiDB to create vectors for text fields
+        embedding_model = "jina_ai"    # Use Jina AI's embedding model
+        enable_hybrid_search = True    # Enable vector + full-text search
+       
     __table_args__ = (
         Index('idx_status_priority', 'status', 'priority'),
         Index('idx_category_status', 'category', 'status'),
@@ -137,8 +144,14 @@ class KnowledgeBaseArticle(TableModel):
     
     # Timestamps
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(),onupdate=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), sa_column_kwargs={"onupdate": lambda: datetime.utcnow().isoformat()})
     last_accessed: Optional[str] = Field(default=None, description="Last time article was accessed")
+
+    class Config:
+        # Enable PyTiDB's automatic embedding generation
+        auto_embed_text_fields = True  # This tells PyTiDB to create vectors for text fields
+        embedding_model = "jina_ai"    # Use Jina AI's embedding model
+        enable_hybrid_search = True    # Enable vector + full-text search
 
     __table_args__ = (
         Index('idx_kb_category', 'category'),
@@ -188,8 +201,11 @@ class AgentWorkflow(TableModel):
     completed_at: Optional[str] = Field(default=None)
 
     # Relationship to Ticket
-    ticket = Relationship("Ticket", back_populates="workflows")
-    
+    ticket = Relationship(sa_relationship="Ticket", back_populates="workflows")
+    class Config:
+        # Don't auto-embed workflow data (it's operational, not content)
+        auto_embed_text_fields = False
+
     __table_args__ = (
         Index('idx_workflow_ticket_id', 'ticket_id'),
         Index('idx_workflow_status', 'status'),
@@ -236,7 +252,10 @@ class PerformanceMetrics(TableModel):
     
     # Timestamps
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(),onupdate=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), sa_column_kwargs={"onupdate": lambda: datetime.utcnow().isoformat()})
+    class Config:
+        # Don't auto-embed workflow data (it's operational, not content)
+        auto_embed_text_fields = False
 
     __table_args__ = (
         Index('unique_metric_period', 'metric_date', 'metric_hour', unique=True),
