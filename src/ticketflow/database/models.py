@@ -3,7 +3,8 @@ PyTiDB AI-powered models for TicketFlow AI
 Features automatic embeddings, vector search, and hybrid search
 """
 
-from pytidb.schema import TableModel, Field, VectorField, FullTextField
+from pytidb.schema import TableModel, Field, VectorField, FullTextField, Relationship
+from sqlalchemy.schema import Index
 from pytidb.datatype import TEXT, JSON
 from pytidb.embeddings import EmbeddingFunction
 from datetime import datetime
@@ -47,23 +48,23 @@ class Ticket(TableModel):
     id: int = Field(primary_key=True)
     
     # Core ticket data - PyTiDB will auto-embed these text fields!
-    title: str = FullTextField( description="Ticket title - auto-embedded")
-    description: str = FullTextField( description="Detailed description - auto-embedded")
+    title: str = FullTextField( description="Ticket title - auto-embedded",)
+    description: str = FullTextField( description="Detailed description - auto-embedded",)
     title_vector: list[float] = text_embed.VectorField(source_field='title',description="Vector embedding for title")
     description_vector: list[float] = text_embed.VectorField(source_field='description',description="Vector embedding for description")
     # Categorical fields
-    category: str = Field(default="general", description="Ticket category (account, billing, technical, etc.)")
+    category: str = Field(max_length=100,default="general", description="Ticket category (account, billing, technical, etc.)")
     priority: str = Field(default=Priority.MEDIUM.value, description="Ticket priority level")
     status: str = Field(default=TicketStatus.NEW.value, description="Current ticket status")
     
     # User information
-    user_id: str = Field(default="", description="User identifier")
-    user_email: str = Field(default="", description="User email address")
-    user_type: str = Field(default="customer", description="Type of user (customer, internal, partner)")
+    user_id: str = Field(max_length=100,default="", description="User identifier")
+    user_email: str = Field(max_length=255,default="", description="User email address")
+    user_type: str = Field(max_length=50,default="customer", description="Type of user (customer, internal, partner)")
     
     # Resolution tracking
-    resolution: str = Field( default="", description="Resolution details")
-    resolved_by: str = Field(default="", description="Who resolved the ticket (agent name or 'ai_agent')")
+    resolution: str = Field(sa_type=TEXT,default="", description="Resolution details")
+    resolved_by: str = Field(max_length=100,default="", description="Who resolved the ticket (agent name or 'ai_agent')")
     resolution_type: str = Field(default=ResolutionType.AUTOMATED.value, description="How was it resolved")
     
     # Agent processing metadata
@@ -80,7 +81,15 @@ class Ticket(TableModel):
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Creation timestamp")
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Last update timestamp")
     resolved_at: Optional[str] = Field(default=None, description="Resolution timestamp")
+    workflows = Relationship("AgentWorkflow", back_populates="ticket")
 
+    __table_args__ = (
+        Index('idx_status_priority', 'status', 'priority'),
+        Index('idx_category_status', 'category', 'status'),
+        Index('idx_created_at', 'created_at'),
+        Index('idx_user_id', 'user_id'),
+        Index('idx_resolution_type', 'resolution_type'),
+    )
 
 class KnowledgeBaseArticle(TableModel):
     """
@@ -103,12 +112,12 @@ class KnowledgeBaseArticle(TableModel):
     content_vector: list[float] = text_embed.VectorField(source_field='content', description="Vector embedding for content")
     summary_vector: list[float] = text_embed.VectorField(source_field='summary', description="Vector embedding for summary")
     # Organization
-    category: str = Field(description="Article category")
+    category: str = Field(description="Article category",nullable=False)
     tags: List[str] = Field(sa_type=JSON, default_factory=list, description="Article tags")
     
     # Source tracking
-    source_url: str = Field(default="", description="Original source URL if crawled")
-    source_type: str = Field(default="manual", description="manual, crawled, or imported")
+    source_url: str = Field(max_length=1000, default="", description="Original source URL if crawled")
+    source_type: str = Field(max_length=50,default="manual", description="manual, crawled, or imported",nullable=False)  # 'manual', 'crawled', 'imported'
     author: str = Field(default="", description="Article author")
     
     # Analytics - track article effectiveness
@@ -128,10 +137,14 @@ class KnowledgeBaseArticle(TableModel):
     
     # Timestamps
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(),onupdate=lambda: datetime.utcnow().isoformat())
     last_accessed: Optional[str] = Field(default=None, description="Last time article was accessed")
 
-
+    __table_args__ = (
+        Index('idx_kb_category', 'category'),
+        Index('idx_kb_source_type', 'source_type'),
+        Index('idx_kb_updated_at', 'updated_at'),
+    )
 class AgentWorkflow(TableModel):
     """
     Agent Workflow Execution Tracking
@@ -146,11 +159,11 @@ class AgentWorkflow(TableModel):
     id: int = Field(primary_key=True)
     
     # Link to ticket
-    ticket_id: int = Field(description="ID of the ticket being processed", foreign_key="tickets.id")
+    ticket_id: int = Field(description="ID of the ticket being processed", foreign_key="tickets.id", index=True,nullable=False)
 
     # Workflow execution data
-    workflow_steps: List[Dict] = Field(sa_type=JSON, description="Detailed step-by-step execution log")
-    total_duration_ms: int = Field(description="Total workflow execution time")
+    workflow_steps: List[Dict] = Field(sa_type=JSON, description="Detailed step-by-step execution log",nullable=False)
+    total_duration_ms: int = Field(description="Total workflow execution time",nullable=False)
     final_confidence: float = Field(default=0.0, description="Final confidence score")
     
     # Search and analysis results
@@ -162,8 +175,8 @@ class AgentWorkflow(TableModel):
     llm_calls: List[Dict] = Field(sa_type=JSON, default_factory=list, description="LLM API calls and responses")
     
     # Status tracking
-    status: str = Field(default="running", description="running, completed, failed, cancelled")
-    error_message: str = Field(default="", description="Error details if failed")
+    status: str = Field(default="running", description="running, completed, failed, cancelled",nullable=False)
+    error_message: str = Field(sa_type=TEXT,default="", description="Error details if failed")
     
     # Performance metrics
     embedding_time_ms: int = Field(default=0, description="Time spent generating embeddings")
@@ -174,10 +187,19 @@ class AgentWorkflow(TableModel):
     started_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     completed_at: Optional[str] = Field(default=None)
 
+    # Relationship to Ticket
+    ticket = Relationship("Ticket", back_populates="workflows")
+    
+    __table_args__ = (
+        Index('idx_workflow_ticket_id', 'ticket_id'),
+        Index('idx_workflow_status', 'status'),
+        Index('idx_workflow_started_at', 'started_at'),
+        Index('idx_workflow_completed_at', 'completed_at'),
+    )
 
 class PerformanceMetrics(TableModel):
     """
-    Pre-computed Performance Analytics
+    Pre-computed Performance Analytics (pre-computed for dashboard)
     
     Dashboard metrics and KPIs
     Trend analysis over time
@@ -189,7 +211,7 @@ class PerformanceMetrics(TableModel):
     id: int = Field(primary_key=True)
     
     # Time period
-    metric_date: str = Field(description="Date for this metric period (YYYY-MM-DD)")
+    metric_date: str = Field(description="Date for this metric period (YYYY-MM-DD)",nullable=False)
     metric_hour: Optional[int] = Field(default=None, description="Hour (0-23) for hourly metrics, null for daily")
     
     # Core performance metrics
@@ -214,8 +236,12 @@ class PerformanceMetrics(TableModel):
     
     # Timestamps
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(),onupdate=lambda: datetime.utcnow().isoformat())
 
+    __table_args__ = (
+        Index('unique_metric_period', 'metric_date', 'metric_hour', unique=True),
+        Index('idx_metric_date', 'metric_date'),
+    )
 # Export all models
 __all__ = [
     "Ticket",
