@@ -1,94 +1,141 @@
 """
-Database connection management for TicketFlow AI
+PyTiDB Connection Manager for TicketFlow AI
+Handles database connections and table initialization
 """
 
-from typing import Generator
+from pytidb import TiDBClient,Table
+from typing import Optional, Dict, Any
 import logging
-from typing import Optional
-from sqlalchemy import create_engine, text, Engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import QueuePool
-
-# This will be the base for all our models
-Base = declarative_base()
+from ..config import config
+from .models import Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics
 
 logger = logging.getLogger(__name__)
 
-class DatabaseManager:
-    """Manages database connections and sessions"""
+class PyTiDBManager:
+    """
+    Manages PyTiDB connections and table operations
+    Much simpler than SQLAlchemy - no session management needed!
+    """
     
     def __init__(self):
-        self.engine: Optional[Engine] = None
-        self.SessionLocal: Optional[sessionmaker] = None
+        self.client: Optional[TiDBClient] = None
+        self.tables: Dict[str, Any] = {}
         self._connected = False
     
-    def connect(self, database_url: str) -> bool:
+    def connect(self) -> bool:
         """
-        Connect to TiDB database
-        
-        Args:
-            database_url: Connection string like 'mysql+pymysql://user:pass@host:port/db'
-        
-        Returns:
-            True if connection successful, False otherwise
+        Connect to TiDB using PyTiDB client
+        Returns True if successful, False otherwise
         """
         try:
-            # Create engine with connection pooling
-            self.engine = create_engine(
-                database_url,
-                poolclass=QueuePool,
-                pool_size=5,
-                max_overflow=10,
-                pool_pre_ping=True,  # Validates connections before use
-                echo=False  # Set to True for SQL debugging
-            )
-            
-            # Test the connection
-            with self.engine.connect() as conn:
-                result = conn.execute(text("SELECT 1"))
-                logger.info("✅ Database connection successful!")
+            self.client = TiDBClient.connect(
+                host=config.TIDB_HOST,
+                port=config.TIDB_PORT,
+                username=config.TIDB_USER,
+                password=config.TIDB_PASSWORD,
+                database=config.TIDB_DATABASE,
+                ensure_db=True,  # Creates database if it doesn't exist
                 
-            # Create session factory
-            self.SessionLocal = sessionmaker(
-                autocommit=False,
-                autoflush=False,
-                bind=self.engine
             )
-            
+            # Test connection
+            self.client.execute("SELECT 1")
+            logger.info("✅ PyTiDB connection successful!")
+            self.client.configure_embedding_provider(provider='jina_ai', api_key=config.JINA_API_KEY)
             self._connected = True
             return True
             
         except Exception as e:
-            logger.error(f"❌ Database connection failed: {e}")
+            logger.error(f"❌ PyTiDB connection failed: {e}")
             self._connected = False
             return False
     
-    def get_session(self) -> Session:
-        """Get a database session"""
-        if not self._connected or not self.SessionLocal:
-            raise Exception("Database not connected. Call connect() first.")
+    def initialize_tables(self, drop_existing: bool = False) -> bool:
+        """
+        Initialize all tables with PyTiDB models
         
-        return self.SessionLocal()
+        Args:
+            drop_existing: If True, drops existing tables (useful for development)
+        """
+        if not self._connected or not self.client:
+            raise Exception("Not connected to database. Call connect() first.")
+        
+        try:
+            # Determine table creation mode
+            if_exists_mode = "overwrite" if drop_existing else "skip"
+            
+            # Create tables - PyTiDB handles schema creation automatically!
+            print("📋 Creating Tickets table with auto-embeddings...")
+            self.tables['tickets'] = self.client.create_table(
+                schema=Ticket, 
+                if_exists=if_exists_mode
+            )
+            
+            print("📚 Creating Knowledge Base table with auto-embeddings...")
+            self.tables['kb_articles'] = self.client.create_table(
+                schema=KnowledgeBaseArticle,
+                if_exists=if_exists_mode
+            )
+            
+            print("⚙️ Creating Agent Workflows table...")
+            self.tables['agent_workflows'] = self.client.create_table(
+                schema=AgentWorkflow,
+                if_exists=if_exists_mode
+            )
+            
+            print("📊 Creating Performance Metrics table...")
+            self.tables['performance_metrics'] = self.client.create_table(
+                schema=PerformanceMetrics,
+                if_exists=if_exists_mode
+            )
+            
+            logger.info("✅ All tables initialized successfully!")
+            
+            # Log the amazing features we just got for free
+            print("\n🤖 PyTiDB AI Features Enabled:")
+            print("✅ Automatic embedding generation for text fields")
+            print("✅ Built-in vector similarity search") 
+            print("✅ Hybrid search (vector + full-text)")
+            print("✅ Automatic result reranking")
+            print("✅ Optimized vector indexing")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Table initialization failed: {e}")
+            return False
+
+    def get_table(self, table_name: str) -> Table:
+        """Get a table instance for operations"""
+        if table_name not in self.tables:
+            raise ValueError(f"Table '{table_name}' not initialized")
+        return self.tables[table_name]
+    
+    @property
+    def tickets(self):
+        """Quick access to tickets table"""
+        return self.get_table('tickets')
+    
+    @property
+    def kb_articles(self):
+        """Quick access to knowledge base table"""
+        return self.get_table('kb_articles')
+    
+    @property
+    def agent_workflows(self):
+        """Quick access to workflows table"""
+        return self.get_table('agent_workflows')
+    
+    @property
+    def performance_metrics(self):
+        """Quick access to metrics table"""
+        return self.get_table('performance_metrics')
     
     def close(self):
         """Close database connection"""
-        if self.engine:
-            self.engine.dispose()
+        if self.client:
+            # PyTiDB handles cleanup automatically
             self._connected = False
             logger.info("Database connection closed")
 
-# Global database manager instance
-db_manager = DatabaseManager()
-
-
-def get_db() -> Generator[Session, None, None]:
-    """
-    Dependency function for FastAPI to get database sessions
-    This will be used in the API routes
-    """
-    session = db_manager.get_session()
-    try:
-        yield session
-    finally:
-        session.close()
+# Global PyTiDB manager instance
+db_manager = PyTiDBManager()

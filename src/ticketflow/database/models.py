@@ -12,7 +12,7 @@ from enum import Enum
 
 from ..config import config
 
-text_embed = EmbeddingFunction(model_name='jina_ai/jina-embeddings-v4', api_key=config.JINA_API_KEY)
+text_embed = EmbeddingFunction('jina_ai/jina-embeddings-v4')
 
 # Enums for data consistency
 class TicketStatus(str, Enum):
@@ -47,8 +47,8 @@ class Ticket(TableModel):
     id: int = Field(primary_key=True)
     
     # Core ticket data - PyTiDB will auto-embed these text fields!
-    title: str = FullTextField(sa_type=TEXT, description="Ticket title - auto-embedded")
-    description: str = FullTextField(sa_type=TEXT, description="Detailed description - auto-embedded")
+    title: str = FullTextField( description="Ticket title - auto-embedded")
+    description: str = FullTextField( description="Detailed description - auto-embedded")
     title_vector: list[float] = text_embed.VectorField(source_field='title',description="Vector embedding for title")
     description_vector: list[float] = text_embed.VectorField(source_field='description',description="Vector embedding for description")
     # Categorical fields
@@ -62,7 +62,7 @@ class Ticket(TableModel):
     user_type: str = Field(default="customer", description="Type of user (customer, internal, partner)")
     
     # Resolution tracking
-    resolution: str = Field(sa_type=TEXT, default="", description="Resolution details")
+    resolution: str = Field( default="", description="Resolution details")
     resolved_by: str = Field(default="", description="Who resolved the ticket (agent name or 'ai_agent')")
     resolution_type: str = Field(default=ResolutionType.AUTOMATED.value, description="How was it resolved")
     
@@ -74,7 +74,7 @@ class Ticket(TableModel):
     
     # Workflow and metadata (JSON fields for flexibility)
     workflow_steps: List[Dict] = Field(sa_type=JSON, default_factory=list, description="Agent workflow execution steps")
-    metadata: Dict = Field(sa_type=JSON, default_factory=dict, description="Additional metadata")
+    ticket_metadata: Dict = Field(sa_type=JSON, default_factory=dict, description="Additional ticket metadata")
     
     # Timestamps (ISO format for consistency)
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Creation timestamp")

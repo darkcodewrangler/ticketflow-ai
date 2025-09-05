@@ -10,11 +10,16 @@ from openai import OpenAI
 from .external_tools_manager import ExternalToolsManager
 from .ticket import Ticket
 from .workflow import AgentState, WorkflowStep
+from .config import config
 
 class SmartTicketFlowAgent:
     def __init__(self):
         self.vector_search = VectorSearchEngine()
-        self.llm_client = OpenAI()
+        self.llm_model='openai/gpt-4'
+        self.llm_client = OpenAI(
+            api_key=config.OPENAI_API_KEY,
+            base_url=config.OPENAI_BASE_URL
+        )
         self.external_tools = ExternalToolsManager()
         self.logger = logging.getLogger(__name__)
         
@@ -189,7 +194,7 @@ class SmartTicketFlowAgent:
         """
         
         response = await self.llm_client.chat_completion(
-            model="gpt-4",
+            model=self.llm_model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
@@ -223,7 +228,7 @@ class SmartTicketFlowAgent:
         """
         
         decision_response = await self.llm_client.chat_completion(
-            model="gpt-4",
+            model=self.llm_model,
             messages=[{"role": "user", "content": decision_prompt}],
             response_format={"type": "json_object"}
         )

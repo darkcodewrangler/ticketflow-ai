@@ -1,30 +1,27 @@
 """
-TicketFlow AI Database Package
+PyTiDB package for TicketFlow AI
+AI-powered database operations with automatic embeddings
 """
 
-from .connection import db_manager, get_db, Base
-from .models import Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics
-from .schemas import (
-    TicketCreateRequest, 
-    TicketResponse, 
-    KnowledgeBaseCreateRequest,
-    KnowledgeBaseResponse,
-    AgentWorkflowResponse,
-    DashboardMetricsResponse
+from .connection import db_manager, PyTiDBManager
+from .models import (
+    Ticket, 
+    KnowledgeBaseArticle, 
+    AgentWorkflow, 
+    PerformanceMetrics,
+    TicketStatus,
+    Priority,
+    ResolutionType
 )
 
 __all__ = [
     "db_manager",
-    "get_db", 
-    "Base",
+    "PyTiDBManager", 
     "Ticket",
-    "KnowledgeBaseArticle", 
-    "AgentWorkflow",
+    "KnowledgeBaseArticle",
+    "AgentWorkflow", 
     "PerformanceMetrics",
-    "TicketCreateRequest",
-    "TicketResponse",
-    "KnowledgeBaseCreateRequest",
-    "KnowledgeBaseResponse",
-    "AgentWorkflowResponse",
-    "DashboardMetricsResponse"
+    "TicketStatus",
+    "Priority",
+    "ResolutionType"
 ]
