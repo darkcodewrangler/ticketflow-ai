@@ -86,9 +86,9 @@ class KnowledgeBaseArticle(TableModel):
     """
     AI-Powered Knowledge Base with Automatic Embeddings
     
-    🤖 Auto-embeds title and content for semantic search
-    🔍 Built-in similarity search capabilities
-    📊 Usage analytics tracking
+    Auto-embeds title and content for semantic search
+    Built-in similarity search capabilities
+    Usage analytics tracking
     """
     __tablename__ = "kb_articles"
     
@@ -96,10 +96,12 @@ class KnowledgeBaseArticle(TableModel):
     id: int = Field(primary_key=True)
     
     # Content fields - automatically embedded by PyTiDB!
-    title: str = Field(sa_type=TEXT, description="Article title - auto-embedded")
-    content: str = Field(sa_type=TEXT, description="Article content - auto-embedded for search")
-    summary: str = Field(sa_type=TEXT, default="", description="Article summary - also auto-embedded")
-    title_vector:list[float]= VectorField(description="Vector embedding for title")
+    title: str = FullTextField(description="Article title - auto-embedded")
+    content: str = FullTextField(description="Article content - auto-embedded for search")
+    summary: str = FullTextField(default="",description="Article summary - also auto-embedded")
+    title_vector: list[float] = text_embed.VectorField(source_field='title', description="Vector embedding for title")
+    content_vector: list[float] = text_embed.VectorField(source_field='content', description="Vector embedding for content")
+    summary_vector: list[float] = text_embed.VectorField(source_field='summary', description="Vector embedding for summary")
     # Organization
     category: str = Field(description="Article category")
     tags: List[str] = Field(sa_type=JSON, default_factory=list, description="Article tags")
@@ -134,9 +136,9 @@ class AgentWorkflow(TableModel):
     """
     Agent Workflow Execution Tracking
     
-    🤖 Tracks AI agent decision-making process
-    📊 Performance analytics and debugging
-    🔍 Searchable workflow history
+    Tracks AI agent decision-making process
+    Performance analytics and debugging
+    Searchable workflow history
     """
     __tablename__ = "agent_workflows"
     
@@ -144,8 +146,8 @@ class AgentWorkflow(TableModel):
     id: int = Field(primary_key=True)
     
     # Link to ticket
-    ticket_id: int = Field(description="ID of the ticket being processed")
-    
+    ticket_id: int = Field(description="ID of the ticket being processed", foreign_key="tickets.id")
+
     # Workflow execution data
     workflow_steps: List[Dict] = Field(sa_type=JSON, description="Detailed step-by-step execution log")
     total_duration_ms: int = Field(description="Total workflow execution time")
@@ -172,17 +174,14 @@ class AgentWorkflow(TableModel):
     started_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     completed_at: Optional[str] = Field(default=None)
 
-    class Config:
-        # Don't auto-embed workflow data (it's operational, not content)
-        auto_embed_text_fields = False
 
 class PerformanceMetrics(TableModel):
     """
     Pre-computed Performance Analytics
     
-    📊 Dashboard metrics and KPIs
-    📈 Trend analysis over time
-    💰 ROI and cost savings tracking
+    Dashboard metrics and KPIs
+    Trend analysis over time
+    ROI and cost savings tracking
     """
     __tablename__ = "performance_metrics"
     
@@ -216,9 +215,6 @@ class PerformanceMetrics(TableModel):
     # Timestamps
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-
-    class Config:
-        auto_embed_text_fields = False  # Metrics don't need embedding
 
 # Export all models
 __all__ = [
