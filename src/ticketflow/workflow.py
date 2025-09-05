@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from openai import  OpenAIClient
 from src.ticketflow.external_tools_manager import ExternalToolsManager
-from src.ticketflow.ticket import Ticket, SimilarCase, KBArticle
+from .database.models import Ticket, SimilarCase, KBArticle
 
 class WorkflowStep(Enum):
     INGEST = "ingest"

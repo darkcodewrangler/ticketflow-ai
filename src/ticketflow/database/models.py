@@ -1,199 +1,232 @@
 """
-SQLAlchemy models for TicketFlow AI database
-These represent database tables as Python classes
+PyTiDB AI-powered models for TicketFlow AI
+Features automatic embeddings, vector search, and hybrid search
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, Enum, DECIMAL, JSON, ForeignKey, Index
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from .connection import Base
-import enum
-from tidb_vector.sqlalchemy import VectorType
+from pytidb.schema import TableModel, Field, VectorField, FullTextField
+from pytidb.datatype import TEXT, JSON
+from pytidb.embeddings import EmbeddingFunction
+from datetime import datetime
+from typing import Optional, List, Dict
+from enum import Enum
 
-# Enums for consistent values
-class TicketStatus(str, enum.Enum):
+from ..config import config
+
+text_embed = EmbeddingFunction(model_name='jina_ai/jina-embeddings-v4', api_key=config.JINA_API_KEY)
+
+# Enums for data consistency
+class TicketStatus(str, Enum):
     NEW = "new"
     PROCESSING = "processing"
     RESOLVED = "resolved"
     ESCALATED = "escalated"
     CLOSED = "closed"
 
-class Priority(str, enum.Enum):
+class Priority(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     URGENT = "urgent"
 
-class ResolutionType(str, enum.Enum):
+class ResolutionType(str, Enum):
     AUTOMATED = "automated"
     HUMAN = "human"
     ESCALATED = "escalated"
 
-# Main Models
-class Ticket(Base):
-    """Main tickets table with vector support"""
+class Ticket(TableModel):
+    """
+    AI-Powered Ticket Model with Automatic Embeddings
+    
+    PyTiDB automatically creates embeddings for title and description!
+    Built-in vector similarity search
+    Hybrid search (vector + full-text) support
+    """
     __tablename__ = "tickets"
     
-    # Primary key
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    # Primary key (auto-increment)
+    id: int = Field(primary_key=True)
     
-    # Basic ticket information
-    title = Column(String(500), nullable=False)
-    description = Column(Text, nullable=False)
-    category = Column(String(100), nullable=False)
-    priority = Column(Enum(Priority), nullable=False, default=Priority.MEDIUM)
-    status = Column(Enum(TicketStatus), nullable=False, default=TicketStatus.NEW)
+    # Core ticket data - PyTiDB will auto-embed these text fields!
+    title: str = FullTextField(sa_type=TEXT, description="Ticket title - auto-embedded")
+    description: str = FullTextField(sa_type=TEXT, description="Detailed description - auto-embedded")
+    title_vector: list[float] = text_embed.VectorField(source_field='title',description="Vector embedding for title")
+    description_vector: list[float] = text_embed.VectorField(source_field='description',description="Vector embedding for description")
+    # Categorical fields
+    category: str = Field(default="general", description="Ticket category (account, billing, technical, etc.)")
+    priority: str = Field(default=Priority.MEDIUM.value, description="Ticket priority level")
+    status: str = Field(default=TicketStatus.NEW.value, description="Current ticket status")
     
     # User information
-    user_id = Column(String(100))
-    user_email = Column(String(255))
-    user_type = Column(String(50), default="customer")
+    user_id: str = Field(default="", description="User identifier")
+    user_email: str = Field(default="", description="User email address")
+    user_type: str = Field(default="customer", description="Type of user (customer, internal, partner)")
     
-    # Resolution information
-    resolution = Column(Text)
-    resolved_by = Column(String(100))  # agent name or 'smartsupport_agent'
-    resolution_type = Column(Enum(ResolutionType), default=ResolutionType.AUTOMATED)
+    # Resolution tracking
+    resolution: str = Field(sa_type=TEXT, default="", description="Resolution details")
+    resolved_by: str = Field(default="", description="Who resolved the ticket (agent name or 'ai_agent')")
+    resolution_type: str = Field(default=ResolutionType.AUTOMATED.value, description="How was it resolved")
     
     # Agent processing metadata
-    agent_confidence = Column(DECIMAL(5, 4))  # 0.0000 to 1.0000
-    processing_duration_ms = Column(Integer)
-    similar_cases_found = Column(Integer, default=0)
-    kb_articles_used = Column(Integer, default=0)
+    agent_confidence: float = Field(default=0.0, description="AI agent confidence score (0.0-1.0)")
+    processing_duration_ms: int = Field(default=0, description="Time taken to process in milliseconds")
+    similar_cases_found: int = Field(default=0, description="Number of similar cases found")
+    kb_articles_used: int = Field(default=0, description="Number of KB articles referenced")
     
-    # TiDB native VECTOR columns (2048 dimensions for text-embeddings)
-    title_vector = Column(VectorType(2048))
-    description_vector = Column(VectorType(2048))
-    combined_vector = Column(VectorType(2048))
+    # Workflow and metadata (JSON fields for flexibility)
+    workflow_steps: List[Dict] = Field(sa_type=JSON, default_factory=list, description="Agent workflow execution steps")
+    metadata: Dict = Field(sa_type=JSON, default_factory=dict, description="Additional metadata")
     
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    resolved_at = Column(DateTime(timezone=True))
-    
-    # Relationships
-    workflows = relationship("AgentWorkflow", back_populates="ticket")
-    
-    # Indexes (SQLAlchemy will create these)
-    __table_args__ = (
-        Index('idx_status_priority', 'status', 'priority'),
-        Index('idx_category_status', 'category', 'status'),
-        Index('idx_created_at', 'created_at'),
-        Index('idx_user_id', 'user_id'),
-        Index('idx_resolution_type', 'resolution_type'),
-    )
+    # Timestamps (ISO format for consistency)
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Creation timestamp")
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Last update timestamp")
+    resolved_at: Optional[str] = Field(default=None, description="Resolution timestamp")
 
-class KnowledgeBaseArticle(Base):
-    """Knowledge base articles with vector embeddings"""
+
+class KnowledgeBaseArticle(TableModel):
+    """
+    AI-Powered Knowledge Base with Automatic Embeddings
+    
+    🤖 Auto-embeds title and content for semantic search
+    🔍 Built-in similarity search capabilities
+    📊 Usage analytics tracking
+    """
     __tablename__ = "kb_articles"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    # Primary key
+    id: int = Field(primary_key=True)
     
-    # Article content
-    title = Column(String(500), nullable=False)
-    content = Column(Text, nullable=False)
-    summary = Column(Text)
-    category = Column(String(100), nullable=False)
-    tags = Column(JSON)  # Array of tags for flexible categorization
+    # Content fields - automatically embedded by PyTiDB!
+    title: str = Field(sa_type=TEXT, description="Article title - auto-embedded")
+    content: str = Field(sa_type=TEXT, description="Article content - auto-embedded for search")
+    summary: str = Field(sa_type=TEXT, default="", description="Article summary - also auto-embedded")
+    title_vector:list[float]= VectorField(description="Vector embedding for title")
+    # Organization
+    category: str = Field(description="Article category")
+    tags: List[str] = Field(sa_type=JSON, default_factory=list, description="Article tags")
     
-    # Source information
-    source_url = Column(String(1000))
-    source_type = Column(String(50), nullable=False)  # 'manual', 'crawled', 'imported'
-    author = Column(String(255))
+    # Source tracking
+    source_url: str = Field(default="", description="Original source URL if crawled")
+    source_type: str = Field(default="manual", description="manual, crawled, or imported")
+    author: str = Field(default="", description="Article author")
     
-    # Usage analytics
-    view_count = Column(Integer, default=0)
-    helpful_votes = Column(Integer, default=0)
-    unhelpful_votes = Column(Integer, default=0)
-    last_accessed = Column(DateTime(timezone=True))
+    # Analytics - track article effectiveness
+    view_count: int = Field(default=0, description="Number of times viewed")
+    helpful_votes: int = Field(default=0, description="Number of helpful votes")
+    unhelpful_votes: int = Field(default=0, description="Number of unhelpful votes")
+    usage_in_resolutions: int = Field(default=0, description="Times used to resolve tickets")
     
-    # Vector embeddings (2048 dimensions for text-embeddings)
-    title_vector = Column(VectorType(2048))
-    content_vector = Column(VectorType(2048))
-    summary_vector = Column(VectorType(2048))
-
+    # Computed helpfulness score
+    @property
+    def helpfulness_score(self) -> float:
+        """Calculate helpfulness percentage"""
+        total_votes = self.helpful_votes + self.unhelpful_votes
+        if total_votes == 0:
+            return 0.0
+        return self.helpful_votes / total_votes
+    
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
-    # Indexes
-    __table_args__ = (
-        Index('idx_kb_category', 'category'),
-        Index('idx_kb_source_type', 'source_type'),
-        Index('idx_kb_updated_at', 'updated_at'),
-    )
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    last_accessed: Optional[str] = Field(default=None, description="Last time article was accessed")
 
-class AgentWorkflow(Base):
-    """Agent workflow execution logs"""
+
+class AgentWorkflow(TableModel):
+    """
+    Agent Workflow Execution Tracking
+    
+    🤖 Tracks AI agent decision-making process
+    📊 Performance analytics and debugging
+    🔍 Searchable workflow history
+    """
     __tablename__ = "agent_workflows"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ticket_id = Column(Integer, ForeignKey('tickets.id'), nullable=False)
+    # Primary key
+    id: int = Field(primary_key=True)
+    
+    # Link to ticket
+    ticket_id: int = Field(description="ID of the ticket being processed")
     
     # Workflow execution data
-    workflow_steps = Column(JSON, nullable=False)  # Array of step objects
-    total_duration_ms = Column(Integer, nullable=False)
-    final_confidence = Column(DECIMAL(5, 4))
+    workflow_steps: List[Dict] = Field(sa_type=JSON, description="Detailed step-by-step execution log")
+    total_duration_ms: int = Field(description="Total workflow execution time")
+    final_confidence: float = Field(default=0.0, description="Final confidence score")
     
-    # Results
-    similar_cases_found = Column(JSON)  # Array of similar case IDs and scores
-    kb_articles_used = Column(JSON)  # Array of KB article IDs and relevance
-    actions_executed = Column(JSON)  # Array of executed actions and results
+    # Search and analysis results
+    similar_cases_found: List[Dict] = Field(sa_type=JSON, default_factory=list, description="Similar tickets found")
+    kb_articles_used: List[Dict] = Field(sa_type=JSON, default_factory=list, description="KB articles referenced")
+    actions_executed: List[Dict] = Field(sa_type=JSON, default_factory=list, description="Actions taken by agent")
     
-    # Status
-    status = Column(String(50), nullable=False, default="running")  # 'running', 'completed', 'failed', 'cancelled'
-    error_message = Column(Text)
+    # LLM interaction logs
+    llm_calls: List[Dict] = Field(sa_type=JSON, default_factory=list, description="LLM API calls and responses")
+    
+    # Status tracking
+    status: str = Field(default="running", description="running, completed, failed, cancelled")
+    error_message: str = Field(default="", description="Error details if failed")
+    
+    # Performance metrics
+    embedding_time_ms: int = Field(default=0, description="Time spent generating embeddings")
+    search_time_ms: int = Field(default=0, description="Time spent on similarity search")
+    llm_time_ms: int = Field(default=0, description="Time spent on LLM calls")
     
     # Timestamps
-    started_at = Column(DateTime(timezone=True), server_default=func.now())
-    completed_at = Column(DateTime(timezone=True))
-    
-    # Relationships
-    ticket = relationship("Ticket", back_populates="workflows")
-    
-    # Indexes
-    __table_args__ = (
-        Index('idx_workflow_ticket_id', 'ticket_id'),
-        Index('idx_workflow_status', 'status'),
-        Index('idx_workflow_started_at', 'started_at'),
-        Index('idx_workflow_completed_at', 'completed_at'),
-    )
+    started_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    completed_at: Optional[str] = Field(default=None)
 
-class PerformanceMetrics(Base):
-    """Performance metrics and analytics (pre-computed for dashboard)"""
+    class Config:
+        # Don't auto-embed workflow data (it's operational, not content)
+        auto_embed_text_fields = False
+
+class PerformanceMetrics(TableModel):
+    """
+    Pre-computed Performance Analytics
+    
+    📊 Dashboard metrics and KPIs
+    📈 Trend analysis over time
+    💰 ROI and cost savings tracking
+    """
     __tablename__ = "performance_metrics"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    # Primary key
+    id: int = Field(primary_key=True)
     
     # Time period
-    metric_date = Column(DateTime(timezone=True), nullable=False)
-    metric_hour = Column(Integer)  # NULL for daily metrics, 0-23 for hourly
+    metric_date: str = Field(description="Date for this metric period (YYYY-MM-DD)")
+    metric_hour: Optional[int] = Field(default=None, description="Hour (0-23) for hourly metrics, null for daily")
     
-    # Core metrics
-    tickets_processed = Column(Integer, default=0)
-    tickets_auto_resolved = Column(Integer, default=0)
-    tickets_escalated = Column(Integer, default=0)
-    avg_confidence_score = Column(DECIMAL(5, 4))
-    avg_processing_time_ms = Column(Integer)
-    avg_resolution_time_hours = Column(DECIMAL(8, 2))
+    # Core performance metrics
+    tickets_processed: int = Field(default=0)
+    tickets_auto_resolved: int = Field(default=0) 
+    tickets_escalated: int = Field(default=0)
+    avg_confidence_score: float = Field(default=0.0)
+    avg_processing_time_ms: int = Field(default=0)
+    avg_resolution_time_hours: float = Field(default=0.0)
     
     # Quality metrics
-    customer_satisfaction_avg = Column(DECIMAL(3, 2))  # 1.00 to 5.00
-    resolution_accuracy_rate = Column(DECIMAL(5, 4))  # Percentage
+    customer_satisfaction_avg: float = Field(default=0.0, description="Average satisfaction score (1-5)")
+    resolution_accuracy_rate: float = Field(default=0.0, description="Percentage of accurate auto-resolutions")
     
-    # Category breakdown (JSON for flexibility)
-    category_breakdown = Column(JSON)  # {"technical": 45, "billing": 23}
-    priority_breakdown = Column(JSON)  # {"high": 5, "medium": 30, "low": 65}
+    # Category and priority breakdowns
+    category_breakdown: Dict = Field(sa_type=JSON, default_factory=dict, description="Tickets by category")
+    priority_breakdown: Dict = Field(sa_type=JSON, default_factory=dict, description="Tickets by priority")
     
-    # Cost savings estimates
-    estimated_time_saved_hours = Column(DECIMAL(8, 2))
-    estimated_cost_saved = Column(DECIMAL(10, 2))
+    # Business impact
+    estimated_time_saved_hours: float = Field(default=0.0, description="Estimated human time saved")
+    estimated_cost_saved: float = Field(default=0.0, description="Estimated cost savings in dollars")
     
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
-    # Unique constraint to prevent duplicates
-    __table_args__ = (
-        Index('unique_metric_period', 'metric_date', 'metric_hour', unique=True),
-        Index('idx_metric_date', 'metric_date'),
-    )
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+    class Config:
+        auto_embed_text_fields = False  # Metrics don't need embedding
+
+# Export all models
+__all__ = [
+    "Ticket",
+    "KnowledgeBaseArticle", 
+    "AgentWorkflow",
+    "PerformanceMetrics",
+    "TicketStatus",
+    "Priority", 
+    "ResolutionType"
+]

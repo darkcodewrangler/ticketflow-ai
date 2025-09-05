@@ -4,8 +4,8 @@ uvicorn==0.35.0
 websockets==15.0.1
 
 # Database
-pytidb=1.1.2
-
+pytidb=0.0.13
+pytidb[models]==0.0.13
 # AI and ML
 openai==1.105.0
 numpy==2.3.2
