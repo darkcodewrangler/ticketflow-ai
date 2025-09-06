@@ -50,8 +50,8 @@ class Ticket(TableModel):
     # Core ticket data - PyTiDB will auto-embed these text fields!
     title: str = FullTextField( description="Ticket title - auto-embedded",)
     description: str = FullTextField( description="Detailed description - auto-embedded",)
-    title_vector: list[float] = text_embed.VectorField(source_field='title',description="Vector embedding for title")
-    description_vector: list[float] = text_embed.VectorField(source_field='description',description="Vector embedding for description")
+    title_vector: Optional[list[float]] = text_embed.VectorField(source_field='title', description="Vector embedding for title")
+    description_vector: Optional[list[float]] = text_embed.VectorField(source_field='description', description="Vector embedding for description")
     # Categorical fields
     category: str = Field(max_length=100,default="general", description="Ticket category (account, billing, technical, etc.)")
     priority: str = Field(default=Priority.MEDIUM.value, description="Ticket priority level")
@@ -115,9 +115,9 @@ class KnowledgeBaseArticle(TableModel):
     title: str = FullTextField(description="Article title - auto-embedded")
     content: str = FullTextField(description="Article content - auto-embedded for search")
     summary: str = FullTextField(default="",description="Article summary - also auto-embedded")
-    title_vector: list[float] = text_embed.VectorField(source_field='title', description="Vector embedding for title")
-    content_vector: list[float] = text_embed.VectorField(source_field='content', description="Vector embedding for content")
-    summary_vector: list[float] = text_embed.VectorField(source_field='summary', description="Vector embedding for summary")
+    title_vector: Optional[list[float]] = text_embed.VectorField(source_field='title', description="Vector embedding for title")
+    content_vector: Optional[list[float]] = text_embed.VectorField(source_field='content', description="Vector embedding for content")
+    summary_vector: Optional[list[float]] = text_embed.VectorField(source_field='summary', description="Vector embedding for summary")
     # Organization
     category: str = Field(description="Article category",nullable=False)
     tags: List[str] = Field(sa_type=JSON, default_factory=list, description="Article tags")

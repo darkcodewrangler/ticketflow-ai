@@ -17,7 +17,7 @@ from .models import (
     ResolutionType
 )
 from .connection import db_manager
-
+from pytidb.filters import GTE, NE
 logger = logging.getLogger(__name__)
 
 class TicketOperations:
@@ -83,7 +83,7 @@ class TicketOperations:
             
             # PyTiDB query with date filter
             return db_manager.tickets.query(
-                filters={"created_at": (">=", since_date)},
+                filters={"created_at": {GTE: since_date}},
                 limit=limit,
                 order_by=[("created_at", "desc")]
             )
@@ -107,11 +107,8 @@ class TicketOperations:
             # PyTiDB's built-in hybrid search (vector + full-text + reranking)
             results = db_manager.tickets.search(
                 query_text,
-                limit=limit,
-                filters=filters,
-                hybrid_search=True,  # Combines vector and full-text search
-                rerank=True          # AI-powered result reranking
-            )
+                search_type='hybrid',  # AI-powered result reranking
+            ).vector_column('description_vector').limit(limit).filter(filters).to_list()
             
             # Convert to our expected format
             similar_tickets = []
@@ -145,7 +142,7 @@ class TicketOperations:
         search_query = f"{ticket.title} {ticket.description}"
         
         # Exclude the source ticket from results
-        filters = {"id": ("!=", ticket.id)}
+        filters = {"id": {NE: ticket.id}}
         
         return TicketOperations.find_similar_tickets(
             search_query, 
@@ -166,9 +163,9 @@ class TicketOperations:
                 values=updates
             )
             
-            if updated_count > 0:
+            if updated_count is not None:
                 # Fetch updated ticket
-                updated_tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1)
+                updated_tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_list()
                 if updated_tickets:
                     logger.info(f"✅ Updated ticket {ticket_id}")
                     return updated_tickets[0]
@@ -238,8 +235,8 @@ class KnowledgeBaseOperations:
             # PyTiDB's built-in hybrid search on KB articles
             results = db_manager.kb_articles.search(
                 query,
-                search_type='hybrid'      # AI-powered reranking
-            ).limit(limit).filter(filters)
+                search_type='hybrid'      
+            ).vector_column('content_vector').limit(limit).filter(filters).to_list()
             
             # Convert to our format
             articles = []
@@ -283,23 +280,28 @@ class KnowledgeBaseOperations:
         """Track article usage and helpfulness"""
         try:
             # Get current article
-            articles = db_manager.kb_articles.query(filters={"id": article_id}, limit=1)
+            articles = db_manager.kb_articles.query(filters={"id": article_id}, limit=1).to_list()
             if not articles:
                 return
             
             article = articles[0]
+            # Handle the case where attributes might be dict keys instead of attributes
+            usage_count = getattr(article, 'usage_in_resolutions', 0) if hasattr(article, 'usage_in_resolutions') else article.get('usage_in_resolutions', 0)
+            view_count = getattr(article, 'view_count', 0) if hasattr(article, 'view_count') else article.get('view_count', 0)
+            helpful_votes = getattr(article, 'helpful_votes', 0) if hasattr(article, 'helpful_votes') else article.get('helpful_votes', 0)
+            unhelpful_votes = getattr(article, 'unhelpful_votes', 0) if hasattr(article, 'unhelpful_votes') else article.get('unhelpful_votes', 0)
             
             # Update usage stats
             updates = {
-                "usage_in_resolutions": article.usage_in_resolutions + 1,
-                "view_count": article.view_count + 1,
+                "usage_in_resolutions": usage_count + 1,
+                "view_count": view_count + 1,
                 "last_accessed": datetime.utcnow().isoformat()
             }
             
             if was_helpful:
-                updates["helpful_votes"] = article.helpful_votes + 1
+                updates["helpful_votes"] = helpful_votes + 1
             else:
-                updates["unhelpful_votes"] = article.unhelpful_votes + 1
+                updates["unhelpful_votes"] = unhelpful_votes + 1
             
             db_manager.kb_articles.update(
                 filters={"id": article_id},
@@ -340,7 +342,7 @@ class WorkflowOperations:
         """Add step to workflow"""
         try:
             # Get current workflow
-            workflows = db_manager.agent_workflows.query(filters={"id": workflow_id}, limit=1)
+            workflows = db_manager.agent_workflows.query(filters={"id": workflow_id}, limit=1).to_list()
             if not workflows:
                 logger.warning(f"⚠️ Workflow {workflow_id} not found")
                 return False
@@ -402,25 +404,37 @@ class AnalyticsOperations:
             # Get today's tickets
             today = datetime.utcnow().date().isoformat()
             today_tickets = db_manager.tickets.query(
-                filters={"created_at": (">=", today)},
+                filters={"created_at": {GTE: today}},
                 limit=1000  # Reasonable limit for today
-            )
+            ).to_list()
             
-            # Calculate metrics
+            # Calculate metrics - handle both objects and dicts
             total_today = len(today_tickets)
-            auto_resolved_today = len([t for t in today_tickets if t.status == TicketStatus.RESOLVED.value])
-            processing = len([t for t in today_tickets if t.status == TicketStatus.PROCESSING.value])
+            auto_resolved_today = 0
+            processing = 0
+            
+            for t in today_tickets:
+                status = getattr(t, 'status', None) if hasattr(t, 'status') else t.get('status')
+                if status == TicketStatus.RESOLVED.value:
+                    auto_resolved_today += 1
+                elif status == TicketStatus.PROCESSING.value:
+                    processing += 1
             
             # Get recent resolved tickets for avg confidence
             resolved_tickets = db_manager.tickets.query(
                 filters={"status": TicketStatus.RESOLVED.value},
                 limit=100,
                 order_by=[("resolved_at", "desc")]
-            )
+            ).to_list()
             
             avg_confidence = 0.0
             if resolved_tickets:
-                confidences = [t.agent_confidence for t in resolved_tickets if t.agent_confidence > 0]
+                confidences = []
+                for t in resolved_tickets:
+                    confidence = getattr(t, 'agent_confidence', 0) if hasattr(t, 'agent_confidence') else t.get('agent_confidence', 0)
+                    if confidence > 0:
+                        confidences.append(confidence)
+                
                 if confidences:
                     avg_confidence = sum(confidences) / len(confidences)
             
@@ -435,7 +449,14 @@ class AnalyticsOperations:
             
         except Exception as e:
             logger.error(f"❌ Failed to get dashboard metrics: {e}")
-            return {}
+            return {
+                "tickets_today": 0,
+                "tickets_auto_resolved_today": 0,
+                "currently_processing": 0,
+                "avg_confidence": 0.0,
+                "automation_rate": 0.0,
+                "resolution_rate": 0.0
+            }
 
     @staticmethod
     def create_daily_metrics(date: str = None) -> PerformanceMetrics:
@@ -445,19 +466,29 @@ class AnalyticsOperations:
         try:
             # Get tickets for the day
             day_tickets = db_manager.tickets.query(
-                filters={"created_at": (">=", target_date)},
+                filters={"created_at": {GTE: target_date}},
                 limit=10000  # Large limit for full day
-            )
+            ).to_list() 
             
-            # Calculate metrics
+            # Calculate metrics - handle both objects and dicts
             total = len(day_tickets)
-            auto_resolved = len([t for t in day_tickets if t.resolution_type == ResolutionType.AUTOMATED.value])
-            escalated = len([t for t in day_tickets if t.status == TicketStatus.ESCALATED.value])
+            auto_resolved = 0
+            escalated = 0
             
             # Category breakdown
             categories = {}
             for ticket in day_tickets:
-                categories[ticket.category] = categories.get(ticket.category, 0) + 1
+                # Handle both object attributes and dictionary keys
+                resolution_type = getattr(ticket, 'resolution_type', None) if hasattr(ticket, 'resolution_type') else ticket.get('resolution_type')
+                status = getattr(ticket, 'status', None) if hasattr(ticket, 'status') else ticket.get('status')
+                category = getattr(ticket, 'category', 'general') if hasattr(ticket, 'category') else ticket.get('category', 'general')
+                
+                if resolution_type == ResolutionType.AUTOMATED.value:
+                    auto_resolved += 1
+                if status == TicketStatus.ESCALATED.value:
+                    escalated += 1
+                    
+                categories[category] = categories.get(category, 0) + 1
             
             # Create metrics record
             metrics = PerformanceMetrics(
