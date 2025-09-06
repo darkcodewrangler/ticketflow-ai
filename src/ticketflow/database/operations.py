@@ -1,227 +1,487 @@
 """
-Database operations for TicketFlow AI
-High-level functions for CRUD operations with vector support
+PyTiDB AI-powered database operations for TicketFlow AI
+Leverages automatic embeddings and built-in search capabilities
 """
 
 from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session
-from sqlalchemy import desc, and_, or_, text
 from datetime import datetime, timedelta
-import json
+import logging
 
-from ticketflow import ticket
+from .models import (
+    Ticket, 
+    KnowledgeBaseArticle, 
+    AgentWorkflow, 
+    PerformanceMetrics,
+    TicketStatus,
+    Priority,
+    ResolutionType
+)
+from .connection import db_manager
 
-from .models import Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics
-from .schemas import TicketCreateRequest, KnowledgeBaseCreateRequest
-from ..utils.vector_utils import vector_manager
+logger = logging.getLogger(__name__)
 
 class TicketOperations:
-    """High-level ticket operations with TiDB vector search"""
+    """
+    High-level ticket operations with PyTiDB's AI features
+    
+    Automatic embeddings, vector search, and hybrid search built-in!
+    """
     
     @staticmethod
-    async def create_ticket(session: Session, ticket_data: TicketCreateRequest) -> Ticket:
+    def create_ticket(ticket_data: Dict[str, Any]) -> Ticket:
         """
-        Create a new ticket with vector embeddings
-        """
-        # Generate embeddings
-        embeddings = await vector_manager.generate_ticket_embeddings(
-            ticket_data.title, 
-            ticket_data.description
-        )
+        Create a new ticket - PyTiDB automatically generates embeddings!
         
-        # Create ticket with embeddings (TiDB native vectors)
-        ticket = Ticket(
-            title=ticket_data.title,
-            description=ticket_data.description,
-            category=ticket_data.category,
-            priority=ticket_data.priority,
-            user_id=ticket_data.user_id,
-            user_email=ticket_data.user_email,
-            user_type=ticket_data.user_type,
-            title_vector=embeddings["title_vector"],
-            description_vector=embeddings["description_vector"],
-            combined_vector=embeddings["combined_vector"]
-        )
-        
-        session.add(ticket)
-        session.commit()
-        session.refresh(ticket)
-        
-        return ticket
-    
-    @staticmethod
-    def get_tickets_by_status(session: Session, status: str, limit: int = 50) -> List[Ticket]:
-        """Get tickets by status"""
-        return session.query(Ticket).filter(
-            Ticket.status == status
-        ).order_by(desc(Ticket.created_at)).limit(limit).all()
-    
-    @staticmethod
-    def get_recent_tickets(session: Session, days: int = 7, limit: int = 100) -> List[Ticket]:
-        """Get recent tickets"""
-        since_date = datetime.utcnow() - timedelta(days=days)
-        return session.query(Ticket).filter(
-            Ticket.created_at >= since_date
-        ).order_by(desc(Ticket.created_at)).limit(limit).all()
-    
-    @staticmethod
-    async def find_similar_tickets(session: Session, ticket: Ticket, limit: int = 10, min_similarity: float = 0.75) -> List[Dict]:
+        Args:
+            ticket_data: Dictionary with ticket fields
+            
+        Returns:
+            Created ticket with auto-generated embeddings
         """
-        Find similar tickets using TiDB native vector similarity search
-        """
-        if ticket.combined_vector is None or len(ticket.combined_vector) == 0:
+        try:
+            # Create ticket instance
+            ticket = Ticket(
+                title=ticket_data.get("title", ""),
+                description=ticket_data.get("description", ""),
+                category=ticket_data.get("category", "general"),
+                priority=ticket_data.get("priority", Priority.MEDIUM.value),
+                status=ticket_data.get("status", TicketStatus.NEW.value),
+                user_id=ticket_data.get("user_id", ""),
+                user_email=ticket_data.get("user_email", ""),
+                user_type=ticket_data.get("user_type", "customer"),
+                ticket_metadata=ticket_data.get("metadata", {})
+            )
+            
+            # PyTiDB automatically generates embeddings for title and description!
+            created_ticket = db_manager.tickets.insert(ticket)
+            
+            logger.info(f"✅ Created ticket {created_ticket.id} with auto-embeddings")
+            return created_ticket
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create ticket: {e}")
+            raise
+
+    @staticmethod
+    def get_tickets_by_status(status: str, limit: int = 50) -> List[Ticket]:
+        """Get tickets by status using PyTiDB query"""
+        try:
+            return db_manager.tickets.query(
+                filters={"status": status},
+                limit=limit,
+                order_by=[("created_at", "desc")]
+            )
+        except Exception as e:
+            logger.error(f"❌ Failed to get tickets by status: {e}")
             return []
+
+    @staticmethod
+    def get_recent_tickets(days: int = 7, limit: int = 100) -> List[Ticket]:
+        """Get recent tickets"""
+        try:
+            since_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+            
+            # PyTiDB query with date filter
+            return db_manager.tickets.query(
+                filters={"created_at": (">=", since_date)},
+                limit=limit,
+                order_by=[("created_at", "desc")]
+            )
+        except Exception as e:
+            logger.error(f"❌ Failed to get recent tickets: {e}")
+            return []
+
+    @staticmethod
+    def find_similar_tickets(query_text: str, limit: int = 10, include_filters: Dict = None) -> List[Dict]:
+        """
+        Find similar tickets using PyTiDB's built-in hybrid search
         
-        # Use TiDB's native vector search with VEC_COSINE_DISTANCE
-        # VEC_COSINE_DISTANCE returns distance (0 = identical, higher = more different)
-        # We convert to similarity score: similarity = 1 - distance
-        sql = text("""
-            SELECT 
-                id, title, description, resolution, category, priority, resolved_at, resolution_type,
-                VEC_COSINE_DISTANCE(combined_vector, :query_vector) as distance,
-                (1 - VEC_COSINE_DISTANCE(combined_vector, :query_vector)) as similarity_score
-            FROM tickets 
-            WHERE status = 'resolved' 
-              AND id != :ticket_id
-              AND combined_vector IS NOT NULL
-              AND VEC_COSINE_DISTANCE(combined_vector, :query_vector) <= :max_distance
-            ORDER BY distance ASC
-            LIMIT :limit_count
-        """)
+        This is the magic of PyTiDB - one line for intelligent search!
+        """
+        try:
+            # Build filters for resolved tickets
+            filters = {"status": TicketStatus.RESOLVED.value}
+            if include_filters:
+                filters.update(include_filters)
+            
+            # PyTiDB's built-in hybrid search (vector + full-text + reranking)
+            results = db_manager.tickets.search(
+                query_text,
+                limit=limit,
+                filters=filters,
+                hybrid_search=True,  # Combines vector and full-text search
+                rerank=True          # AI-powered result reranking
+            )
+            
+            # Convert to our expected format
+            similar_tickets = []
+            for result in results:
+                similar_tickets.append({
+                    "ticket_id": result.id,
+                    "title": result.title,
+                    "description": result.description[:200] + "..." if len(result.description) > 200 else result.description,
+                    "resolution": result.resolution,
+                    "category": result.category,
+                    "priority": result.priority,
+                    "resolved_at": result.resolved_at,
+                    "resolution_type": result.resolution_type,
+                    "similarity_score": getattr(result, '_score', 0.0),
+                    "distance": getattr(result, '_distance', 1.0)
+                })
+            
+            logger.info(f"🔍 Found {len(similar_tickets)} similar tickets for query: '{query_text[:50]}...'")
+            return similar_tickets
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to find similar tickets: {e}")
+            return []
+
+    @staticmethod
+    def find_similar_to_ticket(ticket: Ticket, limit: int = 10) -> List[Dict]:
+        """
+        Find tickets similar to a given ticket using its content
+        """
+        # Use the ticket's title and description for search
+        search_query = f"{ticket.title} {ticket.description}"
         
-        max_distance = 1 - min_similarity  # Convert similarity to distance threshold
+        # Exclude the source ticket from results
+        filters = {"id": ("!=", ticket.id)}
         
-        result = session.execute(sql, {
-            'query_vector': ticket.combined_vector,
-            'ticket_id': ticket.id,
-            'max_distance': max_distance,
-            'limit_count': limit
-        })
+        return TicketOperations.find_similar_tickets(
+            search_query, 
+            limit=limit, 
+            include_filters=filters
+        )
+
+    @staticmethod
+    def update_ticket(ticket_id: int, updates: Dict[str, Any]) -> Optional[Ticket]:
+        """Update ticket with new data"""
+        try:
+            # Add update timestamp
+            updates["updated_at"] = datetime.utcnow().isoformat()
+            
+            # Update using PyTiDB
+            updated_count = db_manager.tickets.update(
+                filters={"id": ticket_id},
+                values=updates
+            )
+            
+            if updated_count > 0:
+                # Fetch updated ticket
+                updated_tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1)
+                if updated_tickets:
+                    logger.info(f"✅ Updated ticket {ticket_id}")
+                    return updated_tickets[0]
+            
+            logger.warning(f"⚠️ No ticket found with ID {ticket_id}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to update ticket {ticket_id}: {e}")
+            return None
+
+    @staticmethod
+    def resolve_ticket(ticket_id: int, resolution: str, resolved_by: str = "ai_agent", 
+                      confidence: float = 0.0) -> Optional[Ticket]:
+        """Mark ticket as resolved"""
+        updates = {
+            "status": TicketStatus.RESOLVED.value,
+            "resolution": resolution,
+            "resolved_by": resolved_by,
+            "resolution_type": ResolutionType.AUTOMATED.value,
+            "agent_confidence": confidence,
+            "resolved_at": datetime.utcnow().isoformat()
+        }
         
-        similar_tickets = []
-        for row in result:
-            similar_tickets.append({
-                "ticket_id": row.id,
-                "title": row.title,
-                "description": row.description,
-                "resolution": row.resolution,
-                "category": row.category,
-                "priority": row.priority,
-                "resolved_at": row.resolved_at,
-                "resolution_type": row.resolution_type,
-                "similarity_score": float(row.similarity_score),
-                "distance": float(row.distance)
-            })
-        
-        return similar_tickets
+        return TicketOperations.update_ticket(ticket_id, updates)
 
 class KnowledgeBaseOperations:
-    """Knowledge base operations with TiDB vector search"""
-    
+    """
+    Knowledge base operations with PyTiDB AI features
+    """
+
     @staticmethod
-    async def create_article(session: Session, article_data: KnowledgeBaseCreateRequest) -> KnowledgeBaseArticle:
-        """Create knowledge base article with embeddings"""
-        
-        # Generate embeddings
-        title_embedding = await vector_manager.generate_embedding(article_data.title)
-        content_embedding = await vector_manager.generate_embedding(article_data.content)
-        
-        summary_embedding = None
-        if article_data.summary:
-            summary_embedding = await vector_manager.generate_embedding(article_data.summary)
-        
-        article = KnowledgeBaseArticle(
-            title=article_data.title,
-            content=article_data.content,
-            summary=article_data.summary,
-            category=article_data.category,
-            tags=article_data.tags,
-            source_url=article_data.source_url,
-            source_type=article_data.source_type,
-            author=article_data.author,
-            title_vector=title_embedding,
-            content_vector=content_embedding,
-            summary_vector=summary_embedding
-        )
-        
-        session.add(article)
-        session.commit()
-        session.refresh(article)
-        
-        return article
-    
+    def create_article(article_data: Dict[str, Any]) -> KnowledgeBaseArticle:
+        """Create KB article - PyTiDB auto-generates embeddings!"""
+        try:
+            article = KnowledgeBaseArticle(
+                title=article_data.get("title", ""),
+                content=article_data.get("content", ""),
+                summary=article_data.get("summary", ""),
+                category=article_data.get("category", "general"),
+                tags=article_data.get("tags", []),
+                source_url=article_data.get("source_url", ""),
+                source_type=article_data.get("source_type", "manual"),
+                author=article_data.get("author", "")
+            )
+            
+            # PyTiDB automatically generates embeddings for title, content, and summary!
+            created_article = db_manager.kb_articles.insert(article)
+            
+            logger.info(f"📚 Created KB article {created_article.id} with auto-embeddings")
+            return created_article
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create KB article: {e}")
+            raise
+
     @staticmethod
-    async def search_articles(session: Session, query: str, limit: int = 5, min_similarity: float = 0.6) -> List[Dict]:
-        """Search knowledge base articles using TiDB native vector similarity"""
-        
-        # Generate query embedding
-        query_embedding = await vector_manager.generate_embedding(query)
-        
-        # Use TiDB's native vector search
-        sql = text("""
-            SELECT 
-                id, title, content, category, tags, source_url,
-                VEC_COSINE_DISTANCE(content_vector, :query_vector) as distance,
-                (1 - VEC_COSINE_DISTANCE(content_vector, :query_vector)) as similarity_score
-            FROM kb_articles 
-            WHERE content_vector IS NOT NULL
-              AND VEC_COSINE_DISTANCE(content_vector, :query_vector) <= :max_distance
-            ORDER BY distance ASC
-            LIMIT :limit_count
-        """)
-        
-        max_distance = 1 - min_similarity
-        
-        result = session.execute(sql, {
-            'query_vector': query_embedding,
-            'max_distance': max_distance,
-            'limit_count': limit
-        })
-        
-        similar_articles = []
-        for row in result:
-            similar_articles.append({
-                "article_id": row.id,
-                "title": row.title,
-                "content": row.content[:200] + "..." if len(row.content) > 200 else row.content,
-                "category": row.category,
-                "tags": row.tags,
-                "source_url": row.source_url,
-                "similarity_score": float(row.similarity_score),
-                "distance": float(row.distance)
-            })
-        
-        return similar_articles
+    def search_articles(query: str, category: str = None, limit: int = 5) -> List[Dict]:
+        """
+        Search knowledge base using PyTiDB's intelligent search
+        """
+        try:
+            filters = {}
+            if category:
+                filters["category"] = category
+            
+            # PyTiDB's built-in hybrid search on KB articles
+            results = db_manager.kb_articles.search(
+                query,
+                search_type='hybrid'      # AI-powered reranking
+            ).limit(limit).filter(filters)
+            
+            # Convert to our format
+            articles = []
+            for result in results:
+                articles.append({
+                    "article_id": result.id,
+                    "title": result.title,
+                    "content": result.content[:300] + "..." if len(result.content) > 300 else result.content,
+                    "summary": result.summary,
+                    "category": result.category,
+                    "tags": result.tags,
+                    "source_url": result.source_url,
+                    "author": result.author,
+                    "helpfulness_score": result.helpfulness_score,
+                    "similarity_score": getattr(result, '_score', 0.0),
+                    "usage_count": result.usage_in_resolutions
+                })
+            
+            logger.info(f"📖 Found {len(articles)} relevant articles for: '{query[:50]}...'")
+            return articles
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to search articles: {e}")
+            return []
+
+    @staticmethod
+    def get_articles_by_category(category: str, limit: int = 20) -> List[KnowledgeBaseArticle]:
+        """Get articles by category"""
+        try:
+            return db_manager.kb_articles.query(
+                filters={"category": category},
+                limit=limit,
+                order_by=[("created_at", "desc")]
+            )
+        except Exception as e:
+            logger.error(f"❌ Failed to get articles by category: {e}")
+            return []
+
+    @staticmethod
+    def update_article_usage(article_id: int, was_helpful: bool = True):
+        """Track article usage and helpfulness"""
+        try:
+            # Get current article
+            articles = db_manager.kb_articles.query(filters={"id": article_id}, limit=1)
+            if not articles:
+                return
+            
+            article = articles[0]
+            
+            # Update usage stats
+            updates = {
+                "usage_in_resolutions": article.usage_in_resolutions + 1,
+                "view_count": article.view_count + 1,
+                "last_accessed": datetime.utcnow().isoformat()
+            }
+            
+            if was_helpful:
+                updates["helpful_votes"] = article.helpful_votes + 1
+            else:
+                updates["unhelpful_votes"] = article.unhelpful_votes + 1
+            
+            db_manager.kb_articles.update(
+                filters={"id": article_id},
+                values=updates
+            )
+            
+            logger.info(f"📊 Updated usage stats for article {article_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to update article usage: {e}")
 
 class WorkflowOperations:
-    """Agent workflow operations"""
-    
+    """
+    Agent workflow operations
+    """
+
     @staticmethod
-    def create_workflow(session: Session, ticket_id: int) -> AgentWorkflow:
-        """Create a new agent workflow"""
-        workflow = AgentWorkflow(
-            ticket_id=ticket_id,
-            workflow_steps=[],
-            total_duration_ms=0,
-            status="running"
-        )
-        
-        session.add(workflow)
-        session.commit()
-        session.refresh(workflow)
-        
-        return workflow
-    
+    def create_workflow(ticket_id: int, initial_steps: List[Dict] = None) -> AgentWorkflow:
+        """Create new agent workflow"""
+        try:
+            workflow = AgentWorkflow(
+                ticket_id=ticket_id,
+                workflow_steps=initial_steps or [],
+                total_duration_ms=0,
+                status="running"
+            )
+            
+            created_workflow = db_manager.agent_workflows.insert(workflow)
+            logger.info(f"🔄 Created workflow {created_workflow.id} for ticket {ticket_id}")
+            return created_workflow
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create workflow: {e}")
+            raise
+
     @staticmethod
-    def update_workflow_step(session: Session, workflow_id: int, step_data: Dict[str, Any]):
-        """Add a step to the workflow"""
-        workflow = session.query(AgentWorkflow).filter(AgentWorkflow.id == workflow_id).first()
-        if not workflow:
-            return
+    def update_workflow_step(workflow_id: int, step_data: Dict[str, Any]) -> bool:
+        """Add step to workflow"""
+        try:
+            # Get current workflow
+            workflows = db_manager.agent_workflows.query(filters={"id": workflow_id}, limit=1)
+            if not workflows:
+                logger.warning(f"⚠️ Workflow {workflow_id} not found")
+                return False
+            
+            workflow = workflows[0]
+            
+            # Add timestamp to step
+            step_data["timestamp"] = datetime.utcnow().isoformat()
+            
+            # Update workflow steps
+            current_steps = workflow.workflow_steps or []
+            current_steps.append(step_data)
+            
+            db_manager.agent_workflows.update(
+                filters={"id": workflow_id},
+                values={"workflow_steps": current_steps}
+            )
+            
+            logger.info(f"🔄 Added step to workflow {workflow_id}: {step_data.get('step', 'unknown')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to update workflow step: {e}")
+            return False
+
+    @staticmethod
+    def complete_workflow(workflow_id: int, final_confidence: float = 0.0, 
+                         total_duration_ms: int = 0) -> bool:
+        """Mark workflow as completed"""
+        try:
+            updates = {
+                "status": "completed",
+                "completed_at": datetime.utcnow().isoformat(),
+                "final_confidence": final_confidence,
+                "total_duration_ms": total_duration_ms
+            }
+            
+            db_manager.agent_workflows.update(
+                filters={"id": workflow_id},
+                values=updates
+            )
+            
+            logger.info(f"✅ Completed workflow {workflow_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to complete workflow: {e}")
+            return False
+
+class AnalyticsOperations:
+    """
+    Performance analytics and metrics operations
+    """
+
+    @staticmethod
+    def get_dashboard_metrics() -> Dict[str, Any]:
+        """Get real-time dashboard metrics"""
+        try:
+            # Get today's tickets
+            today = datetime.utcnow().date().isoformat()
+            today_tickets = db_manager.tickets.query(
+                filters={"created_at": (">=", today)},
+                limit=1000  # Reasonable limit for today
+            )
+            
+            # Calculate metrics
+            total_today = len(today_tickets)
+            auto_resolved_today = len([t for t in today_tickets if t.status == TicketStatus.RESOLVED.value])
+            processing = len([t for t in today_tickets if t.status == TicketStatus.PROCESSING.value])
+            
+            # Get recent resolved tickets for avg confidence
+            resolved_tickets = db_manager.tickets.query(
+                filters={"status": TicketStatus.RESOLVED.value},
+                limit=100,
+                order_by=[("resolved_at", "desc")]
+            )
+            
+            avg_confidence = 0.0
+            if resolved_tickets:
+                confidences = [t.agent_confidence for t in resolved_tickets if t.agent_confidence > 0]
+                if confidences:
+                    avg_confidence = sum(confidences) / len(confidences)
+            
+            return {
+                "tickets_today": total_today,
+                "tickets_auto_resolved_today": auto_resolved_today,
+                "currently_processing": processing,
+                "avg_confidence": avg_confidence,
+                "automation_rate": (auto_resolved_today / total_today * 100) if total_today > 0 else 0,
+                "resolution_rate": (auto_resolved_today / total_today * 100) if total_today > 0 else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get dashboard metrics: {e}")
+            return {}
+
+    @staticmethod
+    def create_daily_metrics(date: str = None) -> PerformanceMetrics:
+        """Create daily performance metrics"""
+        target_date = date or datetime.utcnow().date().isoformat()
         
-        # Add the step to workflow_steps
-        current_steps = workflow.workflow_steps if workflow.workflow_steps else []
-        current_steps.append(step_data)
-        
-        workflow.workflow_steps = current_steps
-        session.commit()
+        try:
+            # Get tickets for the day
+            day_tickets = db_manager.tickets.query(
+                filters={"created_at": (">=", target_date)},
+                limit=10000  # Large limit for full day
+            )
+            
+            # Calculate metrics
+            total = len(day_tickets)
+            auto_resolved = len([t for t in day_tickets if t.resolution_type == ResolutionType.AUTOMATED.value])
+            escalated = len([t for t in day_tickets if t.status == TicketStatus.ESCALATED.value])
+            
+            # Category breakdown
+            categories = {}
+            for ticket in day_tickets:
+                categories[ticket.category] = categories.get(ticket.category, 0) + 1
+            
+            # Create metrics record
+            metrics = PerformanceMetrics(
+                metric_date=target_date,
+                tickets_processed=total,
+                tickets_auto_resolved=auto_resolved,
+                tickets_escalated=escalated,
+                category_breakdown=categories,
+                estimated_time_saved_hours=auto_resolved * 0.25,  # 15 min per ticket
+                estimated_cost_saved=auto_resolved * 12.5  # $50/hour * 0.25 hours
+            )
+            
+            created_metrics = db_manager.performance_metrics.insert(metrics)
+            logger.info(f"📊 Created daily metrics for {target_date}")
+            return created_metrics
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create daily metrics: {e}")
+            raise
+
+# Export operations classes
+__all__ = [
+    "TicketOperations",
+    "KnowledgeBaseOperations", 
+    "WorkflowOperations",
+    "AnalyticsOperations"
+]
