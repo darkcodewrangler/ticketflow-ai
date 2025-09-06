@@ -108,22 +108,34 @@ class TicketOperations:
             results = db_manager.tickets.search(
                 query_text,
                 search_type='hybrid',  # AI-powered result reranking
-            ).vector_column('description_vector').limit(limit).filter(filters).to_list()
+            ).vector_column('description_vector').text_column('description').limit(limit).filter(filters).to_list()
             
-            # Convert to our expected format
+            # Convert to our expected format - handle both objects and dicts
             similar_tickets = []
             for result in results:
+                # Handle both object attributes and dictionary keys
+                def get_value(obj, key, default=None):
+                    if hasattr(obj, key):
+                        return getattr(obj, key, default)
+                    elif isinstance(obj, dict):
+                        return obj.get(key, default)
+                    return default
+                
+                description = get_value(result, 'description', '')
+                if len(description) > 200:
+                    description = description[:200] + "..."
+                
                 similar_tickets.append({
-                    "ticket_id": result.id,
-                    "title": result.title,
-                    "description": result.description[:200] + "..." if len(result.description) > 200 else result.description,
-                    "resolution": result.resolution,
-                    "category": result.category,
-                    "priority": result.priority,
-                    "resolved_at": result.resolved_at,
-                    "resolution_type": result.resolution_type,
-                    "similarity_score": getattr(result, '_score', 0.0),
-                    "distance": getattr(result, '_distance', 1.0)
+                    "ticket_id": get_value(result, 'id'),
+                    "title": get_value(result, 'title', ''),
+                    "description": description,
+                    "resolution": get_value(result, 'resolution', ''),
+                    "category": get_value(result, 'category', ''),
+                    "priority": get_value(result, 'priority', ''),
+                    "resolved_at": get_value(result, 'resolved_at'),
+                    "resolution_type": get_value(result, 'resolution_type', ''),
+                    "similarity_score": get_value(result, '_score', 0.0),
+                    "distance": get_value(result, '_distance', 1.0)
                 })
             
             logger.info(f"🔍 Found {len(similar_tickets)} similar tickets for query: '{query_text[:50]}...'")
@@ -236,23 +248,41 @@ class KnowledgeBaseOperations:
             results = db_manager.kb_articles.search(
                 query,
                 search_type='hybrid'      
-            ).vector_column('content_vector').limit(limit).filter(filters).to_list()
+            ).vector_column('content_vector').text_column('content').limit(limit).filter(filters).to_list()
             
-            # Convert to our format
+            # Convert to our format - handle both objects and dicts
             articles = []
             for result in results:
+                # Handle both object attributes and dictionary keys
+                def get_value(obj, key, default=None):
+                    if hasattr(obj, key):
+                        return getattr(obj, key, default)
+                    elif isinstance(obj, dict):
+                        return obj.get(key, default)
+                    return default
+                
+                content = get_value(result, 'content', '')
+                if len(content) > 300:
+                    content = content[:300] + "..."
+                
+                # Calculate helpfulness score if it's not available
+                helpful_votes = get_value(result, 'helpful_votes', 0)
+                unhelpful_votes = get_value(result, 'unhelpful_votes', 0)
+                total_votes = helpful_votes + unhelpful_votes
+                helpfulness_score = (helpful_votes / total_votes) if total_votes > 0 else 0.0
+                
                 articles.append({
-                    "article_id": result.id,
-                    "title": result.title,
-                    "content": result.content[:300] + "..." if len(result.content) > 300 else result.content,
-                    "summary": result.summary,
-                    "category": result.category,
-                    "tags": result.tags,
-                    "source_url": result.source_url,
-                    "author": result.author,
-                    "helpfulness_score": result.helpfulness_score,
-                    "similarity_score": getattr(result, '_score', 0.0),
-                    "usage_count": result.usage_in_resolutions
+                    "article_id": get_value(result, 'id'),
+                    "title": get_value(result, 'title', ''),
+                    "content": content,
+                    "summary": get_value(result, 'summary', ''),
+                    "category": get_value(result, 'category', ''),
+                    "tags": get_value(result, 'tags', []),
+                    "source_url": get_value(result, 'source_url', ''),
+                    "author": get_value(result, 'author', ''),
+                    "helpfulness_score": helpfulness_score,
+                    "similarity_score": get_value(result, '_score', 0.0),
+                    "usage_count": get_value(result, 'usage_in_resolutions', 0)
                 })
             
             logger.info(f"📖 Found {len(articles)} relevant articles for: '{query[:50]}...'")
@@ -352,8 +382,12 @@ class WorkflowOperations:
             # Add timestamp to step
             step_data["timestamp"] = datetime.utcnow().isoformat()
             
-            # Update workflow steps
-            current_steps = workflow.workflow_steps or []
+            # Update workflow steps - handle both objects and dicts
+            if hasattr(workflow, 'workflow_steps'):
+                current_steps = workflow.workflow_steps or []
+            else:
+                current_steps = workflow.get('workflow_steps', [])
+            
             current_steps.append(step_data)
             
             db_manager.agent_workflows.update(
@@ -423,8 +457,7 @@ class AnalyticsOperations:
             # Get recent resolved tickets for avg confidence
             resolved_tickets = db_manager.tickets.query(
                 filters={"status": TicketStatus.RESOLVED.value},
-                limit=100,
-                order_by=[("resolved_at", "desc")]
+                limit=100, order_by={"resolved_at": "desc"}
             ).to_list()
             
             avg_confidence = 0.0

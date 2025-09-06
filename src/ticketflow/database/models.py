@@ -8,8 +8,10 @@ from sqlalchemy.schema import Index
 from pytidb.datatype import TEXT, JSON
 from pytidb.embeddings import EmbeddingFunction
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from enum import Enum
+import numpy as np
+from pydantic import field_serializer
 
 from ..config import config
 
@@ -52,6 +54,15 @@ class Ticket(TableModel):
     description: str = FullTextField( description="Detailed description - auto-embedded",)
     title_vector: Optional[list[float]] = text_embed.VectorField(source_field='title', description="Vector embedding for title")
     description_vector: Optional[list[float]] = text_embed.VectorField(source_field='description', description="Vector embedding for description")
+    
+    @field_serializer('title_vector', 'description_vector')
+    def serialize_vector(self, value: Any) -> Optional[List[float]]:
+        """Convert numpy arrays to lists for JSON serialization"""
+        if value is None:
+            return None
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        return value
     # Categorical fields
     category: str = Field(max_length=100,default="general", description="Ticket category (account, billing, technical, etc.)")
     priority: str = Field(default=Priority.MEDIUM.value, description="Ticket priority level")
@@ -118,6 +129,15 @@ class KnowledgeBaseArticle(TableModel):
     title_vector: Optional[list[float]] = text_embed.VectorField(source_field='title', description="Vector embedding for title")
     content_vector: Optional[list[float]] = text_embed.VectorField(source_field='content', description="Vector embedding for content")
     summary_vector: Optional[list[float]] = text_embed.VectorField(source_field='summary', description="Vector embedding for summary")
+    
+    @field_serializer('title_vector', 'content_vector', 'summary_vector')
+    def serialize_vector(self, value: Any) -> Optional[List[float]]:
+        """Convert numpy arrays to lists for JSON serialization"""
+        if value is None:
+            return None
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        return value
     # Organization
     category: str = Field(description="Article category",nullable=False)
     tags: List[str] = Field(sa_type=JSON, default_factory=list, description="Article tags")
