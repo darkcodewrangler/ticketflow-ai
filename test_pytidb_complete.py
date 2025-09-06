@@ -260,7 +260,8 @@ def test_complete_pytidb_system():
     )
     
     if resolved_ticket:
-        print(f"✅ Marked ticket {resolved_ticket.id} as resolved for testing")
+        ticket_id = getattr(resolved_ticket, 'id', None) if hasattr(resolved_ticket, 'id') else resolved_ticket.get('id', 'unknown')
+        print(f"✅ Marked ticket {ticket_id} as resolved for testing")
     
     # Test similarity search
     search_queries = [

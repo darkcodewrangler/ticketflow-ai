@@ -170,17 +170,16 @@ class TicketOperations:
             updates["updated_at"] = datetime.utcnow().isoformat()
             
             # Update using PyTiDB
-            updated_count = db_manager.tickets.update(
+            db_manager.tickets.update(
                 filters={"id": ticket_id},
                 values=updates
             )
             
-            if updated_count is not None:
-                # Fetch updated ticket
-                updated_tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_list()
-                if updated_tickets:
-                    logger.info(f"✅ Updated ticket {ticket_id}")
-                    return updated_tickets[0]
+            # Fetch updated ticket to verify the update worked
+            updated_tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_list()
+            if updated_tickets and len(updated_tickets) > 0:
+                logger.info(f"✅ Updated ticket {ticket_id}")
+                return updated_tickets[0]
             
             logger.warning(f"⚠️ No ticket found with ID {ticket_id}")
             return None
