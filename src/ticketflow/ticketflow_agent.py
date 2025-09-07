@@ -17,8 +17,8 @@ class SmartTicketFlowAgent:
         self.vector_search = VectorSearchEngine()
         self.llm_model='openai/gpt-4'
         self.llm_client = OpenAI(
-            api_key=config.OPENAI_API_KEY,
-            base_url=config.OPENAI_BASE_URL
+            api_key=config.OPENROUTER_API_KEY,
+            base_url=config.OPENROUTER_BASE_URL
         )
         self.external_tools = ExternalToolsManager()
         self.logger = logging.getLogger(__name__)

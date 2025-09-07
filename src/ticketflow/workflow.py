@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 from openai import  OpenAIClient
-from src.ticketflow.external_tools_manager import ExternalToolsManager
+from ticketflow.external_tools_manager import ExternalToolsManager
 from .database.models import Ticket, SimilarCase, KBArticle
 
 class WorkflowStep(Enum):

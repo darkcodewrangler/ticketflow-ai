@@ -20,8 +20,8 @@ class Config:
 
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     # OpenAI settings
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_BASE_URL: Optional[str] = os.getenv("OPENAI_BASE_URL", None)
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_BASE_URL: Optional[str] = os.getenv("OPENROUTER_BASE_URL", None)
     # Jina AI settings
     JINA_API_KEY: str = os.getenv("JINA_API_KEY", "")
     # App settings
@@ -38,8 +38,8 @@ class Config:
         if not self.TIDB_PASSWORD:
             print("❌ TIDB_PASSWORD not set in .env")
             return False
-        if not self.OPENAI_API_KEY:
-            print("⚠️  OPENAI_API_KEY not set in .env (needed for chats)")
+        if not self.OPENROUTER_API_KEY:
+            print("⚠️  OPENROUTER_API_KEY not set in .env (needed for chats)")
         if not self.JINA_API_KEY:
             print("⚠️  JINA_API_KEY not set in .env (needed for embeddings)")
         if not self.RESEND_API_KEY:

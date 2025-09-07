@@ -155,8 +155,8 @@ async def create_sample_data():
 
 if __name__ == "__main__":
     # Check if OpenAI API key is set
-    if not config.OPENAI_API_KEY:
-        print("❌ OPENAI_API_KEY not set in .env file")
+    if not config.OPENROUTER_API_KEY:
+        print("❌ OPENROUTER_API_KEY not set in .env file")
         print("Get your API key from: https://platform.openai.com/api-keys")
         sys.exit(1)
     
