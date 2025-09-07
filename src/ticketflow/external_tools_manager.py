@@ -15,7 +15,7 @@ class ExternalToolsManager:
     
     def __init__(self):
         self.slack_enabled = bool(config.SLACK_BOT_TOKEN) if hasattr(config, 'SLACK_BOT_TOKEN') else False
-        self.email_enabled = bool(config.SENDGRID_API_KEY) if hasattr(config, 'SENDGRID_API_KEY') else False
+        self.email_enabled = bool(config.RESEND_API_KEY) if hasattr(config, 'RESEND_API_KEY') else False
     
     async def send_slack_notification(self, channel: str, message: str, ticket_id: int = None) -> Dict[str, Any]:
         """Send Slack notification"""
@@ -52,7 +52,7 @@ class ExternalToolsManager:
             return {"status": "disabled", "message": "Email integration not configured"}
         
         try:
-            # In a real implementation, this would use SendGrid or similar
+            # In a real implementation, this would use Resend or similar
             email_data = {
                 "to": recipient,
                 "subject": subject,

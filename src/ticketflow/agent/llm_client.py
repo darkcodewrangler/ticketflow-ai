@@ -8,6 +8,8 @@ import asyncio
 import logging
 from typing import Dict, List, Any, Optional
 import requests
+
+from ticketflow.agent.ai_client import AIClient
 from ..config import config
 
 logger = logging.getLogger(__name__)
@@ -19,8 +21,10 @@ class LLMClient:
     """
     
     def __init__(self):
-        self.jina_api_key = config.JINA_API_KEY
-        self.base_url = "https://api.jina.ai/v1/chat/completions"
+        self.ai_client = AIClient()
+        self.chat_client = self.ai_client.chat_client()
+        self.model ='openai/gpt-4o' if self.ai_client.can_use_openrouter() else 'gpt-4o'
+        self.response_format = {"type": "json_object"}
         
     async def analyze_ticket_patterns(self, ticket_context: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -199,39 +203,28 @@ class LLMClient:
     
     async def _make_llm_request(self, prompt: str, max_tokens: int = 500) -> str:
         """Make request to LLM API"""
-        if not self.jina_api_key:
+        if not self.chat_client:
             raise Exception("No LLM API key configured")
-        
-        headers = {
-            "Authorization": f"Bearer {self.jina_api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "model": "jina-chat-v1",
-            "messages": [
+        completion= self.chat_client.chat.completions.create(
+            model=self.model,
+            messages=[
                 {
                     "role": "system", 
                     "content": "You are an AI assistant specializing in technical support analysis. Always respond with valid JSON."
                 },
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": max_tokens,
-            "temperature": 0.1  # Low temperature for consistent responses
-        }
-        
-        # Make async request
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None, 
-            lambda: requests.post(self.base_url, headers=headers, json=payload, timeout=30)
+            response_format=self.response_format,
+            max_tokens=max_tokens,
+            temperature=0.1
         )
-        
-        if response.status_code == 200:
-            result = response.json()
-            return result["choices"][0]["message"]["content"]
+
+        if completion.choices[0].message.content:
+            return completion.choices[0].message.content
+        elif completion.choices[0].message.error:
+            raise Exception(f"LLM API error: {completion.choices[0].message.error}")    
         else:
-            raise Exception(f"LLM API error: {response.status_code} - {response.text}")
+            raise Exception(f"LLM API error: {completion.choices[0].message.error}")
     
     def _parse_json_response(self, response: str, response_type: str) -> Dict[str, Any]:
         """Parse JSON response with fallback"""

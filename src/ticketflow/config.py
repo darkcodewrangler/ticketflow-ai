@@ -17,11 +17,12 @@ class Config:
     TIDB_PASSWORD: str = os.getenv("TIDB_PASSWORD", "")
     TIDB_DATABASE: str = os.getenv("TIDB_DATABASE", "ticketflow")
     TIDB_CA: str = os.getenv("TIDB_CA", "")  # Path to CA cert if needed
-
+    SLACK_BOT_TOKEN: str = os.getenv("SLACK_BOT_TOKEN", None)
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
     # OpenAI settings
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-    OPENROUTER_BASE_URL: Optional[str] = os.getenv("OPENROUTER_BASE_URL", None)
+    OPENROUTER_BASE_URL: Optional[str] = os.getenv("OPENROUTER_BASE_URL", 'https://openrouter.ai/api/v1')
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", None)
     # Jina AI settings
     JINA_API_KEY: str = os.getenv("JINA_API_KEY", "")
     # App settings
@@ -38,13 +39,15 @@ class Config:
         if not self.TIDB_PASSWORD:
             print("❌ TIDB_PASSWORD not set in .env")
             return False
-        if not self.OPENROUTER_API_KEY:
-            print("⚠️  OPENROUTER_API_KEY not set in .env (needed for chats)")
+        if not self.OPENAI_API_KEY and not self.OPENROUTER_API_KEY:
+            print("⚠️ OPENAI_API_KEY or OPENROUTER_API_KEY not set in .env (needed for chats)")
+            return False
         if not self.JINA_API_KEY:
             print("⚠️  JINA_API_KEY not set in .env (needed for embeddings)")
+            return False
         if not self.RESEND_API_KEY:
             print("⚠️  RESEND_API_KEY not set in .env (needed for email sending)")
-            
+            return False
         return True
     @property
     def database_url(self) -> str:
