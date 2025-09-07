@@ -22,8 +22,8 @@ class LLMClient:
     
     def __init__(self):
         self.ai_client = AIClient()
-        self.chat_client = self.ai_client.chat_client()
-        self.model ='openai/gpt-4o' if self.ai_client.can_use_openrouter() else 'gpt-4o'
+        self.chat_client = self.ai_client.chat_client
+        self.model ='openai/gpt-4o' if self.ai_client.can_use_openrouter else 'gpt-4o'
         self.response_format = {"type": "json_object"}
         
     async def analyze_ticket_patterns(self, ticket_context: Dict[str, Any]) -> Dict[str, Any]:
@@ -206,6 +206,10 @@ class LLMClient:
         if not self.chat_client:
             raise Exception("No LLM API key configured")
         completion= self.chat_client.chat.completions.create(
+            extra_headers={
+    "HTTP-Referer": "https://ticketflow.ai", # Optional. Site URL for rankings on openrouter.ai.
+    "X-Title": "TicketFlow AI", # Optional. Site title for rankings on openrouter.ai.
+  },
             model=self.model,
             messages=[
                 {
@@ -221,10 +225,10 @@ class LLMClient:
 
         if completion.choices[0].message.content:
             return completion.choices[0].message.content
-        elif completion.choices[0].message.error:
-            raise Exception(f"LLM API error: {completion.choices[0].message.error}")    
+        elif completion.choices[0].message.refusal:
+            raise Exception(f"LLM API error: {completion.choices[0].message.refusal}")    
         else:
-            raise Exception(f"LLM API error: {completion.choices[0].message.error}")
+            raise Exception(f"LLM API error: {completion.choices[0].message.refusal}")
     
     def _parse_json_response(self, response: str, response_type: str) -> Dict[str, Any]:
         """Parse JSON response with fallback"""

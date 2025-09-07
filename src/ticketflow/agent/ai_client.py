@@ -11,9 +11,10 @@ class AIClient:
         self.openai_client = OpenAI( 
             api_key=config.OPENAI_API_KEY,
         )
+    @property    
     def can_use_openrouter(self):
         return config.OPENROUTER_API_KEY is not None
-
+    @property
     def chat_client(self):
         return self.openrouter_client if config.OPENROUTER_API_KEY else self.openai_client
 

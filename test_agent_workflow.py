@@ -28,7 +28,6 @@ async def test_agent_workflow():
         if not db_manager.connect():
             print("❌ Database connection failed!")
             return False
-        
         if not db_manager.initialize_tables(drop_existing=False):
             print("❌ Table initialization failed!")
             return False
