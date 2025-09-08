@@ -4,6 +4,7 @@ Handles database connections and table initialization
 """
 
 from pytidb import TiDBClient,Table
+from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 import logging
 from ..config import config
@@ -21,7 +22,6 @@ class PyTiDBManager:
         self.client: Optional[TiDBClient] = None
         self.tables: Dict[str, Any] = {}
         self._connected = False
-    
     def connect(self) -> bool:
         """
         Connect to TiDB using PyTiDB client
@@ -42,6 +42,7 @@ class PyTiDBManager:
             logger.info("✅ PyTiDB connection successful!")
             self.client.configure_embedding_provider(provider='jina_ai', api_key=config.JINA_API_KEY)
             self._connected = True
+        
             return True
             
         except Exception as e:

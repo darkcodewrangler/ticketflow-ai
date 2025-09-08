@@ -21,7 +21,7 @@ from ticketflow.database import (
 )
 from ticketflow.agent.core import TicketFlowAgent, AgentConfig
 from .websocket_manager import websocket_manager
-from .routes import tickets, knowledge_base, analytics, agent
+from .routes import tickets, knowledge_base, workflows, search, analytics, agent
 from ticketflow.config import config
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,8 @@ app.add_middleware(
 # Include API routes
 app.include_router(tickets.router, prefix="/api/tickets", tags=["tickets"])
 app.include_router(knowledge_base.router, prefix="/api/kb", tags=["knowledge-base"])
+app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"])
+app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 
@@ -95,7 +97,9 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "tickets": "/api/tickets",
-            "knowledge_base": "/api/kb", 
+            "knowledge_base": "/api/kb",
+            "workflows": "/api/workflows", 
+            "search": "/api/search",
             "analytics": "/api/analytics",
             "agent": "/api/agent",
             "websocket": "/ws",
