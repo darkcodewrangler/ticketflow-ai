@@ -17,7 +17,7 @@ from .models import (
     ResolutionType
 )
 from .connection import db_manager
-from pytidb.filters import GTE, NE, LTE
+from pytidb.filters import GTE, NE
 logger = logging.getLogger(__name__)
 
 class TicketOperations:
@@ -69,24 +69,25 @@ class TicketOperations:
             return db_manager.tickets.query(
                 filters={"status": status},
                 limit=limit,
-                order_by=[("created_at", "desc")]
-            )
+                order_by={"created_at": "desc"}
+            ).to_list()
         except Exception as e:
             logger.error(f"❌ Failed to get tickets by status: {e}")
             return []
 
     @staticmethod
-    def get_recent_tickets(days: int = 7, limit: int = 100) -> List[Ticket]:
+    def get_recent_tickets(days: int = 1, limit: int = 100) -> List[Ticket]:
         """Get recent tickets"""
         try:
             since_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
             
             # PyTiDB query with date filter
             return db_manager.tickets.query(
-                filters={"created_at": {LTE: since_date}},
+                filters={"created_at": {GTE: since_date}},
                 limit=limit,
                 order_by={"created_at": "desc"}
-            )
+            ).to_list()
+
         except Exception as e:
             logger.error(f"❌ Failed to get recent tickets: {e}")
             return []
@@ -107,7 +108,7 @@ class TicketOperations:
             # PyTiDB's built-in hybrid search (vector + full-text + reranking)
             results = db_manager.tickets.search(
                 query_text,
-                search_type='hybrid',  # AI-powered result reranking
+                search_type='hybrid', 
             ).vector_column('description_vector').text_column('title').limit(limit).filter(filters).to_list()
             
             # Convert to our expected format - handle both objects and dicts
@@ -437,7 +438,7 @@ class AnalyticsOperations:
             # Get today's tickets
             today = datetime.utcnow().date().isoformat()
             today_tickets = db_manager.tickets.query(
-                filters={"created_at": {LTE: today}},
+                filters={"created_at": {GTE: today}},
                 limit=1000  # Reasonable limit for today
             ).to_list()
             
@@ -498,7 +499,7 @@ class AnalyticsOperations:
         try:
             # Get tickets for the day
             day_tickets = db_manager.tickets.query(
-                filters={"created_at": {LTE: target_date}},
+                filters={"created_at": {GTE: target_date}},
                 limit=10000  # Large limit for full day
             ).to_list() 
             
