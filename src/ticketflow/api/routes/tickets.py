@@ -32,9 +32,9 @@ def get_tickets(
     """Get tickets, optionally filtered by status"""
     try:
         if status:
-            tickets = TicketOperations.get_tickets_by_status(status, limit)
+            tickets = TicketOperations.get_tickets_by_status(status, int(limit))
         else:
-            tickets = TicketOperations.get_recent_tickets(limit=limit)
+            tickets = TicketOperations.get_recent_tickets(limit=int(limit))
         
         return [TicketResponse.model_validate(ticket) for ticket in tickets]
     except Exception as e:
@@ -48,7 +48,7 @@ def get_recent_tickets(
 ):
     """Get recent tickets"""
     try:
-        tickets = TicketOperations.get_recent_tickets(days, limit)
+        tickets = TicketOperations.get_recent_tickets(int(days), int(limit))
         return [TicketResponse.model_validate(ticket) for ticket in tickets]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recent tickets: {str(e)}")
@@ -89,7 +89,7 @@ async def get_similar_tickets(
             raise HTTPException(status_code=404, detail="Ticket not found")
         
         ticket = tickets[0]
-        similar_tickets = TicketOperations.find_similar_to_ticket(ticket, limit)
+        similar_tickets = TicketOperations.find_similar_to_ticket(ticket, int(limit))
         
         return similar_tickets
     except HTTPException:

@@ -18,7 +18,7 @@ def create_workflow(
 ):
     """Create a new agent workflow for a ticket"""
     try:
-        workflow = WorkflowOperations.create_workflow(ticket_id)
+        workflow = WorkflowOperations.create_workflow(int(ticket_id))
         return AgentWorkflowResponse.model_validate(workflow)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create workflow: {str(e)}")
@@ -33,7 +33,7 @@ def get_workflow(
         from ...database.connection import db_manager
         
         workflows = db_manager.agent_workflows.query(
-            filters={"id": workflow_id},
+            filters={"id": int(workflow_id)},
             limit=1
         ).to_list()
         
@@ -56,7 +56,7 @@ def get_workflows_for_ticket(
         from ...database.connection import db_manager
         
         workflows = db_manager.agent_workflows.query(
-            filters={"ticket_id": ticket_id},
+            filters={"ticket_id": int(ticket_id)},
             order_by=[("started_at", "desc")]
         ).to_list()
         
@@ -72,7 +72,7 @@ def update_workflow_step(
 ):
     """Add a step to a workflow"""
     try:
-        success = WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        success = WorkflowOperations.update_workflow_step(int(workflow_id), step_data)
         if success:
             return {"message": "Step added successfully"}
         else:

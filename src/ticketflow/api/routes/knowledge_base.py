@@ -32,12 +32,12 @@ def get_articles(
     """Get knowledge base articles"""
     try:
         if category:
-            articles = KnowledgeBaseOperations.get_articles_by_category(category, limit)
+            articles = KnowledgeBaseOperations.get_articles_by_category(category, int(limit))
         else:
             # Get all articles (we'll implement this method)
             from ...database.connection import db_manager
             articles = db_manager.kb_articles.query(
-                limit=limit,
+                limit=int(limit),
                 order_by={"created_at": "desc"}
             ).to_list()
         
@@ -54,7 +54,7 @@ def get_article(
     try:
         from ...database.connection import db_manager
         
-        articles = db_manager.kb_articles.query(filters={"id": article_id}, limit=1).to_list()
+        articles = db_manager.kb_articles.query(filters={"id": int(article_id)}, limit=1).to_list()
         
         if not articles:
             raise HTTPException(status_code=404, detail="Article not found")
@@ -77,7 +77,7 @@ async def search_articles(
         if not query.strip():
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
-        results = KnowledgeBaseOperations.search_articles(query, category, limit)
+        results = KnowledgeBaseOperations.search_articles(query, category, int(limit))
         
         return results
     except HTTPException:

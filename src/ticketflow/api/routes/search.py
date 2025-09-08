@@ -23,7 +23,7 @@ async def search_tickets(
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
         # Use the existing similar tickets search
-        similar_tickets = TicketOperations.find_similar_tickets(query, limit)
+        similar_tickets = TicketOperations.find_similar_tickets(query, int(limit))
         
         return {
             "query": query,
@@ -47,7 +47,7 @@ async def search_knowledge(
         if not query.strip():
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
-        results = KnowledgeBaseOperations.search_articles(query, category, limit)
+        results = KnowledgeBaseOperations.search_articles(query, category, int(limit))
         
         return {
             "query": query,
@@ -72,10 +72,10 @@ async def unified_search(
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
         # Search tickets
-        similar_tickets = TicketOperations.find_similar_tickets(query, ticket_limit)
+        similar_tickets = TicketOperations.find_similar_tickets(query, int(ticket_limit))
         
         # Search knowledge base
-        kb_results = KnowledgeBaseOperations.search_articles(query, None, kb_limit)
+        kb_results = KnowledgeBaseOperations.search_articles(query, None, int(kb_limit))
         
         return {
             "query": query,

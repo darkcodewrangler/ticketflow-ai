@@ -30,13 +30,13 @@ async def process_ticket(
     try:
         # Verify ticket exists
         from ...database.connection import db_manager
-        tickets = db_manager.tickets.query(filters={"id": request.ticket_id}, limit=1).to_list()
+        tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_list()
         
         if not tickets:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
         # Create workflow
-        workflow = WorkflowOperations.create_workflow(request.ticket_id)
+        workflow = WorkflowOperations.create_workflow(int(request.ticket_id))
         
         return {
             "message": f"Started processing ticket {request.ticket_id}",
@@ -64,13 +64,13 @@ async def get_agent_status(
         # Get active workflows
         active_workflows = db_manager.agent_workflows.query(
             filters={"status": "running"},
-            limit=100
+            limit=int(100)
         ).to_list()
         
         # Get pending tickets
         pending_tickets = db_manager.tickets.query(
             filters={"status": "new"},
-            limit=100
+            limit=int(100)
         ).to_list()
         
         return {
@@ -102,7 +102,7 @@ async def get_workflows(
         from ...database.connection import db_manager
         
         workflows = db_manager.agent_workflows.query(
-            limit=limit,
+            limit=int(limit),
             order_by=[("started_at", "desc")]
         ).to_list()
         
@@ -124,7 +124,7 @@ async def get_workflow(
         from ...database.connection import db_manager
         
         workflows = db_manager.agent_workflows.query(
-            filters={"id": workflow_id},
+            filters={"id": int(workflow_id)},
             limit=1
         ).to_list()
         
@@ -150,7 +150,7 @@ async def complete_workflow(
 ):
     """Mark a workflow as completed"""
     try:
-        success = WorkflowOperations.complete_workflow(workflow_id, confidence)
+        success = WorkflowOperations.complete_workflow(int(workflow_id), float(confidence))
         
         if not success:
             raise HTTPException(status_code=404, detail="Workflow not found")

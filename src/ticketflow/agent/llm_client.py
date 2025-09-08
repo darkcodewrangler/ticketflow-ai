@@ -220,7 +220,7 @@ class LLMClient:
             ],
             response_format=self.response_format,
             max_tokens=max_tokens,
-            temperature=0.1
+            temperature=0.3
         )
 
         if completion.choices[0].message.content:

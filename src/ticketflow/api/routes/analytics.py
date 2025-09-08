@@ -86,7 +86,7 @@ async def get_category_breakdown(
     try:
         # Simple category breakdown using direct PyTiDB queries
         from ...database.connection import db_manager
-        tickets = db_manager.tickets.query(limit=1000).to_list()
+        tickets = db_manager.tickets.query(limit=int(1000)).to_list()
         
         categories = {}
         for ticket in tickets:
@@ -113,9 +113,9 @@ async def get_basic_stats(
         from ...database.connection import db_manager
         
         # Get basic counts
-        tickets = db_manager.tickets.query(limit=1000).to_list()
-        articles = db_manager.kb_articles.query(limit=1000).to_list()
-        workflows = db_manager.agent_workflows.query(limit=1000).to_list()
+        tickets = db_manager.tickets.query(limit=int(1000)).to_list()
+        articles = db_manager.kb_articles.query(limit=int(1000)).to_list()
+        workflows = db_manager.agent_workflows.query(limit=int(1000)).to_list()
         
         # Calculate basic stats
         priority_breakdown = {}
