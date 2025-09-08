@@ -4,11 +4,10 @@ Unified search across tickets, knowledge base, and other content
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 
 from ...database.operations import TicketOperations, KnowledgeBaseOperations
-from ..dependencies import get_db_session
+from ..dependencies import verify_db_connection
 
 router = APIRouter()
 
@@ -16,28 +15,15 @@ router = APIRouter()
 async def search_tickets(
     query: str = Query(..., description="Search query"),
     limit: int = Query(10, ge=1, le=50, description="Number of results"),
-    min_similarity: float = Query(0.7, ge=0.0, le=1.0, description="Minimum similarity"),
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Search tickets using vector similarity"""
     try:
         if not query.strip():
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
-        # Create a temporary ticket-like object for search
-        from ...utils.vector_utils import vector_manager
-        embeddings = await vector_manager.generate_ticket_embeddings("", query)
-        
-        # Create a simple object to hold the vector for search
-        class SearchQuery:
-            def __init__(self, combined_vector):
-                self.id = -1  # Dummy ID
-                self.combined_vector = combined_vector
-        
-        search_obj = SearchQuery(embeddings["combined_vector"])
-        similar_tickets = await TicketOperations.find_similar_tickets(
-            session, search_obj, limit, min_similarity
-        )
+        # Use the existing similar tickets search
+        similar_tickets = TicketOperations.find_similar_tickets(query, limit)
         
         return {
             "query": query,
@@ -53,17 +39,15 @@ async def search_tickets(
 async def search_knowledge(
     query: str = Query(..., description="Search query"),
     limit: int = Query(5, ge=1, le=20, description="Number of results"),
-    min_similarity: float = Query(0.6, ge=0.0, le=1.0, description="Minimum similarity"),
-    session: Session = Depends(get_db_session)
+    category: str = Query(None, description="Filter by category"),
+    _: bool = Depends(verify_db_connection)
 ):
     """Search knowledge base articles"""
     try:
         if not query.strip():
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
-        results = await KnowledgeBaseOperations.search_articles(
-            session, query, limit, min_similarity
-        )
+        results = KnowledgeBaseOperations.search_articles(query, category, limit)
         
         return {
             "query": query,
@@ -80,8 +64,7 @@ async def unified_search(
     query: str = Query(..., description="Search query"),
     ticket_limit: int = Query(5, ge=1, le=20, description="Max ticket results"),
     kb_limit: int = Query(3, ge=1, le=10, description="Max knowledge base results"),
-    min_similarity: float = Query(0.6, ge=0.0, le=1.0, description="Minimum similarity"),
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Unified search across tickets and knowledge base"""
     try:
@@ -89,23 +72,10 @@ async def unified_search(
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
         # Search tickets
-        from ...utils.vector_utils import vector_manager
-        embeddings = await vector_manager.generate_ticket_embeddings("", query)
-        
-        class SearchQuery:
-            def __init__(self, combined_vector):
-                self.id = -1
-                self.combined_vector = combined_vector
-        
-        search_obj = SearchQuery(embeddings["combined_vector"])
-        similar_tickets = await TicketOperations.find_similar_tickets(
-            session, search_obj, ticket_limit, min_similarity
-        )
+        similar_tickets = TicketOperations.find_similar_tickets(query, ticket_limit)
         
         # Search knowledge base
-        kb_results = await KnowledgeBaseOperations.search_articles(
-            session, query, kb_limit, min_similarity
-        )
+        kb_results = KnowledgeBaseOperations.search_articles(query, None, kb_limit)
         
         return {
             "query": query,

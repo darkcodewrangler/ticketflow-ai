@@ -17,7 +17,7 @@ from .models import (
     ResolutionType
 )
 from .connection import db_manager
-from pytidb.filters import GTE, NE
+from pytidb.filters import GTE, NE, LTE
 logger = logging.getLogger(__name__)
 
 class TicketOperations:
@@ -83,9 +83,9 @@ class TicketOperations:
             
             # PyTiDB query with date filter
             return db_manager.tickets.query(
-                filters={"created_at": {GTE: since_date}},
+                filters={"created_at": {LTE: since_date}},
                 limit=limit,
-                order_by=[("created_at", "desc")]
+                order_by={"created_at": "desc"}
             )
         except Exception as e:
             logger.error(f"❌ Failed to get recent tickets: {e}")
@@ -108,7 +108,7 @@ class TicketOperations:
             results = db_manager.tickets.search(
                 query_text,
                 search_type='hybrid',  # AI-powered result reranking
-            ).vector_column('description_vector').text_column('description').limit(limit).filter(filters).to_list()
+            ).vector_column('description_vector').text_column('title').limit(limit).filter(filters).to_list()
             
             # Convert to our expected format - handle both objects and dicts
             similar_tickets = []
@@ -437,7 +437,7 @@ class AnalyticsOperations:
             # Get today's tickets
             today = datetime.utcnow().date().isoformat()
             today_tickets = db_manager.tickets.query(
-                filters={"created_at": {GTE: today}},
+                filters={"created_at": {LTE: today}},
                 limit=1000  # Reasonable limit for today
             ).to_list()
             
@@ -498,7 +498,7 @@ class AnalyticsOperations:
         try:
             # Get tickets for the day
             day_tickets = db_manager.tickets.query(
-                filters={"created_at": {GTE: target_date}},
+                filters={"created_at": {LTE: target_date}},
                 limit=10000  # Large limit for full day
             ).to_list() 
             

@@ -3,44 +3,44 @@ Workflow API routes
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 
 from ...database.operations import WorkflowOperations
 from ...database.schemas import AgentWorkflowResponse
-from ..dependencies import get_db_session
+from ..dependencies import verify_db_connection
 
 router = APIRouter()
 
 @router.post("/", response_model=AgentWorkflowResponse)
 def create_workflow(
     ticket_id: int,
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Create a new agent workflow for a ticket"""
     try:
-        workflow = WorkflowOperations.create_workflow(session, ticket_id)
-        return AgentWorkflowResponse.from_orm(workflow)
+        workflow = WorkflowOperations.create_workflow(ticket_id)
+        return AgentWorkflowResponse.model_validate(workflow)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create workflow: {str(e)}")
 
 @router.get("/{workflow_id}", response_model=AgentWorkflowResponse)
 def get_workflow(
     workflow_id: int,
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Get a specific workflow"""
     try:
-        from ...database.models import AgentWorkflow
+        from ...database.connection import db_manager
         
-        workflow = session.query(AgentWorkflow).filter(
-            AgentWorkflow.id == workflow_id
-        ).first()
+        workflows = db_manager.agent_workflows.query(
+            filters={"id": workflow_id},
+            limit=1
+        ).to_list()
         
-        if not workflow:
+        if not workflows:
             raise HTTPException(status_code=404, detail="Workflow not found")
         
-        return AgentWorkflowResponse.from_orm(workflow)
+        return AgentWorkflowResponse.model_validate(workflows[0])
     except HTTPException:
         raise
     except Exception as e:
@@ -49,17 +49,18 @@ def get_workflow(
 @router.get("/ticket/{ticket_id}", response_model=List[AgentWorkflowResponse])
 def get_workflows_for_ticket(
     ticket_id: int,
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Get all workflows for a specific ticket"""
     try:
-        from ...database.models import AgentWorkflow
+        from ...database.connection import db_manager
         
-        workflows = session.query(AgentWorkflow).filter(
-            AgentWorkflow.ticket_id == ticket_id
-        ).order_by(AgentWorkflow.started_at.desc()).all()
+        workflows = db_manager.agent_workflows.query(
+            filters={"ticket_id": ticket_id},
+            order_by=[("started_at", "desc")]
+        ).to_list()
         
-        return [AgentWorkflowResponse.from_orm(workflow) for workflow in workflows]
+        return [AgentWorkflowResponse.model_validate(workflow) for workflow in workflows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get workflows: {str(e)}")
 
@@ -67,11 +68,16 @@ def get_workflows_for_ticket(
 def update_workflow_step(
     workflow_id: int,
     step_data: Dict[str, Any],
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Add a step to a workflow"""
     try:
-        WorkflowOperations.update_workflow_step(session, workflow_id, step_data)
-        return {"message": "Step added successfully"}
+        success = WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        if success:
+            return {"message": "Step added successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update workflow step: {str(e)}")

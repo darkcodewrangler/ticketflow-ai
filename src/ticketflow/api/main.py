@@ -37,9 +37,9 @@ async def lifespan(app: FastAPI):
         logger.error("Database connection failed!")
         raise Exception("Database connection failed")
     
-    # Initialize tables
-    if not db_manager.initialize_tables(drop_existing=False):
-        logger.warning("Table initialization had issues")
+    # # Initialize tables
+    # if not db_manager.initialize_tables(drop_existing=False):
+    #     logger.warning("Table initialization had issues")
     
     logger.info("TicketFlow AI API started successfully")
     

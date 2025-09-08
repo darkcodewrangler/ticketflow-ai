@@ -4,24 +4,23 @@ Performance metrics, dashboard data, and insights
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from ...database.operations import AnalyticsOperations
 from ...database.schemas import DashboardMetricsResponse
-from ..dependencies import get_db_session
+from ..dependencies import verify_db_connection
 
 router = APIRouter()
 
 
 @router.get("/dashboard", response_model=DashboardMetricsResponse)
 async def get_dashboard_metrics(
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Get current dashboard metrics and KPIs"""
     try:
-        metrics = await AnalyticsOperations.get_dashboard_metrics(session)
+        metrics = AnalyticsOperations.get_dashboard_metrics()
         return DashboardMetricsResponse(**metrics)
     except Exception as e:
         raise HTTPException(
@@ -32,22 +31,26 @@ async def get_dashboard_metrics(
 
 @router.get("/performance/daily")
 async def get_daily_performance(
-    days: int = Query(30, ge=1, le=90, description="Number of days to retrieve"),
-    session: Session = Depends(get_db_session)
+    date: Optional[str] = Query(None, description="Date (YYYY-MM-DD), defaults to today"),
+    _: bool = Depends(verify_db_connection)
 ):
-    """Get daily performance metrics over time"""
+    """Get daily performance metrics"""
     try:
-        end_date = datetime.utcnow().date()
-        start_date = end_date - timedelta(days=days)
+        target_date = date or datetime.utcnow().date().isoformat()
         
-        metrics = await AnalyticsOperations.get_performance_trends(
-            session, start_date, end_date, "daily"
-        )
+        # Use the existing create_daily_metrics method
+        metrics = AnalyticsOperations.create_daily_metrics(target_date)
         
         return {
-            "period": f"{start_date} to {end_date}",
-            "granularity": "daily",
-            "metrics": metrics
+            "date": target_date,
+            "metrics": {
+                "tickets_processed": metrics.tickets_processed,
+                "tickets_auto_resolved": metrics.tickets_auto_resolved,
+                "tickets_escalated": metrics.tickets_escalated,
+                "category_breakdown": metrics.category_breakdown,
+                "estimated_time_saved_hours": metrics.estimated_time_saved_hours,
+                "estimated_cost_saved": metrics.estimated_cost_saved
+            }
         }
     except Exception as e:
         raise HTTPException(
@@ -56,43 +59,43 @@ async def get_daily_performance(
         )
 
 
-@router.get("/performance/hourly")
-async def get_hourly_performance(
-    hours: int = Query(24, ge=1, le=168, description="Number of hours to retrieve"),
-    session: Session = Depends(get_db_session)
+@router.get("/performance/summary")
+async def get_performance_summary(
+    _: bool = Depends(verify_db_connection)
 ):
-    """Get hourly performance metrics"""
+    """Get performance summary - simplified version"""
     try:
-        end_time = datetime.utcnow()
-        start_time = end_time - timedelta(hours=hours)
-        
-        metrics = await AnalyticsOperations.get_performance_trends(
-            session, start_time.date(), end_time.date(), "hourly"
-        )
+        dashboard_metrics = AnalyticsOperations.get_dashboard_metrics()
         
         return {
-            "period": f"{start_time} to {end_time}",
-            "granularity": "hourly", 
-            "metrics": metrics
+            "summary": "Performance overview",
+            "metrics": dashboard_metrics
         }
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get hourly performance: {str(e)}"
+            detail=f"Failed to get performance summary: {str(e)}"
         )
 
 
 @router.get("/categories")
 async def get_category_breakdown(
-    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Get ticket breakdown by category"""
     try:
-        breakdown = await AnalyticsOperations.get_category_breakdown(session, days)
+        # Simple category breakdown using direct PyTiDB queries
+        from ...database.connection import db_manager
+        tickets = db_manager.tickets.query(limit=1000).to_list()
+        
+        categories = {}
+        for ticket in tickets:
+            category = getattr(ticket, 'category', 'general') if hasattr(ticket, 'category') else ticket.get('category', 'general')
+            categories[category] = categories.get(category, 0) + 1
+        
         return {
-            "period_days": days,
-            "categories": breakdown
+            "categories": categories,
+            "total_tickets": len(tickets)
         }
     except Exception as e:
         raise HTTPException(
@@ -101,122 +104,41 @@ async def get_category_breakdown(
         )
 
 
-@router.get("/priorities")
-async def get_priority_breakdown(
-    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
-    session: Session = Depends(get_db_session)
+@router.get("/stats")
+async def get_basic_stats(
+    _: bool = Depends(verify_db_connection)
 ):
-    """Get ticket breakdown by priority"""
+    """Get basic statistics from all data"""
     try:
-        breakdown = await AnalyticsOperations.get_priority_breakdown(session, days)
-        return {
-            "period_days": days,
-            "priorities": breakdown
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get priority breakdown: {str(e)}"
-        )
-
-
-@router.get("/resolution-times")
-async def get_resolution_time_analysis(
-    days: int = Query(30, ge=1, le=90, description="Number of days to analyze"),
-    session: Session = Depends(get_db_session)
-):
-    """Get resolution time analysis"""
-    try:
-        analysis = await AnalyticsOperations.get_resolution_time_analysis(session, days)
-        return {
-            "period_days": days,
-            "analysis": analysis
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get resolution time analysis: {str(e)}"
-        )
-
-
-@router.get("/agent-performance")
-async def get_agent_performance(
-    days: int = Query(7, ge=1, le=30, description="Number of days to analyze"),
-    session: Session = Depends(get_db_session)
-):
-    """Get AI agent performance metrics"""
-    try:
-        performance = await AnalyticsOperations.get_agent_performance(session, days)
-        return {
-            "period_days": days,
-            "performance": performance
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get agent performance: {str(e)}"
-        )
-
-
-@router.get("/knowledge-base/stats")
-async def get_knowledge_base_stats(
-    session: Session = Depends(get_db_session)
-):
-    """Get knowledge base usage and effectiveness statistics"""
-    try:
-        stats = await AnalyticsOperations.get_kb_statistics(session)
-        return {
-            "statistics": stats
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get KB statistics: {str(e)}"
-        )
-
-
-@router.post("/export")
-async def export_analytics_data(
-    start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
-    end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
-    format: str = Query("json", regex="^(json|csv)$", description="Export format"),
-    session: Session = Depends(get_db_session)
-):
-    """Export analytics data for the specified date range"""
-    try:
-        # Parse dates
-        start = datetime.strptime(start_date, "%Y-%m-%d").date()
-        end = datetime.strptime(end_date, "%Y-%m-%d").date()
+        from ...database.connection import db_manager
         
-        if end < start:
-            raise HTTPException(
-                status_code=400,
-                detail="End date must be after start date"
-            )
+        # Get basic counts
+        tickets = db_manager.tickets.query(limit=1000).to_list()
+        articles = db_manager.kb_articles.query(limit=1000).to_list()
+        workflows = db_manager.agent_workflows.query(limit=1000).to_list()
         
-        if (end - start).days > 365:
-            raise HTTPException(
-                status_code=400,
-                detail="Date range cannot exceed 365 days"
-            )
+        # Calculate basic stats
+        priority_breakdown = {}
+        status_breakdown = {}
         
-        data = await AnalyticsOperations.export_analytics_data(
-            session, start, end, format
-        )
+        for ticket in tickets:
+            priority = getattr(ticket, 'priority', 'medium') if hasattr(ticket, 'priority') else ticket.get('priority', 'medium')
+            status = getattr(ticket, 'status', 'new') if hasattr(ticket, 'status') else ticket.get('status', 'new')
+            
+            priority_breakdown[priority] = priority_breakdown.get(priority, 0) + 1
+            status_breakdown[status] = status_breakdown.get(status, 0) + 1
         
         return {
-            "start_date": start_date,
-            "end_date": end_date,
-            "format": format,
-            "data": data
+            "totals": {
+                "tickets": len(tickets),
+                "kb_articles": len(articles),
+                "workflows": len(workflows)
+            },
+            "priority_breakdown": priority_breakdown,
+            "status_breakdown": status_breakdown
         }
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid date format: {str(e)}"
-        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to export analytics data: {str(e)}"
+            detail=f"Failed to get basic stats: {str(e)}"
         )

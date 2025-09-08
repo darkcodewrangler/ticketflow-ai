@@ -1,40 +1,29 @@
 """
 API Dependencies
-Database session management and other shared dependencies
+Database connection validation and user authentication
+PyTiDB doesn't need session management - operations work directly with tables!
 """
 
-from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException
-from typing import Generator
+from typing import Dict, Any
 
 from ..database.connection import db_manager
 
 
-def get_db_session() -> Generator[Session, None, None]:
+def verify_db_connection():
     """
-    Dependency that provides a database session for API endpoints.
-    Automatically handles session cleanup.
+    Dependency that verifies database connection is available.
+    PyTiDB operations work directly with the client, no sessions needed!
     """
-    if not db_manager._connected():
+    if not db_manager._connected:
         raise HTTPException(
             status_code=503, 
             detail="Database connection is not available"
         )
-    
-    session = db_manager.get_session()
-    if not session:
-        raise HTTPException(
-            status_code=503,
-            detail="Unable to create database session"
-        )
-    
-    try:
-        yield session
-    finally:
-        session.close()
+    return True
 
 
-def get_current_user():
+def get_current_user() -> Dict[str, Any]:
     """
     Placeholder for user authentication.
     In a real application, this would validate JWT tokens, API keys, etc.
@@ -47,7 +36,7 @@ def get_current_user():
     }
 
 
-def require_admin(current_user: dict = Depends(get_current_user)):
+def require_admin(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """
     Dependency that requires admin privileges.
     """
@@ -57,3 +46,16 @@ def require_admin(current_user: dict = Depends(get_current_user)):
             detail="Admin privileges required"
         )
     return current_user
+
+
+def get_db_manager():
+    """
+    Dependency that provides access to the PyTiDB manager.
+    Verifies connection and returns the manager instance.
+    """
+    if not db_manager._connected:
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection is not available"
+        )
+    return db_manager

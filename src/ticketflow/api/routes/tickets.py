@@ -3,24 +3,23 @@ Ticket API routes
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from ...database.operations import TicketOperations
 from ...database.schemas import TicketCreateRequest, TicketResponse
-from ..dependencies import get_db_session
+from ..dependencies import verify_db_connection
 
 router = APIRouter()
 
 @router.post("/", response_model=TicketResponse)
 async def create_ticket(
     ticket_data: TicketCreateRequest,
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Create a new ticket"""
     try:
-        ticket = await TicketOperations.create_ticket(session, ticket_data)
-        return TicketResponse.from_orm(ticket)
+        ticket = TicketOperations.create_ticket(ticket_data.dict())
+        return TicketResponse.model_validate(ticket)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create ticket: {str(e)}")
 
@@ -28,16 +27,16 @@ async def create_ticket(
 def get_tickets(
     status: Optional[str] = Query(None, description="Filter tickets by status"),
     limit: int = Query(50, ge=1, le=100, description="Number of tickets to return"),
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Get tickets, optionally filtered by status"""
     try:
         if status:
-            tickets = TicketOperations.get_tickets_by_status(session, status, limit)
+            tickets = TicketOperations.get_tickets_by_status(status, limit)
         else:
-            tickets = TicketOperations.get_recent_tickets(session, limit=limit)
+            tickets = TicketOperations.get_recent_tickets(limit=limit)
         
-        return [TicketResponse.from_orm(ticket) for ticket in tickets]
+        return [TicketResponse.model_validate(ticket) for ticket in tickets]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get tickets: {str(e)}")
 
@@ -45,28 +44,30 @@ def get_tickets(
 def get_recent_tickets(
     days: int = Query(7, ge=1, le=30, description="Number of days to look back"),
     limit: int = Query(100, ge=1, le=100, description="Number of tickets to return"),
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Get recent tickets"""
     try:
-        tickets = TicketOperations.get_recent_tickets(session, days, limit)
-        return [TicketResponse.from_orm(ticket) for ticket in tickets]
+        tickets = TicketOperations.get_recent_tickets(days, limit)
+        return [TicketResponse.model_validate(ticket) for ticket in tickets]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recent tickets: {str(e)}")
 
 @router.get("/{ticket_id}", response_model=TicketResponse)
 def get_ticket(
     ticket_id: int,
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Get a specific ticket by ID"""
     try:
-        from ...database.models import Ticket
-        ticket = session.query(Ticket).filter(Ticket.id == ticket_id).first()
-        if not ticket:
+        # PyTiDB query for specific ticket
+        from ...database.connection import db_manager
+        tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_list()
+        
+        if not tickets:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
-        return TicketResponse.from_orm(ticket)
+        return TicketResponse.from_attributes(tickets[0])
     except HTTPException:
         raise
     except Exception as e:
@@ -76,19 +77,19 @@ def get_ticket(
 async def get_similar_tickets(
     ticket_id: int,
     limit: int = Query(10, ge=1, le=50, description="Number of similar tickets to return"),
-    min_similarity: float = Query(0.75, ge=0.0, le=1.0, description="Minimum similarity score"),
-    session: Session = Depends(get_db_session)
+    _: bool = Depends(verify_db_connection)
 ):
     """Get similar tickets using vector search"""
     try:
-        from ...database.models import Ticket
-        ticket = session.query(Ticket).filter(Ticket.id == ticket_id).first()
-        if not ticket:
+        # Get the source ticket
+        from ...database.connection import db_manager
+        tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_list()
+        
+        if not tickets:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
-        similar_tickets = await TicketOperations.find_similar_tickets(
-            session, ticket, limit, min_similarity
-        )
+        ticket = tickets[0]
+        similar_tickets = TicketOperations.find_similar_to_ticket(ticket, limit)
         
         return similar_tickets
     except HTTPException:
