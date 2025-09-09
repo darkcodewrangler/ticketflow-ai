@@ -21,7 +21,7 @@ from ticketflow.database import (
 )
 from ticketflow.agent.core import TicketFlowAgent, AgentConfig
 from .websocket_manager import websocket_manager
-from .routes import tickets, knowledge_base, workflows, search, analytics, agent
+from .routes import tickets, knowledge_base, workflows, search, analytics, agent, integrations
 from ticketflow.config import config
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,7 @@ app.include_router(workflows.router, prefix="/api/workflows", tags=["workflows"]
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
+app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 
 # WebSocket endpoint for real-time updates
 app.include_router(websocket_manager.router)
@@ -102,6 +103,7 @@ async def root():
             "search": "/api/search",
             "analytics": "/api/analytics",
             "agent": "/api/agent",
+            "integrations": "/api/integrations",
             "websocket": "/ws",
             "docs": "/docs"
         }

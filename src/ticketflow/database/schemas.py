@@ -335,6 +335,54 @@ class WorkflowStepResponse(BaseModel):
             return v.isoformat()
         return v
 
+class WebhookTicketRequest(BaseModel):
+    """Schema for webhook ticket creation from external platforms"""
+    # Flexible field mapping for different external platforms
+    subject: Optional[str] = Field(None, description="Ticket subject (alternative to title)")
+    title: Optional[str] = Field(None, description="Ticket title")
+    description: Optional[str] = Field(None, description="Ticket description")
+    body: Optional[str] = Field(None, description="Ticket body (alternative to description)")
+    category: Optional[str] = Field(default="general", description="Ticket category")
+    priority: Optional[str] = Field(default="medium", description="Ticket priority")
+    customer_email: Optional[EmailStr] = Field(None, description="Customer email address")
+    user_email: Optional[EmailStr] = Field(None, description="User email address")
+    user_id: Optional[str] = Field(None, description="User identifier")
+    id: Optional[str] = Field(None, description="External ticket ID")
+    platform: Optional[str] = Field(default="external", description="Source platform")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
+    
+    @validator('priority')
+    def validate_priority(cls, v):
+        """Validate priority value"""
+        if v and v.lower() not in ['low', 'medium', 'high', 'urgent']:
+            return 'medium'
+        return v.lower() if v else 'medium'
+    
+    @validator('category')
+    def validate_category(cls, v):
+        """Validate and normalize category"""
+        if not v or not v.strip():
+            return 'general'
+        return v.strip().lower()
+    
+    def normalize_to_ticket_data(self) -> Dict[str, Any]:
+        """Convert webhook data to internal ticket format"""
+        return {
+            "title": self.title or self.subject or "No title provided",
+            "description": self.description or self.body or "No description provided",
+            "category": self.category,
+            "priority": self.priority,
+            "user_email": str(self.customer_email or self.user_email or ""),
+            "user_id": self.user_id or "",
+            "user_type": "customer",
+            "ticket_metadata": {
+                **self.metadata,
+                "external_id": self.id,
+                "platform": self.platform,
+                "source": "webhook"
+            }
+        }
+
 
 # Export all schemas for easy imports
 __all__ = [
@@ -349,6 +397,7 @@ __all__ = [
     "TicketUpdateRequest",
     "KnowledgeBaseCreateRequest",
     "KnowledgeBaseUpdateRequest",
+    "WebhookTicketRequest",
     
     # Response schemas
     "TicketResponse",
