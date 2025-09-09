@@ -49,7 +49,7 @@ class TicketOperations:
                 user_id=ticket_data.get("user_id", ""),
                 user_email=ticket_data.get("user_email", ""),
                 user_type=ticket_data.get("user_type", "customer"),
-                ticket_metadata=ticket_data.get("metadata", {})
+                ticket_metadata=ticket_data.get("ticket_metadata", {})
             )
             
             # PyTiDB automatically generates embeddings for title and description!
