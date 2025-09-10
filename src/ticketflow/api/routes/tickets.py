@@ -158,12 +158,12 @@ def get_ticket(
     try:
         # PyTiDB query for specific ticket
         from ...database.connection import db_manager
-        tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_list()
+        tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
         
         if not tickets:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
-        return TicketResponse.from_attributes(tickets[0])
+        return TicketResponse.model_dump(tickets[0])
     except HTTPException:
         raise
     except Exception as e:
@@ -179,12 +179,13 @@ async def get_similar_tickets(
     try:
         # Get the source ticket
         from ...database.connection import db_manager
-        tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_list()
+        tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
         
         if not tickets:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
-        ticket = tickets[0]
+        ticket = TicketResponse.model_dump(tickets[0])
+      
         similar_tickets = TicketOperations.find_similar_to_ticket(ticket, int(limit))
         
         return similar_tickets

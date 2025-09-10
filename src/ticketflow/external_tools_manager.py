@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import asyncio
-
+import resend
 
 from .config import config
 import logging
@@ -16,6 +16,10 @@ class ExternalToolsManager:
     def __init__(self):
         self.slack_enabled = bool(config.SLACK_BOT_TOKEN) if hasattr(config, 'SLACK_BOT_TOKEN') else False
         self.email_enabled = bool(config.RESEND_API_KEY) if hasattr(config, 'RESEND_API_KEY') else False
+        
+        # Initialize Resend if API key is available
+        if self.email_enabled:
+            resend.api_key = config.RESEND_API_KEY
     
     async def send_slack_notification(self, channel: str, message: str, ticket_id: int = None) -> Dict[str, Any]:
         """Send Slack notification"""
@@ -46,29 +50,34 @@ class ExternalToolsManager:
             logger.error(f"Slack notification failed: {e}")
             return {"status": "failed", "error": str(e)}
     
-    async def send_email_notification(self, recipient: str, subject: str, body: str) -> Dict[str, Any]:
-        """Send email notification"""
+    async def send_email_notification(self, recipient: str, subject: str, body: str, html_body: str = None) -> Dict[str, Any]:
+        """Send email notification using Resend"""
         if not self.email_enabled:
             return {"status": "disabled", "message": "Email integration not configured"}
         
         try:
-            # In a real implementation, this would use Resend or similar
-            email_data = {
-                "to": recipient,
+            # Prepare email content
+            email_params = {
+                "from": "TicketFlow AI <noreply@ticketflow.ai>",
+                "to": [recipient],
                 "subject": subject,
-                "body": body,
-                "timestamp": asyncio.get_event_loop().time()
+                "text": body
             }
             
-            # Simulate sending email
-            await asyncio.sleep(0.2)  # Simulate network delay
+            # Add HTML body if provided
+            if html_body:
+                email_params["html"] = html_body
             
-            logger.info(f"Email sent to {recipient}: {subject}")
+            # Send email using Resend
+            response = resend.Emails.send(email_params)
+            
+            logger.info(f"Email sent to {recipient}: {subject} (ID: {response.get('id', 'unknown')})")
             
             return {
                 "status": "sent",
                 "recipient": recipient,
-                "message_id": f"email_{int(asyncio.get_event_loop().time())}"
+                "message_id": response.get("id", f"email_{int(asyncio.get_event_loop().time())}"),
+                "resend_response": response
             }
             
         except Exception as e:

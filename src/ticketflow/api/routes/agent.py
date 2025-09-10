@@ -3,13 +3,16 @@ Agent API routes - Simplified version
 AI agent workflow management for ticket processing
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List, Dict, Any
 from pydantic import BaseModel
+import logging
 
 from ...database.operations import WorkflowOperations, TicketOperations
 from ...database.schemas import AgentWorkflowResponse
 from ..dependencies import verify_db_connection, get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -23,6 +26,7 @@ class ProcessTicketRequest(BaseModel):
 @router.post("/process")
 async def process_ticket(
     request: ProcessTicketRequest,
+    background_tasks: BackgroundTasks,
     _: bool = Depends(verify_db_connection),
     current_user: dict = Depends(get_current_user)
 ):
@@ -31,12 +35,37 @@ async def process_ticket(
         # Verify ticket exists
         from ...database.connection import db_manager
         tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_list()
-        
+        print(tickets)
         if not tickets:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
+        ticket = tickets[0]
+        return {
+            ticket,
+            tickets
+        }
         # Create workflow
         workflow = WorkflowOperations.create_workflow(int(request.ticket_id))
+        
+        # Convert ticket to dict for processing
+        ticket_dict = {
+            "id": ticket.id,
+            "title": ticket.title,
+            "description": ticket.description,
+            "category": ticket.category,
+            "priority": ticket.priority,
+            "user_email": ticket.user_email,
+            "user_type": ticket.user_type,
+            "status": ticket.status
+        }
+        
+        # Trigger AI processing in background
+        background_tasks.add_task(
+            _trigger_agent_processing,
+            ticket.id,
+            ticket_dict,
+            workflow.id
+        )
         
         return {
             "message": f"Started processing ticket {request.ticket_id}",
@@ -103,7 +132,7 @@ async def get_workflows(
         
         workflows = db_manager.agent_workflows.query(
             limit=int(limit),
-            order_by=[("started_at", "desc")]
+            order_by={"started_at": "desc"}
         ).to_list()
         
         return [AgentWorkflowResponse.model_validate(w) for w in workflows]
@@ -167,3 +196,35 @@ async def complete_workflow(
             status_code=500,
             detail=f"Failed to complete workflow: {str(e)}"
         )
+
+
+async def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workflow_id: int):
+    """Background task to trigger agent processing for a ticket"""
+    try:
+        from ...agent.core import TicketFlowAgent
+        
+        logger.info(f"🤖 Starting AI processing for ticket {ticket_id} (workflow {workflow_id})")
+        
+        # Initialize agent
+        agent = TicketFlowAgent()
+        
+        # Process the ticket
+        result = await agent.process_ticket(ticket_data)
+        
+        if result.get("success"):
+            logger.info(f"✅ AI processing completed for ticket {ticket_id}")
+        else:
+            logger.warning(f"⚠️ AI processing failed for ticket {ticket_id}: {result.get('error')}")
+            
+    except Exception as e:
+        logger.error(f"❌ AI processing error for ticket {ticket_id}: {e}")
+        # Update workflow with error
+        try:
+            WorkflowOperations.update_workflow_step(workflow_id, {
+                "step": "error",
+                "status": "failed",
+                "message": f"AI processing failed: {str(e)}",
+                "error": str(e)
+            })
+        except Exception as update_error:
+            logger.error(f"Failed to update workflow with error: {update_error}")

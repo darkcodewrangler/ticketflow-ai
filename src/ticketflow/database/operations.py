@@ -151,6 +151,7 @@ class TicketOperations:
         """
         Find tickets similar to a given ticket using its content
         """
+        return [ticket]
         # Use the ticket's title and description for search
         search_query = f"{ticket.title} {ticket.description}"
         

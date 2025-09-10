@@ -57,7 +57,7 @@ def get_workflows_for_ticket(
         
         workflows = db_manager.agent_workflows.query(
             filters={"ticket_id": int(ticket_id)},
-            order_by=[("started_at", "desc")]
+            order_by={"started_at": "desc"}
         ).to_list()
         
         return [AgentWorkflowResponse.model_validate(workflow) for workflow in workflows]

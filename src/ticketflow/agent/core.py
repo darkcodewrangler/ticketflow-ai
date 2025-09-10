@@ -546,25 +546,104 @@ class TicketFlowAgent:
         }
     
     async def _notify_user_action(self, ticket: Ticket, params: Dict) -> Dict:
-        """Notify user action"""
-        # In a real implementation, this would send email/SMS
-        return {
-            "notification_type": "user",
-            "recipient": ticket.user_email,
-            "message": params["message"],
-            "status": "sent"
-        }
+        """Notify user action using Resend"""
+        try:
+            # Create HTML email template
+            html_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">TicketFlow AI Update</h2>
+                <p>Hello,</p>
+                <p>{params["message"]}</p>
+                <p><strong>Ticket ID:</strong> {ticket.id}</p>
+                <p><strong>Subject:</strong> {ticket.title}</p>
+                {f'<p><strong>Resolution:</strong> {params.get("resolution", "")}</p>' if params.get("resolution") else ""}
+                <hr style="margin: 20px 0;">
+                <p style="color: #666; font-size: 12px;">
+                    This is an automated message from TicketFlow AI. 
+                    If you have any questions, please contact our support team.
+                </p>
+            </body>
+            </html>
+            """
+            
+            # Send email using external tools manager
+            result = await self.external_tools.send_email_notification(
+                recipient=ticket.user_email,
+                subject=f"Ticket #{ticket.id} Update - {ticket.title}",
+                body=params["message"],
+                html_body=html_body
+            )
+            
+            return {
+                "notification_type": "user",
+                "recipient": ticket.user_email,
+                "message": params["message"],
+                "status": result.get("status", "failed"),
+                "message_id": result.get("message_id"),
+                "error": result.get("error")
+            }
+            
+        except Exception as e:
+            logger.error(f"User notification failed: {e}")
+            return {
+                "notification_type": "user",
+                "recipient": ticket.user_email,
+                "message": params["message"],
+                "status": "failed",
+                "error": str(e)
+            }
     
     async def _notify_team_action(self, ticket: Ticket, params: Dict) -> Dict:
-        """Notify team action"""
-        # In a real implementation, this would send Slack/email to team
-        return {
-            "notification_type": "team",
-            "team": params["team"],
-            "message": params["message"],
-            "ticket_id": ticket.id,
-            "status": "sent"
-        }
+        """Notify team action using Slack and email"""
+        try:
+            # Send Slack notification
+            slack_result = await self.external_tools.send_slack_notification(
+                channel=f"#{params['team']}",
+                message=f"🚨 {params['message']}\nTicket: #{ticket.id} - {ticket.title}",
+                ticket_id=ticket.id
+            )
+            
+            # Send email to team (using a team email address)
+            team_email = f"{params['team']}@ticketflow.ai"  # This would be configured in real implementation
+            email_result = await self.external_tools.send_email_notification(
+                recipient=team_email,
+                subject=f"Ticket #{ticket.id} Escalated - {ticket.title}",
+                body=f"""
+                {params['message']}
+                
+                Ticket Details:
+                - ID: {ticket.id}
+                - Title: {ticket.title}
+                - Category: {ticket.category}
+                - Priority: {ticket.priority}
+                - User: {ticket.user_email}
+                
+                Please review and take appropriate action.
+                """
+            )
+            
+            return {
+                "notification_type": "team",
+                "team": params["team"],
+                "message": params["message"],
+                "ticket_id": ticket.id,
+                "slack_status": slack_result.get("status", "failed"),
+                "email_status": email_result.get("status", "failed"),
+                "slack_message_id": slack_result.get("message_id"),
+                "email_message_id": email_result.get("message_id")
+            }
+            
+        except Exception as e:
+            logger.error(f"Team notification failed: {e}")
+            return {
+                "notification_type": "team",
+                "team": params["team"],
+                "message": params["message"],
+                "ticket_id": ticket.id,
+                "status": "failed",
+                "error": str(e)
+            }
     
     async def _update_kb_usage_action(self, params: Dict) -> Dict:
         """Update KB article usage statistics"""
@@ -578,53 +657,75 @@ class TicketFlowAgent:
             "status": "completed"
         }
     
-    # LLM Analysis Methods (simplified versions)
+    # LLM Analysis Methods - Real implementations
     async def _analyze_patterns(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze patterns in similar cases"""
-        prompt = f"""
-        Analyze patterns in these similar support cases:
-        
-        Current Issue: {context['ticket']['title']} - {context['ticket']['description']}
-        
-        Similar Resolved Cases: {context['similar_cases'][:3]}
-        
-        Identify common patterns, root causes, and successful resolution approaches.
-        Return JSON with: patterns_found, common_causes, success_patterns
-        """
-        
-        # Simulate LLM call - in reality would call actual LLM
-        return {
-            "patterns_found": ["authentication_issue", "email_delivery"],
-            "common_causes": ["spam_filter", "expired_tokens"],
-            "success_patterns": ["whitelist_domain", "token_refresh"]
-        }
+        """Analyze patterns in similar cases using LLM"""
+        try:
+            return await self.llm_client.analyze_ticket_patterns(context)
+        except Exception as e:
+            logger.error(f"Pattern analysis failed: {e}")
+            # Fallback to basic analysis
+            return {
+                "patterns_found": ["general_issue"],
+                "common_causes": ["unknown"],
+                "success_patterns": ["manual_review"]
+            }
     
     async def _analyze_root_cause(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze root cause"""
-        return {
-            "primary_cause": "email_delivery_issue",
-            "confidence": 0.85,
-            "supporting_evidence": ["similar_cases", "kb_articles"]
-        }
+        """Analyze root cause using LLM"""
+        try:
+            return await self.llm_client.analyze_root_cause(context)
+        except Exception as e:
+            logger.error(f"Root cause analysis failed: {e}")
+            # Fallback to basic analysis
+            return {
+                "primary_cause": "unknown_issue",
+                "confidence": 0.5,
+                "supporting_evidence": ["limited_context"]
+            }
     
     async def _analyze_solution_options(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze solution options"""
-        return {
-            "recommended_solution": "Check spam folder and whitelist our domain",
-            "alternative_solutions": ["Manual password reset", "Account verification"],
-            "confidence": 0.88
-        }
+        """Analyze solution options using LLM"""
+        try:
+            return await self.llm_client.generate_solution(context)
+        except Exception as e:
+            logger.error(f"Solution analysis failed: {e}")
+            # Fallback to basic analysis
+            return {
+                "recommended_solution": "Please contact support for assistance",
+                "alternative_solutions": ["Manual review required"],
+                "confidence": 0.5
+            }
     
     async def _assess_confidence(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Assess overall confidence"""
-        return {
-            "confidence_score": 0.87,
-            "factors": {
-                "similar_cases_quality": 0.9,
-                "kb_coverage": 0.8,
-                "pattern_clarity": 0.9
+        """Assess overall confidence using LLM"""
+        try:
+            # Combine all analysis results for confidence assessment
+            analysis_results = {
+                "patterns": context.get("patterns", {}),
+                "root_cause": context.get("root_cause", {}),
+                "solutions": context.get("solutions", {}),
+                "similar_cases_count": len(context.get("similar_cases", [])),
+                "kb_articles_count": len(context.get("kb_articles", []))
             }
-        }
+            return await self.llm_client.assess_confidence(analysis_results)
+        except Exception as e:
+            logger.error(f"Confidence assessment failed: {e}")
+            # Fallback to basic confidence calculation
+            similar_cases_count = len(context.get("similar_cases", []))
+            kb_articles_count = len(context.get("kb_articles", []))
+            
+            # Simple confidence calculation based on available data
+            confidence = min(0.9, 0.3 + (similar_cases_count * 0.1) + (kb_articles_count * 0.05))
+            
+            return {
+                "confidence_score": confidence,
+                "factors": {
+                    "similar_cases_quality": min(0.9, similar_cases_count * 0.2),
+                    "kb_coverage": min(0.9, kb_articles_count * 0.3),
+                    "pattern_clarity": 0.5
+                }
+            }
     
     async def _log_workflow_error(self, workflow_id: int, error_message: str):
         """Log workflow error"""
