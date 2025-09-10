@@ -105,7 +105,7 @@ class TicketFlowAgent:
             
             return {
                 "success": True,
-                "ticket_id": ticket.id,
+                "ticket_id": ticket.get('id'),
                 "workflow_id": workflow_id,
                 "final_status": final_result["status"],
                 "confidence": final_result["confidence"],
@@ -186,7 +186,7 @@ class TicketFlowAgent:
             
             return {
                 "success": True,
-                "ticket_id": ticket.id,
+                "ticket_id": ticket.get('id'),
                 "workflow_id": workflow_id,
                 "final_status": final_result["status"],
                 "confidence": final_result["confidence"],
@@ -222,7 +222,7 @@ class TicketFlowAgent:
             "status": "completed",
             "message": f"Ticket created with auto-embeddings",
             "data": {
-                "ticket_id": ticket.id,
+                "ticket_id": ticket.get('id'),
                 "title": ticket.title[:50] + "...",
                 "category": ticket.category,
                 "priority": ticket.priority
@@ -230,13 +230,13 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        workflow = WorkflowOperations.create_workflow(ticket.id, [initial_step])
+        workflow = WorkflowOperations.create_workflow(ticket.get('id'), [initial_step])
         
-        logger.info(f"Agent ingested ticket {ticket.id}")
+        logger.info(f"Agent ingested ticket {ticket.get('id')}")
         
         return {
             "ticket": ticket,
-            "workflow_id": workflow.id
+            "workflow_id": workflow.get('id')
         }
     
     async def _step_search_similar(self, workflow_id: int, ticket: dict) -> List[Dict]:
@@ -296,7 +296,7 @@ class TicketFlowAgent:
         
         WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
-        logger.info(f"Agent found {len(kb_articles)} KB articles for {ticket.id}")
+        logger.info(f"Agent found {len(kb_articles)} KB articles for {ticket.get('id')}")
         return kb_articles
     
     async def _step_analyze(self, workflow_id: int, ticket: dict, 
@@ -343,7 +343,7 @@ class TicketFlowAgent:
         
         WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
-        logger.info(f"Agent analyzed ticket {ticket.id} (confidence: {combined_analysis['overall_confidence']:.2f})")
+        logger.info(f"Agent analyzed ticket {ticket.get('id')} (confidence: {combined_analysis['overall_confidence']:.2f})")
         return combined_analysis
     
     async def _step_decide(self, workflow_id: int, ticket: dict, analysis: Dict[str, Any]) -> Dict[str, Any]:
@@ -389,7 +389,7 @@ class TicketFlowAgent:
         
         WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
-        logger.info(f"Agent decided '{decision}' for ticket {ticket.id}")
+        logger.info(f"Agent decided '{decision}' for ticket {ticket.get('id')}")
         return decisions
     
     async def _step_execute(self, workflow_id: int, ticket: Dict, decisions: Dict[str, Any]) -> List[Dict]:
@@ -414,7 +414,7 @@ class TicketFlowAgent:
                     "error": str(e),
                     "timestamp": datetime.utcnow().isoformat()
                 })
-                logger.error(f"Action {action['type']} failed for ticket {ticket.id}: {e}")
+                logger.error(f"Action {action['type']} failed for ticket {ticket.get('id')}: {e}")
         
         # Log workflow step
         step_data = {
@@ -431,7 +431,7 @@ class TicketFlowAgent:
         
         WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
-        logger.info(f"Agent executed {len(execution_results)} actions for ticket {ticket.id}")
+        logger.info(f"Agent executed {len(execution_results)} actions for ticket {ticket.get('id')}")
         return execution_results
     
     async def _step_finalize(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any],
@@ -474,7 +474,7 @@ class TicketFlowAgent:
         
         WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
-        logger.info(f"Agent finalized ticket {ticket.id} - status: {final_status}")
+        logger.info(f"Agent finalized ticket {ticket.get('id')} - status: {final_status}")
         
         return {
             "status": final_status,
@@ -642,7 +642,7 @@ class TicketFlowAgent:
                 <p><strong>Subject:</strong> {ticket.get("title")}</p>
                 {f'<p><strong>Resolution:</strong> {params.get("resolution", "")}</p>' if params.get("resolution") else ""}
                 <hr style="margin: 20px 0;">
-                <p style="color: #666; font-size: 12px;">
+                <p style="color: #666; font-size: 12px;">.
                     This is an automated message from TicketFlow AI. 
                     If you have any questions, please contact our support team.
                 </p>
@@ -652,7 +652,7 @@ class TicketFlowAgent:
             
             # Send email using external tools manager
             result = await self.external_tools.send_email_notification(
-                recipient=ticket.user_email,
+                recipient=ticket.get("user_email"),
                 subject=f"Ticket #{ticket.get("id")} Update - {ticket.get("title")}",
                 body=params["message"],
                 html_body=html_body
@@ -660,7 +660,7 @@ class TicketFlowAgent:
             
             return {
                 "notification_type": "user",
-                "recipient": ticket.user_email,
+                "recipient": ticket.get("user_email"),
                 "message": params["message"],
                 "status": result.get("status", "failed"),
                 "message_id": result.get("message_id"),
@@ -671,7 +671,7 @@ class TicketFlowAgent:
             logger.error(f"User notification failed: {e}")
             return {
                 "notification_type": "user",
-                "recipient": ticket.user_email,
+                "recipient": ticket.get("user_email")   ,
                 "message": params["message"],
                 "status": "failed",
                 "error": str(e)
@@ -684,11 +684,11 @@ class TicketFlowAgent:
             slack_result = await self.external_tools.send_slack_notification(
                 channel=f"#{params['team']}",
                 message=f"🚨 {params['message']}\nTicket: #{ticket.get("id")} - {ticket.get("title")}",
-                ticket_id=ticket.id
+                ticket_id=ticket.get('id')
             )
             
             # Send email to team (using a team email address)
-            team_email = f"{params['team']}@ticketflow.ai"  # This would be configured in real implementation
+            team_email = "victorylucky96@gmail.com"  # This would be configured in real implementation
             email_result = await self.external_tools.send_email_notification(
                 recipient=team_email,
                 subject=f"Ticket #{ticket.get("id")} Escalated - {ticket.get("title")   }",

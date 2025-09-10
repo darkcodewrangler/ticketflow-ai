@@ -19,6 +19,10 @@ from .models import (
 from .connection import db_manager
 from pytidb.filters import GTE, NE
 logger = logging.getLogger(__name__)
+from ..utils.helpers import get_value
+
+
+
 
 class TicketOperations:
     """
@@ -114,13 +118,7 @@ class TicketOperations:
             # Convert to our expected format - handle both objects and dicts
             similar_tickets = []
             for result in results:
-                # Handle both object attributes and dictionary keys
-                def get_value(obj, key, default=None):
-                    if hasattr(obj, key):
-                        return getattr(obj, key, default)
-                    elif isinstance(obj, dict):
-                        return obj.get(key, default)
-                    return default
+               
                 
                 description = get_value(result, 'description', '')
                 if len(description) > 200:
@@ -153,10 +151,10 @@ class TicketOperations:
         """
      
         # Use the ticket's title and description for search
-        search_query = f"{ticket.title} {ticket.description}"
+        search_query = f"{get_value(ticket, 'title', '')} {get_value(ticket, 'description', '')}"
         
         # Exclude the source ticket from results
-        filters = {"id": {NE: ticket.id}}
+        filters = {"id": {NE: get_value(ticket, 'id', '')}}
         #  TODO: fix this  "Failed to find similar tickets: 'dict' object has no attribute 'title'"
         return TicketOperations.find_similar_tickets(
             search_query, 
@@ -249,18 +247,13 @@ class KnowledgeBaseOperations:
             results = db_manager.kb_articles.search(
                 query,
                 search_type='hybrid'      
-            ).vector_column('content_vector').text_column('content').limit(limit).filter(filters).to_list()
+            ).vector_column('content_vector').text_column('title').limit(limit).filter(filters).to_list()
             
             # Convert to our format - handle both objects and dicts
             articles = []
             for result in results:
                 # Handle both object attributes and dictionary keys
-                def get_value(obj, key, default=None):
-                    if hasattr(obj, key):
-                        return getattr(obj, key, default)
-                    elif isinstance(obj, dict):
-                        return obj.get(key, default)
-                    return default
+               
                 
                 content = get_value(result, 'content', '')
                 if len(content) > 300:
@@ -317,10 +310,10 @@ class KnowledgeBaseOperations:
             
             article = articles[0]
             # Handle the case where attributes might be dict keys instead of attributes
-            usage_count = getattr(article, 'usage_in_resolutions', 0) if hasattr(article, 'usage_in_resolutions') else article.get('usage_in_resolutions', 0)
-            view_count = getattr(article, 'view_count', 0) if hasattr(article, 'view_count') else article.get('view_count', 0)
-            helpful_votes = getattr(article, 'helpful_votes', 0) if hasattr(article, 'helpful_votes') else article.get('helpful_votes', 0)
-            unhelpful_votes = getattr(article, 'unhelpful_votes', 0) if hasattr(article, 'unhelpful_votes') else article.get('unhelpful_votes', 0)
+            usage_count = get_value(article, 'usage_in_resolutions', 0) 
+            view_count = get_value(article, 'view_count', 0) 
+            helpful_votes = get_value(article, 'helpful_votes', 0) 
+            unhelpful_votes = get_value(article, 'unhelpful_votes', 0) 
             
             # Update usage stats
             updates = {
@@ -384,10 +377,7 @@ class WorkflowOperations:
             step_data["timestamp"] = datetime.utcnow().isoformat()
             
             # Update workflow steps - handle both objects and dicts
-            if hasattr(workflow, 'workflow_steps'):
-                current_steps = workflow.workflow_steps or []
-            else:
-                current_steps = workflow.get('workflow_steps', [])
+            current_steps = get_value(workflow, 'workflow_steps', [])
             
             current_steps.append(step_data)
             
@@ -449,7 +439,7 @@ class AnalyticsOperations:
             processing = 0
             
             for t in today_tickets:
-                status = getattr(t, 'status', None) if hasattr(t, 'status') else t.get('status')
+                status = get_value(t, 'status', None) 
                 if status == TicketStatus.RESOLVED.value:
                     auto_resolved_today += 1
                 elif status == TicketStatus.PROCESSING.value:
@@ -465,7 +455,7 @@ class AnalyticsOperations:
             if resolved_tickets:
                 confidences = []
                 for t in resolved_tickets:
-                    confidence = getattr(t, 'agent_confidence', 0) if hasattr(t, 'agent_confidence') else t.get('agent_confidence', 0)
+                    confidence = get_value(t, 'agent_confidence', 0) 
                     if confidence > 0:
                         confidences.append(confidence)
                 
@@ -513,9 +503,9 @@ class AnalyticsOperations:
             categories = {}
             for ticket in day_tickets:
                 # Handle both object attributes and dictionary keys
-                resolution_type = getattr(ticket, 'resolution_type', None) if hasattr(ticket, 'resolution_type') else ticket.get('resolution_type')
-                status = getattr(ticket, 'status', None) if hasattr(ticket, 'status') else ticket.get('status')
-                category = getattr(ticket, 'category', 'general') if hasattr(ticket, 'category') else ticket.get('category', 'general')
+                resolution_type = get_value(ticket, 'resolution_type', None) 
+                status = get_value(ticket, 'status', None) 
+                category = get_value(ticket, 'category', 'general') 
                 
                 if resolution_type == ResolutionType.AUTOMATED.value:
                     auto_resolved += 1
