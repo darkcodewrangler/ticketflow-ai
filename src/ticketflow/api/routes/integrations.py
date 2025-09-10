@@ -2,21 +2,23 @@
 Integration API routes for external platform webhooks
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from typing import Dict, Any
 import logging
 
 from ...database.operations import TicketOperations
 from ...database.schemas import WebhookTicketRequest, TicketResponse
 from ..dependencies import verify_db_connection
+from ..routes.tickets import should_auto_process, trigger_agent_processing, parse_auto_process_param
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post("/webhook", response_model=TicketResponse)
+@router.post("/webhook")
 async def receive_external_ticket(
     ticket_data: WebhookTicketRequest,
     background_tasks: BackgroundTasks,
+    auto_process: str = Query("true", description="Whether to automatically process the ticket with AI agent (true/false)"),
     _: bool = Depends(verify_db_connection)
 ):
     """
@@ -48,16 +50,34 @@ async def receive_external_ticket(
                 detail="Description or body is required"
             )
         
+        # Parse auto_process parameter
+        auto_process_bool = parse_auto_process_param(auto_process)
+        
+        # Determine if we should auto-process
+        should_process = auto_process_bool and should_auto_process(normalized_data)
+        
         # Create ticket using existing operations
         ticket = TicketOperations.create_ticket(normalized_data)
+        
+        # Trigger agent processing if enabled
+        if should_process:
+            background_tasks.add_task(
+                trigger_agent_processing, 
+                ticket.id, 
+                normalized_data
+            )
+            logger.info(f"🎯 Auto-processing enabled for webhook ticket {ticket.id}")
         
         # Log webhook receipt
         logger.info(
             f"✅ Webhook ticket created: {ticket.id} from {normalized_data['ticket_metadata'].get('platform', 'unknown')} platform"
         )
         
-        # Return created ticket
-        return TicketResponse.model_validate(ticket)
+        # Return created ticket with processing info
+        response_data = TicketResponse.model_validate(ticket).model_dump()
+        response_data["auto_processing"] = should_process
+        
+        return response_data
         
     except HTTPException:
         raise
@@ -72,6 +92,7 @@ async def receive_external_ticket(
 async def receive_external_tickets_batch(
     tickets_data: list[WebhookTicketRequest],
     background_tasks: BackgroundTasks,
+    auto_process: str = Query("true", description="Whether to automatically process the tickets with AI agent (true/false)"),
     _: bool = Depends(verify_db_connection)
 ):
     """
@@ -106,12 +127,28 @@ async def receive_external_tickets_batch(
                     })
                     continue
                 
+                # Parse auto_process parameter
+                auto_process_bool = parse_auto_process_param(auto_process)
+                
+                # Determine if we should auto-process this ticket
+                should_process = auto_process_bool and should_auto_process(normalized_data)
+                
                 # Create ticket
                 ticket = TicketOperations.create_ticket(normalized_data)
+                
+                # Trigger agent processing if enabled
+                if should_process:
+                    background_tasks.add_task(
+                        trigger_agent_processing, 
+                        ticket.id, 
+                        normalized_data
+                    )
+                
                 created_tickets.append({
                     "index": i,
                     "ticket_id": ticket.id,
-                    "title": ticket.title
+                    "title": ticket.title,
+                    "auto_processing": should_process
                 })
                 
             except Exception as e:

@@ -28,6 +28,7 @@ class Config:
     # App settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    DEMO_MODE: bool = os.getenv("DEMO_MODE", "True").lower() == "true"
     def validate(self) -> bool:
         """Check if all required config is present"""
         if not self.TIDB_HOST:
