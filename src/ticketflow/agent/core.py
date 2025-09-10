@@ -10,6 +10,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
 
+from ticketflow.database.schemas import TicketResponse
+
 from ..database import (
     db_manager, 
     TicketOperations, 
@@ -126,6 +128,87 @@ class TicketFlowAgent:
                 "workflow_id": workflow_id
             }
     
+    async def process_existing_ticket(self, ticket_id: int, workflow_id: int) -> Dict[str, Any]:
+        """
+        Process an existing ticket that's already in the database
+        
+        Args:
+            ticket_id: ID of the existing ticket
+            workflow_id: ID of the workflow tracking this processing
+            
+        Returns:
+            Dictionary with processing results and workflow details
+        """
+        workflow_start = time.time()
+        
+        try:
+            # Get the existing ticket from database
+            tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
+            if not tickets:
+                raise ValueError(f"Ticket {ticket_id} not found")
+            
+            ticket = TicketResponse.model_dump(tickets[0])
+            
+            # Step 1: Log that we're processing existing ticket
+            step_data = {
+                "step": AgentStep.INGEST.value,
+                "status": "completed",
+                "message": f"Processing existing ticket {ticket_id}",
+                "data": {
+                    "ticket_id": ticket.get("id"),
+                    "title": ticket.get("title")[:50] + "...",
+                    "category": ticket.get("category"),
+                    "priority": ticket.get("priority")
+                },
+                "duration_ms": 0
+            }
+            WorkflowOperations.update_workflow_step(workflow_id, step_data)
+            
+            # Step 2: Search for similar resolved tickets
+            similar_cases = await self._step_search_similar(workflow_id, ticket)
+            
+            # Step 3: Search knowledge base
+            kb_articles = await self._step_search_kb(workflow_id, ticket)
+            
+            # Step 4: LLM analysis
+            analysis = await self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
+            
+            # Step 5: Decision making
+            decisions = await self._step_decide(workflow_id, ticket, analysis)
+            
+            # Step 6: Execute actions
+            execution_results = await self._step_execute(workflow_id, ticket, decisions)
+            
+            # Step 7: Finalize workflow
+            final_result = await self._step_finalize(
+                workflow_id, ticket, analysis, execution_results, workflow_start
+            )
+            
+            return {
+                "success": True,
+                "ticket_id": ticket.id,
+                "workflow_id": workflow_id,
+                "final_status": final_result["status"],
+                "confidence": final_result["confidence"],
+                "resolution": final_result.get("resolution"),
+                "processing_time_ms": final_result["total_duration_ms"],
+                "actions_taken": execution_results
+            }
+            
+        except Exception as e:
+            logger.error(f"Agent processing failed: {e}")
+            
+            if workflow_id:
+                # Log error in workflow
+                await self._log_workflow_error(workflow_id, str(e))
+            
+            return {
+                "success": False,
+                "error": str(e),
+                "ticket_id": ticket_id,
+                "workflow_id": workflow_id
+            }
+    
     async def _step_ingest(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
         """Step 1: Ingest and index the ticket"""
         step_start = time.time()
@@ -156,12 +239,12 @@ class TicketFlowAgent:
             "workflow_id": workflow.id
         }
     
-    async def _step_search_similar(self, workflow_id: int, ticket: Ticket) -> List[Dict]:
+    async def _step_search_similar(self, workflow_id: int, ticket: dict) -> List[Dict]:
         """Step 2: Search for similar resolved tickets"""
         step_start = time.time()
         
         # Use PyTiDB's intelligent search
-        search_query = f"{ticket.title} {ticket.description}"
+        search_query = f"{ticket.get("title")} {ticket.get("description")}"
         similar_tickets = TicketOperations.find_similar_tickets(
             search_query, 
             limit=self.config.max_similar_tickets,
@@ -183,18 +266,18 @@ class TicketFlowAgent:
         
         WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
-        logger.info(f"Agent found {len(similar_tickets)} similar tickets for {ticket.id}")
+        logger.info(f"Agent found {len(similar_tickets)} similar tickets for {ticket.get("id")}")
         return similar_tickets
     
-    async def _step_search_kb(self, workflow_id: int, ticket: Ticket) -> List[Dict]:
+    async def _step_search_kb(self, workflow_id: int, ticket: dict) -> List[Dict]:
         """Step 3: Search knowledge base articles"""
         step_start = time.time()
         
         # Search KB articles using PyTiDB's hybrid search
-        search_query = f"{ticket.title} {ticket.description}"
+        search_query = f"{ticket.get("title")} {ticket.get("description")}"
         kb_articles = KnowledgeBaseOperations.search_articles(
             search_query,
-            category=ticket.category,  # Category-specific search
+            category=ticket.get("category"),  # Category-specific search
             limit=self.config.max_kb_articles
         )
         
@@ -216,7 +299,7 @@ class TicketFlowAgent:
         logger.info(f"Agent found {len(kb_articles)} KB articles for {ticket.id}")
         return kb_articles
     
-    async def _step_analyze(self, workflow_id: int, ticket: Ticket, 
+    async def _step_analyze(self, workflow_id: int, ticket: dict, 
                            similar_cases: List[Dict], kb_articles: List[Dict]) -> Dict[str, Any]:
         """Step 4: LLM analysis of ticket context"""
         step_start = time.time()
@@ -263,7 +346,7 @@ class TicketFlowAgent:
         logger.info(f"Agent analyzed ticket {ticket.id} (confidence: {combined_analysis['overall_confidence']:.2f})")
         return combined_analysis
     
-    async def _step_decide(self, workflow_id: int, ticket: Ticket, analysis: Dict[str, Any]) -> Dict[str, Any]:
+    async def _step_decide(self, workflow_id: int, ticket: dict, analysis: Dict[str, Any]) -> Dict[str, Any]:
         """Step 5: Decision making based on analysis"""
         step_start = time.time()
         
@@ -309,7 +392,7 @@ class TicketFlowAgent:
         logger.info(f"Agent decided '{decision}' for ticket {ticket.id}")
         return decisions
     
-    async def _step_execute(self, workflow_id: int, ticket: Ticket, decisions: Dict[str, Any]) -> List[Dict]:
+    async def _step_execute(self, workflow_id: int, ticket: Dict, decisions: Dict[str, Any]) -> List[Dict]:
         """Step 6: Execute decided actions"""
         step_start = time.time()
         
@@ -351,7 +434,7 @@ class TicketFlowAgent:
         logger.info(f"Agent executed {len(execution_results)} actions for ticket {ticket.id}")
         return execution_results
     
-    async def _step_finalize(self, workflow_id: int, ticket: Ticket, analysis: Dict[str, Any],
+    async def _step_finalize(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any],
                            execution_results: List[Dict], workflow_start: float) -> Dict[str, Any]:
         """Step 7: Finalize workflow and update metrics"""
         step_start = time.time()
@@ -400,16 +483,16 @@ class TicketFlowAgent:
             "resolution": execution_results
         }
     
-    def _prepare_analysis_context(self, ticket: Ticket, similar_cases: List[Dict], 
+    def _prepare_analysis_context(self, ticket: dict, similar_cases: List[Dict], 
                                 kb_articles: List[Dict]) -> Dict[str, Any]:
         """Prepare context for LLM analysis"""
         return {
             "ticket": {
-                "title": ticket.title,
-                "description": ticket.description,
-                "category": ticket.category,
-                "priority": ticket.priority,
-                "user_type": ticket.user_type
+                "title": ticket.get("title"),
+                "description": ticket.get("description"),
+                "category": ticket.get("category"),
+                "priority": ticket.get("priority"),
+                "user_type": ticket.get("user_type")
             },
             "similar_cases": similar_cases[:5],  # Top 5 most similar
             "kb_articles": kb_articles[:3],      # Top 3 most relevant
@@ -420,7 +503,7 @@ class TicketFlowAgent:
             }
         }
     
-    def _prepare_action_plan(self, decision: str, analysis: Dict[str, Any], ticket: Ticket) -> List[Dict]:
+    def _prepare_action_plan(self, decision: str, analysis: Dict[str, Any], ticket: Dict) -> List[Dict]:
         """Prepare list of actions based on decision"""
         actions = []
         
@@ -459,7 +542,7 @@ class TicketFlowAgent:
                     "parameters": {
                         "reason": "Medium confidence - requires human review",
                         "context": analysis,
-                        "suggested_priority": "high" if ticket.priority == Priority.URGENT.value else "medium"
+                        "suggested_priority": "high" if ticket.get("priority") == Priority.URGENT.value else "medium"
                     }
                 },
                 {
@@ -492,15 +575,15 @@ class TicketFlowAgent:
         
         return actions
     
-    async def _execute_single_action(self, action: Dict, ticket: Ticket, context: Dict) -> Dict:
+    async def _execute_single_action(self, action: Dict, ticket: Dict, context: Dict) -> Dict:
         """Execute a single action"""
         action_type = action["type"]
         params = action["parameters"]
         
         if action_type == "resolve_ticket":
-            return await self._resolve_ticket_action(ticket.id, params)
+            return await self._resolve_ticket_action(ticket.get("id"), params)
         elif action_type == "escalate_ticket":
-            return await self._escalate_ticket_action(ticket.id, params)
+            return await self._escalate_ticket_action(ticket.get("id"), params)
         elif action_type == "notify_user":
             return await self._notify_user_action(ticket, params)
         elif action_type == "notify_team":
@@ -545,7 +628,7 @@ class TicketFlowAgent:
             "reason": params["reason"]
         }
     
-    async def _notify_user_action(self, ticket: Ticket, params: Dict) -> Dict:
+    async def _notify_user_action(self, ticket: Dict, params: Dict) -> Dict:
         """Notify user action using Resend"""
         try:
             # Create HTML email template
@@ -555,8 +638,8 @@ class TicketFlowAgent:
                 <h2 style="color: #2563eb;">TicketFlow AI Update</h2>
                 <p>Hello,</p>
                 <p>{params["message"]}</p>
-                <p><strong>Ticket ID:</strong> {ticket.id}</p>
-                <p><strong>Subject:</strong> {ticket.title}</p>
+                <p><strong>Ticket ID:</strong> {ticket.get("id")}</p>
+                <p><strong>Subject:</strong> {ticket.get("title")}</p>
                 {f'<p><strong>Resolution:</strong> {params.get("resolution", "")}</p>' if params.get("resolution") else ""}
                 <hr style="margin: 20px 0;">
                 <p style="color: #666; font-size: 12px;">
@@ -570,7 +653,7 @@ class TicketFlowAgent:
             # Send email using external tools manager
             result = await self.external_tools.send_email_notification(
                 recipient=ticket.user_email,
-                subject=f"Ticket #{ticket.id} Update - {ticket.title}",
+                subject=f"Ticket #{ticket.get("id")} Update - {ticket.get("title")}",
                 body=params["message"],
                 html_body=html_body
             )
@@ -594,13 +677,13 @@ class TicketFlowAgent:
                 "error": str(e)
             }
     
-    async def _notify_team_action(self, ticket: Ticket, params: Dict) -> Dict:
+    async def _notify_team_action(self, ticket: Dict, params: Dict) -> Dict:
         """Notify team action using Slack and email"""
         try:
             # Send Slack notification
             slack_result = await self.external_tools.send_slack_notification(
                 channel=f"#{params['team']}",
-                message=f"🚨 {params['message']}\nTicket: #{ticket.id} - {ticket.title}",
+                message=f"🚨 {params['message']}\nTicket: #{ticket.get("id")} - {ticket.get("title")}",
                 ticket_id=ticket.id
             )
             
@@ -608,16 +691,16 @@ class TicketFlowAgent:
             team_email = f"{params['team']}@ticketflow.ai"  # This would be configured in real implementation
             email_result = await self.external_tools.send_email_notification(
                 recipient=team_email,
-                subject=f"Ticket #{ticket.id} Escalated - {ticket.title}",
+                subject=f"Ticket #{ticket.get("id")} Escalated - {ticket.get("title")   }",
                 body=f"""
                 {params['message']}
                 
                 Ticket Details:
-                - ID: {ticket.id}
-                - Title: {ticket.title}
-                - Category: {ticket.category}
-                - Priority: {ticket.priority}
-                - User: {ticket.user_email}
+                - ID: {ticket.get("id")}
+                - Title: {ticket.get("title")}
+                - Category: {ticket.get("category")}
+                - Priority: {ticket.get("priority") }
+                - User: {ticket.get("user_email")}
                 
                 Please review and take appropriate action.
                 """
@@ -627,7 +710,7 @@ class TicketFlowAgent:
                 "notification_type": "team",
                 "team": params["team"],
                 "message": params["message"],
-                "ticket_id": ticket.id,
+                "ticket_id": ticket.get("id"),
                 "slack_status": slack_result.get("status", "failed"),
                 "email_status": email_result.get("status", "failed"),
                 "slack_message_id": slack_result.get("message_id"),
@@ -640,7 +723,7 @@ class TicketFlowAgent:
                 "notification_type": "team",
                 "team": params["team"],
                 "message": params["message"],
-                "ticket_id": ticket.id,
+                "ticket_id": ticket.get("id"),
                 "status": "failed",
                 "error": str(e)
             }

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 import logging
 
 from ...database.operations import WorkflowOperations, TicketOperations
-from ...database.schemas import AgentWorkflowResponse
+from ...database.schemas import AgentWorkflowResponse, TicketResponse
 from ..dependencies import verify_db_connection, get_current_user
 
 logger = logging.getLogger(__name__)
@@ -34,35 +34,32 @@ async def process_ticket(
     try:
         # Verify ticket exists
         from ...database.connection import db_manager
-        tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_list()
+        tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
         print(tickets)
         if not tickets:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
-        ticket = tickets[0]
-        return {
-            ticket,
-            tickets
-        }
+        ticket = TicketResponse.model_dump(tickets[0])
+    
         # Create workflow
         workflow = WorkflowOperations.create_workflow(int(request.ticket_id))
         
         # Convert ticket to dict for processing
         ticket_dict = {
-            "id": ticket.id,
-            "title": ticket.title,
-            "description": ticket.description,
-            "category": ticket.category,
-            "priority": ticket.priority,
-            "user_email": ticket.user_email,
-            "user_type": ticket.user_type,
-            "status": ticket.status
+            "id": ticket.get("id"),
+            "title": ticket.get("title")    ,
+            "description": ticket.get("description"),
+            "category": ticket.get("category"),
+            "priority": ticket.get("priority"),
+            "user_email": ticket.get("user_email"),
+            "user_type": ticket.get("user_type"),
+            "status": ticket.get("status")
         }
         
         # Trigger AI processing in background
         background_tasks.add_task(
             _trigger_agent_processing,
-            ticket.id,
+            ticket.get("id"),
             ticket_dict,
             workflow.id
         )
@@ -208,8 +205,8 @@ async def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any],
         # Initialize agent
         agent = TicketFlowAgent()
         
-        # Process the ticket
-        result = await agent.process_ticket(ticket_data)
+        # Process the existing ticket (don't create a new one)
+        result = await agent.process_existing_ticket(ticket_id, workflow_id)
         
         if result.get("success"):
             logger.info(f"✅ AI processing completed for ticket {ticket_id}")

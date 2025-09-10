@@ -151,13 +151,13 @@ class TicketOperations:
         """
         Find tickets similar to a given ticket using its content
         """
-        return [ticket]
+     
         # Use the ticket's title and description for search
         search_query = f"{ticket.title} {ticket.description}"
         
         # Exclude the source ticket from results
         filters = {"id": {NE: ticket.id}}
-        
+        #  TODO: fix this  "Failed to find similar tickets: 'dict' object has no attribute 'title'"
         return TicketOperations.find_similar_tickets(
             search_query, 
             limit=limit, 
