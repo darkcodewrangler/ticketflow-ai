@@ -89,11 +89,20 @@ async def create_sample_data():
     print("=" * 50)
     
     # Connect to database
-    if not db_manager.connect(config.database_url):
+    if not db_manager.connect():
         print("❌ Database connection failed!")
         return
     
-    session = db_manager.get_session()
+    if db_manager.drop_db():
+        print("  🗑️ Dropped existing database (if any)")
+    
+    if db_manager.create_db():
+        print("  🆕 Created new database")
+        
+    if not db_manager.initialize_tables(drop_existing=True):
+        print("❌ Failed to initialize tables")
+        return False
+    
     
     try:
         # Create sample tickets
@@ -104,7 +113,7 @@ async def create_sample_data():
             print(f"Creating ticket {i}: {ticket_data['title'][:50]}...")
             
             ticket_request = TicketCreateRequest(**ticket_data)
-            ticket = await TicketOperations.create_ticket(session, ticket_request)
+            ticket = await TicketOperations.create_ticket(ticket_request)
             created_tickets.append(ticket)
             
             print(f"✅ Created ticket ID {ticket.id}")
@@ -119,7 +128,7 @@ async def create_sample_data():
             print(f"Creating article {i}: {article_data['title'][:50]}...")
             
             article_request = KnowledgeBaseCreateRequest(**article_data)
-            article = await KnowledgeBaseOperations.create_article(session, article_request)
+            article = await KnowledgeBaseOperations.create_article(article_request)
             created_articles.append(article)
             
             print(f"✅ Created article ID {article.id}")
@@ -129,14 +138,14 @@ async def create_sample_data():
         # Test vector search
         print("\n🔍 Testing vector search...")
         test_ticket = created_tickets[0]  # Use first ticket
-        similar_tickets = await TicketOperations.find_similar_tickets(session, test_ticket)
+        similar_tickets = await TicketOperations.find_similar_tickets(test_ticket)
         
         print(f"Similar tickets to '{test_ticket.title}':")
         for similar in similar_tickets[:3]:
             print(f"  - {similar['title'][:50]}... (similarity: {similar['similarity_score']:.3f})")
         
         # Test KB search
-        kb_results = await KnowledgeBaseOperations.search_articles(session, "password reset login")
+        kb_results = await KnowledgeBaseOperations.search_articles("password reset login")
         print(f"\nKB articles for 'password reset login':")
         for result in kb_results[:3]:
             print(f"  - {result['title']} (similarity: {result['similarity_score']:.3f})")
@@ -149,9 +158,9 @@ async def create_sample_data():
         
     except Exception as e:
         print(f"❌ Error creating sample data: {e}")
-        session.rollback()
+        db_manager.close()
     finally:
-        session.close()
+        db_manager.close()
 
 if __name__ == "__main__":
     # Check if OpenAI API key is set

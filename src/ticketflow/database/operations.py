@@ -42,7 +42,7 @@ class TicketOperations:
     Automatic embeddings, vector search, and hybrid search built-in!
     """
     @staticmethod
-    def create_ticket(ticket_data: Dict[str, Any]) -> Ticket:
+    async def create_ticket(ticket_data: Dict[str, Any]) -> Ticket:
         """
         Create a new ticket - PyTiDB automatically generates embeddings!
         
@@ -55,15 +55,15 @@ class TicketOperations:
         try:
             # Create ticket instance
             ticket = Ticket(
-                title=ticket_data.get("title", ""),
-                description=ticket_data.get("description", ""),
-                category=ticket_data.get("category", "general"),
-                priority=ticket_data.get("priority", Priority.MEDIUM.value),
-                status=ticket_data.get("status", TicketStatus.NEW.value),
-                user_id=ticket_data.get("user_id", ""),
-                user_email=ticket_data.get("user_email", ""),
-                user_type=ticket_data.get("user_type", "customer"),
-                ticket_metadata=ticket_data.get("ticket_metadata", {})
+                title=get_value(ticket_data, "title", ""),
+                description=get_value(ticket_data, "description", ""),      
+                category=get_value(ticket_data, "category", "general"),
+                priority=get_value(ticket_data, "priority", Priority.MEDIUM.value),
+                status=get_value(ticket_data, "status", TicketStatus.NEW.value),
+                user_id=get_value(ticket_data, "user_id", ""),
+                user_email=get_value(ticket_data, "user_email", ""),
+                user_type=get_value(ticket_data, "user_type", "customer"),
+                ticket_metadata=get_value(ticket_data, "ticket_metadata", {})
             )
             
             # PyTiDB automatically generates embeddings for title and description!
@@ -77,7 +77,7 @@ class TicketOperations:
             raise
 
     @staticmethod
-    def get_tickets_by_status(status: str, limit: int = 50) -> List[Ticket]:
+    async def get_tickets_by_status(status: str, limit: int = 50) -> List[Ticket]:
         """Get tickets by status using PyTiDB query"""
         try:
             return db_manager.tickets.query(
@@ -90,7 +90,7 @@ class TicketOperations:
             return []
 
     @staticmethod
-    def get_recent_tickets(days: int = 1, limit: int = 100) -> List[Ticket]:
+    async def get_recent_tickets(days: int = 1, limit: int = 100) -> List[Ticket]:
         """Get recent tickets"""
         try:
             since_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
@@ -107,7 +107,8 @@ class TicketOperations:
             return []
 
     @staticmethod
-    def find_similar_tickets(query_text: str, limit: int = 10, include_filters: Dict = None) -> List[Dict]:
+    async def find_similar_tickets(query_text: str, limit: int = 10, include_filters: Dict = None) -> List[Dict]:
+
         """
         Find similar tickets using PyTiDB's built-in hybrid search
         
@@ -172,7 +173,8 @@ class TicketOperations:
             return []
 
     @staticmethod
-    def find_similar_to_ticket(ticket: Ticket, limit: int = 10) -> List[Dict]:
+    async def find_similar_to_ticket(ticket: Ticket, limit: int = 10) -> List[Dict]:
+
         """
         Find tickets similar to a given ticket using its content
         """
@@ -189,7 +191,8 @@ class TicketOperations:
         )
 
     @staticmethod
-    def update_ticket(ticket_id: int, updates: Dict[str, Any]) -> Optional[Ticket]:
+    async def update_ticket(ticket_id: int, updates: Dict[str, Any]) -> Optional[Ticket]:
+
         """Update ticket with new data"""
         try:
             # Add update timestamp
@@ -215,7 +218,8 @@ class TicketOperations:
             return None
 
     @staticmethod
-    def resolve_ticket(ticket_id: int, resolution: str, resolved_by: str = "ai_agent", 
+    async def resolve_ticket(ticket_id: int, resolution: str, resolved_by: str = "ai_agent", 
+
                       confidence: float = 0.0) -> Optional[Ticket]:
         """Mark ticket as resolved"""
         updates = {
@@ -235,18 +239,18 @@ class KnowledgeBaseOperations:
     """
 
     @staticmethod
-    def create_article(article_data: Dict[str, Any]) -> KnowledgeBaseArticle:
+    async def create_article(article_data: Dict[str, Any]) -> KnowledgeBaseArticle:
         """Create KB article - PyTiDB auto-generates embeddings!"""
         try:
             article = KnowledgeBaseArticle(
-                title=article_data.get("title", ""),
-                content=article_data.get("content", ""),
-                summary=article_data.get("summary", ""),
-                category=article_data.get("category", "general"),
-                tags=article_data.get("tags", []),
-                source_url=article_data.get("source_url", ""),
-                source_type=article_data.get("source_type", "manual"),
-                author=article_data.get("author", "")
+                title=get_value(article_data, "title", ""),
+                content=get_value(article_data, "content", ""),
+                summary=get_value(article_data, "summary", ""),
+                category=get_value(article_data, "category", "general"),
+                tags=get_value(article_data, "tags", []),
+                source_url=get_value(article_data, "source_url", ""),
+                source_type=get_value(article_data, "source_type", "manual"),
+                author=get_value(article_data, "author", "")
             )
             
             # PyTiDB automatically generates embeddings for title, content, and summary!
@@ -260,7 +264,7 @@ class KnowledgeBaseOperations:
             raise
 
     @staticmethod
-    def search_articles(query: str, category: str = None, limit: int = 5) -> List[Dict]:
+    async def search_articles(query: str, category: str = None, limit: int = 5) -> List[Dict]:
         """
         Search knowledge base using PyTiDB's intelligent search
         """
@@ -313,7 +317,8 @@ class KnowledgeBaseOperations:
             return []
 
     @staticmethod
-    def get_articles_by_category(category: str, limit: int = 20) -> List[KnowledgeBaseArticle]:
+    async def get_articles_by_category(category: str, limit: int = 20) -> List[KnowledgeBaseArticle]:
+
         """Get articles by category"""
         try:
             return db_manager.kb_articles.query(
@@ -326,7 +331,8 @@ class KnowledgeBaseOperations:
             return []
 
     @staticmethod
-    def update_article_usage(article_id: int, was_helpful: bool = True):
+    async def update_article_usage(article_id: int, was_helpful: bool = True):
+
         """Track article usage and helpfulness"""
         try:
             # Get current article
@@ -369,7 +375,8 @@ class WorkflowOperations:
     """
 
     @staticmethod
-    def create_workflow(ticket_id: int, initial_steps: List[Dict] = None) -> AgentWorkflow:
+    async def create_workflow(ticket_id: int, initial_steps: List[Dict] = None) -> AgentWorkflow:
+
         """Create new agent workflow"""
         try:
             workflow = AgentWorkflow(
@@ -388,7 +395,8 @@ class WorkflowOperations:
             raise
 
     @staticmethod
-    def update_workflow_step(workflow_id: int, step_data: Dict[str, Any]) -> bool:
+    async def update_workflow_step(workflow_id: int, step_data: Dict[str, Any]) -> bool:
+
         """Add step to workflow"""
         try:
             # Get current workflow
@@ -420,7 +428,8 @@ class WorkflowOperations:
             return False
 
     @staticmethod
-    def complete_workflow(workflow_id: int, final_confidence: float = 0.0, 
+    async def complete_workflow(workflow_id: int, final_confidence: float = 0.0, 
+
                          total_duration_ms: int = 0) -> bool:
         """Mark workflow as completed"""
         try:
@@ -449,7 +458,8 @@ class AnalyticsOperations:
     """
 
     @staticmethod
-    def get_dashboard_metrics() -> Dict[str, Any]:
+    async def get_dashboard_metrics() -> Dict[str, Any]:
+
         """Get real-time dashboard metrics"""
         try:
             # Get today's tickets
@@ -509,7 +519,8 @@ class AnalyticsOperations:
             }
 
     @staticmethod
-    def create_daily_metrics(date: str = None) -> PerformanceMetrics:
+    async def create_daily_metrics(date: str = None) -> PerformanceMetrics:
+
         """Create daily performance metrics"""
         target_date = date or datetime.utcnow().date().isoformat()
         
