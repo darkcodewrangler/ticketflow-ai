@@ -11,7 +11,7 @@ from .models import (
     PerformanceMetrics,
     TicketStatus,
     Priority,
-    ResolutionType
+    ResolutionType,WorkflowStatus
 )
 from .operations import (
     TicketOperations,
@@ -35,6 +35,8 @@ __all__ = [
     "TicketStatus",
     "Priority",
     "ResolutionType",
+    "WorkflowStatus",
+
     
     # Operations
     "TicketOperations",

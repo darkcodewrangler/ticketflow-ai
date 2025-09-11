@@ -36,6 +36,12 @@ class ResolutionType(str, Enum):
     HUMAN = "human"
     ESCALATED = "escalated"
 
+class WorkflowStatus(str, Enum):
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
 class Ticket(TableModel):
     """
     AI-Powered Ticket Model with Automatic Embeddings
@@ -128,9 +134,8 @@ class KnowledgeBaseArticle(TableModel):
     summary: str = FullTextField(default="",description="Article summary - also auto-embedded")
     title_vector: Optional[list[float]] = text_embed.VectorField(source_field='title', description="Vector embedding for title")
     content_vector: Optional[list[float]] = text_embed.VectorField(source_field='content', description="Vector embedding for content")
-    summary_vector: Optional[list[float]] = text_embed.VectorField(source_field='summary', description="Vector embedding for summary")
-    
-    @field_serializer('title_vector', 'content_vector', 'summary_vector')
+
+    @field_serializer('title_vector', 'content_vector')
     def serialize_vector(self, value: Any) -> Optional[List[float]]:
         """Convert numpy arrays to lists for JSON serialization"""
         if value is None:

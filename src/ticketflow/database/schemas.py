@@ -8,31 +8,11 @@ from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
-
+from models import ResolutionType, Priority, TicketStatus
 # Enums (matching database models)
-class TicketStatusEnum(str, Enum):
-    NEW = "new"
-    PROCESSING = "processing" 
-    RESOLVED = "resolved"
-    ESCALATED = "escalated"
-    CLOSED = "closed"
 
-class PriorityEnum(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    URGENT = "urgent"
 
-class ResolutionTypeEnum(str, Enum):
-    AUTOMATED = "automated"
-    HUMAN = "human"
-    ESCALATED = "escalated"
 
-class WorkflowStatusEnum(str, Enum):
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
 
 # Request schemas (data coming into API)
 class TicketCreateRequest(BaseModel):
@@ -40,7 +20,7 @@ class TicketCreateRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=500, description="Ticket title")
     description: str = Field(..., min_length=1, description="Detailed ticket description")
     category: str = Field(..., min_length=1, max_length=100, description="Ticket category")
-    priority: PriorityEnum = Field(default=PriorityEnum.MEDIUM, description="Ticket priority level")
+    priority: Priority = Field(default=Priority.MEDIUM, description="Ticket priority level")
     user_id: Optional[str] = Field(None, max_length=100, description="User identifier")
     user_email: Optional[EmailStr] = Field(None, description="User email address")
     user_type: str = Field(default="customer", max_length=50, description="Type of user")
@@ -69,8 +49,8 @@ class TicketUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=500)
     description: Optional[str] = Field(None, min_length=1)
     category: Optional[str] = Field(None, min_length=1, max_length=100)
-    priority: Optional[PriorityEnum] = None
-    status: Optional[TicketStatusEnum] = None
+    priority: Optional[Priority] = None
+    status: Optional[TicketStatus] = None
     resolution: Optional[str] = None
     ticket_metadata: Optional[Dict[str, Any]] = None
 
