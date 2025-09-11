@@ -113,7 +113,7 @@ class TicketOperations:
                 searchQuery= db_manager.tickets.search(
                     query_text,
                     search_type='hybrid', 
-                ).vector_column('description_vector').text_column('description').distance_threshold(0.5).filter(filters)
+                ).vector_column('description_vector').text_column('title').distance_range(lower_bound=0.4).filter(filters)
 
 
                 if OperationsUtils.reranker is not None:

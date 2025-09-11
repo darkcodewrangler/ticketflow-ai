@@ -53,7 +53,7 @@ class KnowledgeBaseOperations:
                 search_type='hybrid'      
             ).vector_column('content_vector').text_column('title').limit(limit).filter(filters)
             if OperationsUtils.reranker is not None:
-                searchQuery = searchQuery.rerank(OperationsUtils.reranker,'title').rerank(OperationsUtils.reranker,'content_vector').distance_threshold(0.5)
+                searchQuery = searchQuery.rerank(OperationsUtils.reranker,'title').rerank(OperationsUtils.reranker,'content_vector').distance_range(0.4)
 
 
             results=searchQuery.to_list()
