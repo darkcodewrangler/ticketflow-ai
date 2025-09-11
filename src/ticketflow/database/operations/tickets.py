@@ -18,7 +18,7 @@ from ticketflow.database.models import (
 from ticketflow.database.connection import db_manager
 from pytidb.filters import GTE, NE
 logger = logging.getLogger(__name__)
-from ticketflow.utils.helpers import get_isoformat, get_value,get_utcnow, utcnow
+from ticketflow.utils.helpers import get_isoformat, get_value,utcnow
 
 
 

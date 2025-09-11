@@ -98,7 +98,7 @@ async def create_ticket(
         should_process = auto_process_bool and should_auto_process(ticket_dict)
         
         # Create the ticket
-        ticket = TicketOperations.create_ticket(ticket_dict)
+        ticket = await TicketOperations.create_ticket(ticket_dict)
         
         # Trigger agent processing if enabled
         if should_process:
@@ -120,7 +120,7 @@ async def create_ticket(
         raise HTTPException(status_code=500, detail=f"Failed to create ticket: {str(e)}")
 
 @router.get("/", response_model=List[TicketResponse])
-def get_tickets(
+async def get_tickets(
     status: Optional[str] = Query(None, description="Filter tickets by status"),
     limit: int = Query(50, ge=1, le=100, description="Number of tickets to return"),
     _: bool = Depends(verify_db_connection)
@@ -128,29 +128,30 @@ def get_tickets(
     """Get tickets, optionally filtered by status"""
     try:
         if status:
-            tickets = TicketOperations.get_tickets_by_status(status, int(limit))
+            tickets = await TicketOperations.get_tickets_by_status(status, int(limit))
         else:
-            tickets = TicketOperations.get_recent_tickets(limit=int(limit))
+            tickets = await TicketOperations.get_recent_tickets(limit=int(limit))
         
         return [TicketResponse.model_validate(ticket) for ticket in tickets]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get tickets: {str(e)}")
 
 @router.get("/recent", response_model=List[TicketResponse])
-def get_recent_tickets(
+async def get_recent_tickets(
     days: int = Query(7, ge=1, le=30, description="Number of days to look back"),
     limit: int = Query(100, ge=1, le=100, description="Number of tickets to return"),
     _: bool = Depends(verify_db_connection)
 ):
     """Get recent tickets"""
     try:
-        tickets = TicketOperations.get_recent_tickets(int(days), int(limit))
+        tickets = await TicketOperations.get_recent_tickets(int(days), int(limit))
+
         return [TicketResponse.model_validate(ticket) for ticket in tickets]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recent tickets: {str(e)}")
 
 @router.get("/{ticket_id}", response_model=TicketResponse)
-def get_ticket(
+async def get_ticket(
     ticket_id: int,
     _: bool = Depends(verify_db_connection)
 ):
@@ -186,7 +187,7 @@ async def get_similar_tickets(
         
         ticket = TicketResponse.model_dump(tickets[0])
       
-        similar_tickets = TicketOperations.find_similar_to_ticket(ticket, int(limit))
+        similar_tickets = await TicketOperations.find_similar_to_ticket(ticket, int(limit))
         
         return similar_tickets
     except HTTPException:

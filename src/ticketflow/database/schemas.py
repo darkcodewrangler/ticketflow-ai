@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
-from models import ResolutionType, Priority, TicketStatus
+from .models import ResolutionType, Priority, TicketStatus
 # Enums (matching database models)
 
 

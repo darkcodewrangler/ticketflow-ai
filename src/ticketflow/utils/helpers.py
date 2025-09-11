@@ -23,3 +23,4 @@ def get_isoformat(dt: datetime.datetime = utcnow()) -> str:
     Get datetime as string
     """
     return dt.isoformat()
+

@@ -18,13 +18,13 @@ async def create_article(
 ):
     """Create a new knowledge base article"""
     try:
-        article = KnowledgeBaseOperations.create_article(article_data.dict())
+        article = await KnowledgeBaseOperations.create_article(article_data.dict())
         return KnowledgeBaseResponse.model_validate(article)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create article: {str(e)}")
 
 @router.get("/articles", response_model=List[KnowledgeBaseResponse])
-def get_articles(
+async def get_articles(
     category: Optional[str] = Query(None, description="Filter by category"),
     limit: int = Query(50, ge=1, le=100, description="Number of articles to return"),
     _: bool = Depends(verify_db_connection)
@@ -32,7 +32,7 @@ def get_articles(
     """Get knowledge base articles"""
     try:
         if category:
-            articles = KnowledgeBaseOperations.get_articles_by_category(category, int(limit))
+            articles = await KnowledgeBaseOperations.get_articles_by_category(category, int(limit))
         else:
             # Get all articles (we'll implement this method)
             from ...database.connection import db_manager
@@ -46,7 +46,7 @@ def get_articles(
         raise HTTPException(status_code=500, detail=f"Failed to get articles: {str(e)}")
 
 @router.get("/articles/{article_id}", response_model=KnowledgeBaseResponse)
-def get_article(
+async def get_article(
     article_id: int,
     _: bool = Depends(verify_db_connection)
 ):
@@ -77,7 +77,7 @@ async def search_articles(
         if not query.strip():
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
-        results = KnowledgeBaseOperations.search_articles(query, category, int(limit))
+        results = await KnowledgeBaseOperations.search_articles(query, category, int(limit))
         
         return results
     except HTTPException:

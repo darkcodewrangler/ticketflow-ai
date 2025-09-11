@@ -42,7 +42,7 @@ async def process_ticket(
         ticket = TicketResponse.model_dump(tickets[0])
     
         # Create workflow
-        workflow = WorkflowOperations.create_workflow(int(request.ticket_id))
+        workflow = await WorkflowOperations.create_workflow(int(request.ticket_id))
         
         # Convert ticket to dict for processing
         ticket_dict = {
@@ -176,7 +176,7 @@ async def complete_workflow(
 ):
     """Mark a workflow as completed"""
     try:
-        success = WorkflowOperations.complete_workflow(int(workflow_id), float(confidence))
+        success = await WorkflowOperations.complete_workflow(int(workflow_id), float(confidence))
         
         if not success:
             raise HTTPException(status_code=404, detail="Workflow not found")
@@ -217,7 +217,7 @@ async def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any],
         logger.error(f"❌ AI processing error for ticket {ticket_id}: {e}")
         # Update workflow with error
         try:
-            WorkflowOperations.update_workflow_step(workflow_id, {
+           await WorkflowOperations.update_workflow_step(workflow_id, {
                 "step": "error",
                 "status": "failed",
                 "message": f"AI processing failed: {str(e)}",

@@ -12,13 +12,13 @@ from ..dependencies import verify_db_connection
 router = APIRouter()
 
 @router.post("/", response_model=AgentWorkflowResponse)
-def create_workflow(
+async def create_workflow(
     ticket_id: int,
     _: bool = Depends(verify_db_connection)
 ):
     """Create a new agent workflow for a ticket"""
     try:
-        workflow = WorkflowOperations.create_workflow(int(ticket_id))
+        workflow = await WorkflowOperations.create_workflow(int(ticket_id))
         return AgentWorkflowResponse.model_validate(workflow)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create workflow: {str(e)}")
@@ -65,14 +65,14 @@ def get_workflows_for_ticket(
         raise HTTPException(status_code=500, detail=f"Failed to get workflows: {str(e)}")
 
 @router.put("/{workflow_id}/step")
-def update_workflow_step(
+async def update_workflow_step(
     workflow_id: int,
     step_data: Dict[str, Any],
     _: bool = Depends(verify_db_connection)
 ):
     """Add a step to a workflow"""
     try:
-        success = WorkflowOperations.update_workflow_step(int(workflow_id), step_data)
+        success = await WorkflowOperations.update_workflow_step(int(workflow_id), step_data)
         if success:
             return {"message": "Step added successfully"}
         else:

@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 
+from ticketflow.utils.helpers import get_isoformat, get_value, utcnow
+
 from ...database.operations import AnalyticsOperations
 from ...database.schemas import DashboardMetricsResponse
 from ..dependencies import verify_db_connection
@@ -20,11 +22,11 @@ async def get_dashboard_metrics(
 ):
     """Get current dashboard metrics and KPIs"""
     try:
-        metrics = AnalyticsOperations.get_dashboard_metrics()
+        metrics = await AnalyticsOperations.get_dashboard_metrics()
         return DashboardMetricsResponse(**metrics)
     except Exception as e:
         raise HTTPException(
-            status_code=500, 
+            status_code=500,    
             detail=f"Failed to get dashboard metrics: {str(e)}"
         )
 
@@ -36,10 +38,10 @@ async def get_daily_performance(
 ):
     """Get daily performance metrics"""
     try:
-        target_date = date or datetime.utcnow().date().isoformat()
+        target_date = date or get_isoformat(utcnow().date())
         
         # Use the existing create_daily_metrics method
-        metrics = AnalyticsOperations.create_daily_metrics(target_date)
+        metrics = await AnalyticsOperations.create_daily_metrics(target_date)
         
         return {
             "date": target_date,
@@ -65,7 +67,8 @@ async def get_performance_summary(
 ):
     """Get performance summary - simplified version"""
     try:
-        dashboard_metrics = AnalyticsOperations.get_dashboard_metrics()
+        dashboard_metrics = await AnalyticsOperations.get_dashboard_metrics()
+
         
         return {
             "summary": "Performance overview",
@@ -122,8 +125,8 @@ async def get_basic_stats(
         status_breakdown = {}
         
         for ticket in tickets:
-            priority = getattr(ticket, 'priority', 'medium') if hasattr(ticket, 'priority') else ticket.get('priority', 'medium')
-            status = getattr(ticket, 'status', 'new') if hasattr(ticket, 'status') else ticket.get('status', 'new')
+            priority = get_value(ticket, 'priority', 'medium')
+            status = get_value(ticket, 'status', 'new')
             
             priority_breakdown[priority] = priority_breakdown.get(priority, 0) + 1
             status_breakdown[status] = status_breakdown.get(status, 0) + 1
