@@ -1,5 +1,5 @@
 
-from ...config import config
+from ticketflow.config import config
 from pytidb.rerankers import Reranker
 
 class OperationsUtils:

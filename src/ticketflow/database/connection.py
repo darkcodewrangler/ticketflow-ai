@@ -6,8 +6,8 @@ Handles database connections and table initialization
 from pytidb import TiDBClient,Table
 from typing import Optional, Dict, Any
 import logging
-from ..config import config
-from .models import Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics
+from ticketflow.config import config
+from ticketflow.database.models import Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics
 
 logger = logging.getLogger(__name__)
 

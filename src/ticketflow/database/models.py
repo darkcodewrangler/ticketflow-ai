@@ -12,10 +12,11 @@ from typing import Optional, List, Dict, Any
 from enum import Enum
 import numpy as np
 from pydantic import field_serializer
+from ticketflow.config import config
 
-from ..config import config
 
-text_embed = EmbeddingFunction(model_name='jina_ai/jina-embeddings-v4')
+text_embed = EmbeddingFunction(model_name='jina_ai/jina-embeddings-v4',api_key=config.JINA_API_KEY)
+
 
 # Enums for data consistency
 class TicketStatus(str, Enum):

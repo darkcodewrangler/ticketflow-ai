@@ -3,8 +3,8 @@ PyTiDB package for TicketFlow AI
 AI-powered database operations with automatic embeddings and intelligent search
 """
 
-from .connection import db_manager, PyTiDBManager
-from .models import (
+from ticketflow.database.connection import db_manager, PyTiDBManager
+from ticketflow.database.models import (
     Ticket, 
     KnowledgeBaseArticle, 
     AgentWorkflow, 
@@ -13,7 +13,7 @@ from .models import (
     Priority,
     ResolutionType,WorkflowStatus
 )
-from .operations import (
+from ticketflow.database.operations import (
     TicketOperations,
     KnowledgeBaseOperations,
     WorkflowOperations,

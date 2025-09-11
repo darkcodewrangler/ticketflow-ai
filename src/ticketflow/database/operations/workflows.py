@@ -3,7 +3,8 @@ import datetime
 from ticketflow.database.connection import db_manager
 from ticketflow.database.models import AgentWorkflow
 from ticketflow.utils.helpers import get_value
-
+import logging
+logger = logging.getLogger(__name__)
 
 class WorkflowOperations:
     """

@@ -4,21 +4,21 @@ Leverages automatic embeddings and built-in search capabilities
 """
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import  timedelta
 import logging
 
 from ticketflow.database.operations.utils import OperationsUtils
 
-from ..models import (
+from ticketflow.database.models import (
     Ticket, 
     TicketStatus,
     Priority,
     ResolutionType
 )
-from ..connection import db_manager
+from ticketflow.database.connection import db_manager
 from pytidb.filters import GTE, NE
 logger = logging.getLogger(__name__)
-from ...utils.helpers import get_value
+from ticketflow.utils.helpers import get_isoformat, get_value,get_utcnow, utcnow
 
 
 
@@ -80,7 +80,7 @@ class TicketOperations:
     async def get_recent_tickets(days: int = 1, limit: int = 100) -> List[Ticket]:
         """Get recent tickets"""
         try:
-            since_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+            since_date = get_isoformat(utcnow() - timedelta(days=days))
             
             # PyTiDB query with date filter
             return db_manager.tickets.query(
@@ -183,7 +183,7 @@ class TicketOperations:
         """Update ticket with new data"""
         try:
             # Add update timestamp
-            updates["updated_at"] = datetime.utcnow().isoformat()
+            updates["updated_at"] = get_isoformat()
             
             # Update using PyTiDB
             db_manager.tickets.update(
@@ -213,7 +213,7 @@ class TicketOperations:
             "resolved_by": resolved_by,
             "resolution_type": ResolutionType.AUTOMATED.value,
             "agent_confidence": confidence,
-            "resolved_at": datetime.utcnow().isoformat()
+            "resolved_at": get_isoformat()
         }
         
         return TicketOperations.update_ticket(ticket_id, updates)

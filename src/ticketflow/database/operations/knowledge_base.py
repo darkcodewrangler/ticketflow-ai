@@ -1,8 +1,5 @@
-"""
-Knowledge base operations with PyTiDB AI features
-"""
-
-
+import logging
+logger = logging.getLogger(__name__)
 class KnowledgeBaseOperations:
     """
     Knowledge base operations with PyTiDB AI features
