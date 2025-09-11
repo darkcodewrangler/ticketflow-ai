@@ -2,6 +2,12 @@
 
 import logging
 from typing import Any, Dict
+
+from pytidb.filters import GTE
+
+from ticketflow.database.connection import db_manager
+from ticketflow.database.models import PerformanceMetrics, ResolutionType, TicketStatus
+from ticketflow.utils.helpers import get_isoformat, get_value, utcnow
 logger = logging.getLogger(__name__)
 class AnalyticsOperations:
     """
@@ -14,7 +20,7 @@ class AnalyticsOperations:
         """Get real-time dashboard metrics"""
         try:
             # Get today's tickets
-            today = datetime.utcnow().date().isoformat()
+            today = get_isoformat(utcnow().date())
             today_tickets = db_manager.tickets.query(
                 filters={"created_at": {GTE: today}},
                 limit=1000  # Reasonable limit for today
@@ -73,7 +79,7 @@ class AnalyticsOperations:
     async def create_daily_metrics(date: str = None) -> PerformanceMetrics:
 
         """Create daily performance metrics"""
-        target_date = date or datetime.utcnow().date().isoformat()
+        target_date = date or get_isoformat(utcnow().date())
         
         try:
             # Get tickets for the day

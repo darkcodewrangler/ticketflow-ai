@@ -12,17 +12,17 @@ from enum import Enum
 
 from ticketflow.database.schemas import TicketResponse
 
-from ..database import (
+from ticketflow.database import (
     db_manager, 
     TicketOperations, 
     KnowledgeBaseOperations,
     WorkflowOperations,
-    Ticket,
     TicketStatus,
     Priority
 )
+from ticketflow.utils.helpers import get_isoformat
 from .llm_client import LLMClient
-from ..external_tools_manager import ExternalToolsManager
+from ticketflow.external_tools_manager import ExternalToolsManager
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class TicketFlowAgent:
                 },
                 "duration_ms": 0
             }
-            WorkflowOperations.update_workflow_step(workflow_id, step_data)
+            await WorkflowOperations.update_workflow_step(workflow_id, step_data)
             
             # Step 2: Search for similar resolved tickets
             similar_cases = await self._step_search_similar(workflow_id, ticket)
@@ -214,7 +214,7 @@ class TicketFlowAgent:
         step_start = time.time()
         
         # Create ticket (PyTiDB auto-generates embeddings)
-        ticket = TicketOperations.create_ticket(ticket_data)
+        ticket = await TicketOperations.create_ticket(ticket_data)
         
         # Create workflow tracking
         initial_step = {
@@ -230,7 +230,7 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        workflow = WorkflowOperations.create_workflow(ticket.get('id'), [initial_step])
+        workflow = await WorkflowOperations.create_workflow(ticket.get('id'), [initial_step])
         
         logger.info(f"Agent ingested ticket {ticket.get('id')}")
         
@@ -245,7 +245,7 @@ class TicketFlowAgent:
         
         # Use PyTiDB's intelligent search
         search_query = f"{ticket.get("title")} {ticket.get("description")}"
-        similar_tickets = TicketOperations.find_similar_tickets(
+        similar_tickets = await TicketOperations.find_similar_tickets(
             search_query, 
             limit=self.config.max_similar_tickets,
             include_filters={"status": TicketStatus.RESOLVED.value}
@@ -264,7 +264,7 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent found {len(similar_tickets)} similar tickets for {ticket.get("id")}")
         return similar_tickets
@@ -275,7 +275,7 @@ class TicketFlowAgent:
         
         # Search KB articles using PyTiDB's hybrid search
         search_query = f"{ticket.get("title")} {ticket.get("description")}"
-        kb_articles = KnowledgeBaseOperations.search_articles(
+        kb_articles = await KnowledgeBaseOperations.search_articles(
             search_query,
             category=ticket.get("category"),  # Category-specific search
             limit=self.config.max_kb_articles
@@ -294,7 +294,7 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent found {len(kb_articles)} KB articles for {ticket.get('id')}")
         return kb_articles
@@ -341,7 +341,7 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent analyzed ticket {ticket.get('id')} (confidence: {combined_analysis['overall_confidence']:.2f})")
         return combined_analysis
@@ -387,7 +387,7 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent decided '{decision}' for ticket {ticket.get('id')}")
         return decisions
@@ -405,14 +405,14 @@ class TicketFlowAgent:
                     "action": action["type"],
                     "status": "success",
                     "result": result,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": get_isoformat()
                 })
             except Exception as e:
                 execution_results.append({
                     "action": action["type"],
                     "status": "failed", 
                     "error": str(e),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": get_isoformat()
                 })
                 logger.error(f"Action {action['type']} failed for ticket {ticket.get('id')}: {e}")
         
@@ -429,13 +429,12 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent executed {len(execution_results)} actions for ticket {ticket.get('id')}")
         return execution_results
     
-    async def _step_finalize(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any],
-                           execution_results: List[Dict], workflow_start: float) -> Dict[str, Any]:
+    async def _step_finalize(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any],execution_results: List[Dict], workflow_start: float) -> Dict[str, Any]:
         """Step 7: Finalize workflow and update metrics"""
         step_start = time.time()
         
@@ -452,7 +451,7 @@ class TicketFlowAgent:
             final_status = TicketStatus.PROCESSING.value
         
         # Update workflow completion
-        WorkflowOperations.complete_workflow(
+        await WorkflowOperations.complete_workflow(
             workflow_id,
             final_confidence=analysis["overall_confidence"],
             total_duration_ms=total_duration
@@ -472,7 +471,7 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent finalized ticket {ticket.get('id')} - status: {final_status}")
         
@@ -595,7 +594,7 @@ class TicketFlowAgent:
     
     async def _resolve_ticket_action(self, ticket_id: int, params: Dict) -> Dict:
         """Resolve ticket action"""
-        resolved_ticket = TicketOperations.resolve_ticket(
+        resolved_ticket =await TicketOperations.resolve_ticket(
             ticket_id,
             resolution=params["resolution"],
             resolved_by="ticketflow_agent",
@@ -616,11 +615,12 @@ class TicketFlowAgent:
                 "escalation_reason": params["reason"],
                 "escalation_context": params.get("context", {}),
                 "escalated_by": "ticketflow_agent",
-                "escalated_at": datetime.utcnow().isoformat()
+                "escalated_at": get_isoformat()
             }
         }
         
-        TicketOperations.update_ticket(ticket_id, updates)
+        await TicketOperations.update_ticket(ticket_id, updates)
+
         
         return {
             "ticket_id": ticket_id,
@@ -649,10 +649,13 @@ class TicketFlowAgent:
             </body>
             </html>
             """
-            
+            # user_email=ticket.get("user_email")
+            user_email="luckyvictory54@gmail.com"
+
             # Send email using external tools manager
             result = await self.external_tools.send_email_notification(
-                recipient=ticket.get("user_email"),
+                recipient=user_email,
+
                 subject=f"Ticket #{ticket.get("id")} Update - {ticket.get("title")}",
                 body=params["message"],
                 html_body=html_body
@@ -660,7 +663,7 @@ class TicketFlowAgent:
             
             return {
                 "notification_type": "user",
-                "recipient": ticket.get("user_email"),
+                "recipient": user_email,
                 "message": params["message"],
                 "status": result.get("status", "failed"),
                 "message_id": result.get("message_id"),
@@ -671,7 +674,7 @@ class TicketFlowAgent:
             logger.error(f"User notification failed: {e}")
             return {
                 "notification_type": "user",
-                "recipient": ticket.get("user_email")   ,
+                    "recipient": user_email  ,
                 "message": params["message"],
                 "status": "failed",
                 "error": str(e)
@@ -819,4 +822,4 @@ class TicketFlowAgent:
             "error": error_message
         }
         
-        WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        await WorkflowOperations.update_workflow_step(workflow_id, step_data)

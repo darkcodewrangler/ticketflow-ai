@@ -1,8 +1,9 @@
 
 import datetime
+from typing import Any, Dict, List
 from ticketflow.database.connection import db_manager
-from ticketflow.database.models import AgentWorkflow
-from ticketflow.utils.helpers import get_value
+from ticketflow.database.models import AgentWorkflow, WorkflowStatus
+from ticketflow.utils.helpers import get_isoformat, get_value
 import logging
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class WorkflowOperations:
                 ticket_id=ticket_id,
                 workflow_steps=initial_steps or [],
                 total_duration_ms=0,
-                status="running"
+                status=WorkflowStatus.RUNNING.value
             )
             
             created_workflow = db_manager.agent_workflows.insert(workflow)
@@ -45,7 +46,7 @@ class WorkflowOperations:
             workflow = workflows[0]
             
             # Add timestamp to step
-            step_data["timestamp"] = datetime.datetime.now(datetime.UTC).isoformat()
+            step_data["timestamp"] = get_isoformat()
 
             
             # Update workflow steps - handle both objects and dicts
@@ -73,7 +74,7 @@ class WorkflowOperations:
         try:
             updates = {
                 "status": "completed",
-                "completed_at": datetime.utcnow().isoformat(),
+                "completed_at": get_isoformat(),
                 "final_confidence": final_confidence,
                 "total_duration_ms": total_duration_ms
             }

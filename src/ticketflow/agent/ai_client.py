@@ -1,5 +1,6 @@
 from openai import OpenAI   
-from ..config import config
+from ticketflow.config import config
+
 
 class AIClient:
 
