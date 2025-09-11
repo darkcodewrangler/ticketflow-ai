@@ -4,7 +4,6 @@ Handles database connections and table initialization
 """
 
 from pytidb import TiDBClient,Table
-from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 import logging
 from ..config import config

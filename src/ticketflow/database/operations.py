@@ -18,11 +18,22 @@ from .models import (
 )
 from .connection import db_manager
 from pytidb.filters import GTE, NE
+from pytidb.rerankers import Reranker
 logger = logging.getLogger(__name__)
 from ..utils.helpers import get_value
+from ..config import config
 
 
 
+if config.JINA_API_KEY:
+
+    reranker = Reranker(
+        model_name="jina_ai/jina-reranker-v2-base-multilingual",
+        api_key=config.JINA_API_KEY
+
+    )
+else:
+    reranker = None
 
 class TicketOperations:
     """
@@ -30,7 +41,6 @@ class TicketOperations:
     
     Automatic embeddings, vector search, and hybrid search built-in!
     """
-    
     @staticmethod
     def create_ticket(ticket_data: Dict[str, Any]) -> Ticket:
         """
@@ -109,17 +119,34 @@ class TicketOperations:
             if include_filters:
                 filters.update(include_filters)
             
-            # PyTiDB's built-in hybrid search (vector + full-text + reranking)
-            results = db_manager.tickets.search(
-                query_text,
-                search_type='hybrid', 
-            ).vector_column('description_vector').text_column('title').limit(limit).filter(filters).to_list()
+            # First try with hybrid search (vector + full-text)
+            try:
+                # PyTiDB's built-in hybrid search (vector + full-text + reranking)
+                searchQuery= db_manager.tickets.search(
+                    query_text,
+                    search_type='hybrid', 
+                ).vector_column('description_vector').text_column('description').distance_threshold(0.5).filter(filters)
+
+
+                if reranker is not None:
+                    searchQuery = searchQuery.rerank(reranker,'text')
+                results = searchQuery.limit(limit).to_list();
+                logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
+
+            except Exception as vector_error:
+                # If vector search fails, fall back to text-only search
+                logger.warning(f"Vector search failed, falling back to text search: {vector_error}")
+                results = db_manager.tickets.query(
+                    filters=filters,
+                    limit=limit,
+                    order_by={"created_at": "desc"}
+                ).to_list()
             
             # Convert to our expected format - handle both objects and dicts
             similar_tickets = []
             for result in results:
-               
-                
+                print(result)
+
                 description = get_value(result, 'description', '')
                 if len(description) > 200:
                     description = description[:200] + "..."
@@ -155,7 +182,6 @@ class TicketOperations:
         
         # Exclude the source ticket from results
         filters = {"id": {NE: get_value(ticket, 'id', '')}}
-        #  TODO: fix this  "Failed to find similar tickets: 'dict' object has no attribute 'title'"
         return TicketOperations.find_similar_tickets(
             search_query, 
             limit=limit, 

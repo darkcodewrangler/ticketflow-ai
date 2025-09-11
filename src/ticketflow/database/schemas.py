@@ -1,7 +1,7 @@
 """
 Pydantic schemas for API request/response models
-These define the structure of data going in and out of your API
-Updated to match current PyTiDB models and enhanced functionality
+These define the structure of data going in and out of the API
+Updated to match current PyTiDB models
 """
 
 from pydantic import BaseModel, EmailStr, Field, validator
