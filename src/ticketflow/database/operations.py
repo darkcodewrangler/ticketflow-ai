@@ -130,7 +130,7 @@ class TicketOperations:
 
 
                 if reranker is not None:
-                    searchQuery = searchQuery.rerank(reranker,'text')
+                    searchQuery = searchQuery.rerank(reranker,'description').rerank(reranker,'title')
                 results = searchQuery.limit(limit).to_list();
                 logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
 
@@ -184,7 +184,7 @@ class TicketOperations:
         
         # Exclude the source ticket from results
         filters = {"id": {NE: get_value(ticket, 'id', '')}}
-        return TicketOperations.find_similar_tickets(
+        return await TicketOperations.find_similar_tickets(
             search_query, 
             limit=limit, 
             include_filters=filters
@@ -218,9 +218,7 @@ class TicketOperations:
             return None
 
     @staticmethod
-    async def resolve_ticket(ticket_id: int, resolution: str, resolved_by: str = "ai_agent", 
-
-                      confidence: float = 0.0) -> Optional[Ticket]:
+    async def resolve_ticket(ticket_id: int, resolution: str, resolved_by: str = "ai_agent", confidence: float = 0.0) -> Optional[Ticket]:
         """Mark ticket as resolved"""
         updates = {
             "status": TicketStatus.RESOLVED.value,
@@ -274,11 +272,17 @@ class KnowledgeBaseOperations:
                 filters["category"] = category
             
             # PyTiDB's built-in hybrid search on KB articles
-            results = db_manager.kb_articles.search(
+            searchQuery = db_manager.kb_articles.search(
+
                 query,
                 search_type='hybrid'      
-            ).vector_column('content_vector').text_column('title').limit(limit).filter(filters).to_list()
-            
+            ).vector_column('content_vector').text_column('title').limit(limit).filter(filters)
+            if reranker is not None:
+                searchQuery = searchQuery.rerank(reranker,'title').rerank(reranker,'content_vector').distance_threshold(0.5)
+
+
+            results=searchQuery.to_list()
+
             # Convert to our format - handle both objects and dicts
             articles = []
             for result in results:

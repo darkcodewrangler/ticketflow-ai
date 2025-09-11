@@ -138,15 +138,20 @@ async def create_sample_data():
         # Test vector search
         print("\n🔍 Testing vector search...")
         test_ticket = created_tickets[0]  # Use first ticket
-        similar_tickets = await TicketOperations.find_similar_tickets(test_ticket)
+        similar_tickets = await TicketOperations.find_similar_tickets(test_ticket.title)
+
         
         print(f"Similar tickets to '{test_ticket.title}':")
+        print(f"Found {len(similar_tickets)} similar tickets")
+
         for similar in similar_tickets[:3]:
             print(f"  - {similar['title'][:50]}... (similarity: {similar['similarity_score']:.3f})")
         
         # Test KB search
         kb_results = await KnowledgeBaseOperations.search_articles("password reset login")
         print(f"\nKB articles for 'password reset login':")
+        print(f"Found {len(kb_results)} articles")
+
         for result in kb_results[:3]:
             print(f"  - {result['title']} (similarity: {result['similarity_score']:.3f})")
         
