@@ -21,7 +21,9 @@ async def get_dashboard_metrics(
     """Get current dashboard metrics and KPIs"""
     try:
         metrics = await AnalyticsOperations.get_dashboard_metrics()
-        return DashboardMetricsResponse(**metrics)
+        return DashboardMetricsResponse(
+            **metrics
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,    
