@@ -4,16 +4,17 @@ AI agent workflow management for ticket processing
 """
 
 
+from ticketflow.database.connection import db_manager
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List, Dict, Any
 from pydantic import BaseModel
 import logging
-
 from ticketflow.utils.helpers import get_value
-
-from ...database.operations import WorkflowOperations, TicketOperations
-from ...database.schemas import AgentWorkflowResponse, TicketResponse
-from ..dependencies import verify_db_connection, get_current_user
+from ticketflow.database.operations import WorkflowOperations, TicketOperations
+from ticketflow.database.schemas import AgentWorkflowResponse, TicketResponse
+from ticketflow.api.dependencies import verify_db_connection, get_current_user
+from ticketflow.agent.core import TicketFlowAgent
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,6 @@ async def process_ticket(
     """Start processing a ticket with the AI agent"""
     try:
         # Verify ticket exists
-        from ...database.connection import db_manager
-        import asyncio
 
         tickets = await asyncio.get_event_loop().run_in_executor(
             None, 
@@ -94,8 +93,7 @@ async def get_agent_status(
 ):
     """Get current agent status and queue information"""
     try:
-        from ...database.connection import db_manager
-        
+   
         # Get active workflows
         active_workflows = db_manager.agent_workflows.query(
             filters={"status": "running"},
@@ -134,8 +132,7 @@ async def get_workflows(
 ):
     """Get recent workflows"""
     try:
-        from ...database.connection import db_manager
-        
+     
         workflows = db_manager.agent_workflows.query(
             limit=int(limit),
             order_by={"started_at": "desc"}
@@ -156,8 +153,7 @@ async def get_workflow(
 ):
     """Get a specific workflow"""
     try:
-        from ...database.connection import db_manager
-        
+
         workflows = db_manager.agent_workflows.query(
             filters={"id": int(workflow_id)},
             limit=1
@@ -207,8 +203,7 @@ async def complete_workflow(
 def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workflow_id: int):
     """Background task to trigger agent processing for a ticket"""
     try:
-        from ...agent.core import TicketFlowAgent
-        import asyncio
+        
         
         logger.info(f"🤖 Starting AI processing for ticket {ticket_id} (workflow {workflow_id})")
         

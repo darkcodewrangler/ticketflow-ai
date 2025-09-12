@@ -1,10 +1,9 @@
 
 from ticketflow.config import config
-from pytidb.rerankers import Reranker,LiteLLMReranker
+from pytidb.rerankers import Reranker
 from typing import Optional
 
 reranker: Optional[Reranker] = None
-lite_llm_reranker: Optional[LiteLLMReranker] = None
 
 if config.JINA_API_KEY:
     reranker=Reranker(  

@@ -117,7 +117,7 @@ class TicketOperations:
 
 
                 if reranker is not None:
-                    searchQuery = searchQuery.rerank(reranker,'description_vector').rerank(reranker,'title')
+                    searchQuery = searchQuery.rerank(reranker,'title')
                 results = searchQuery.limit(limit).to_list();
                 logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
 

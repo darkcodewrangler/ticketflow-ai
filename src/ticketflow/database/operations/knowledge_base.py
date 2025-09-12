@@ -52,7 +52,7 @@ class KnowledgeBaseOperations:
                 search_type='hybrid'      
             ).vector_column('content_vector').text_column('title').limit(limit).filter(filters)
             if reranker is not None:
-                searchQuery = searchQuery.rerank(reranker,'title').rerank(reranker,'content_vector').distance_range(0.4)
+                searchQuery = searchQuery.rerank(reranker,'title').distance_range(0.4)
 
 
             results=searchQuery.to_list()
@@ -61,7 +61,6 @@ class KnowledgeBaseOperations:
             articles = []
             for result in results:
                 # Handle both object attributes and dictionary keys
-               
                 
                 content = get_value(result, 'content', '')
                 if len(content) > 300:

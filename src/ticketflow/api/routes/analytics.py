@@ -3,15 +3,13 @@ Analytics API routes
 Performance metrics, dashboard data, and insights
 """
 
+from ticketflow.database.connection import db_manager
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
-
+from typing import  Optional
 from ticketflow.utils.helpers import get_isoformat, get_value, utcnow
-
-from ...database.operations import AnalyticsOperations
-from ...database.schemas import DashboardMetricsResponse
-from ..dependencies import verify_db_connection
+from ticketflow.database.operations import AnalyticsOperations
+from ticketflow.database.schemas import DashboardMetricsResponse
+from ticketflow.api.dependencies import verify_db_connection
 
 router = APIRouter()
 
@@ -88,7 +86,6 @@ async def get_category_breakdown(
     """Get ticket breakdown by category"""
     try:
         # Simple category breakdown using direct PyTiDB queries
-        from ...database.connection import db_manager
         tickets = db_manager.tickets.query(limit=int(1000)).to_list()
         
         categories = {}
@@ -113,13 +110,12 @@ async def get_basic_stats(
 ):
     """Get basic statistics from all data"""
     try:
-        from ...database.connection import db_manager
         
         # Get basic counts
         tickets = db_manager.tickets.query(limit=int(1000)).to_list()
         articles = db_manager.kb_articles.query(limit=int(1000)).to_list()
         workflows = db_manager.agent_workflows.query(limit=int(1000)).to_list()
-        
+
         # Calculate basic stats
         priority_breakdown = {}
         status_breakdown = {}
