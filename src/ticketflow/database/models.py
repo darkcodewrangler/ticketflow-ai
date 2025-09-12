@@ -288,11 +288,55 @@ class PerformanceMetrics(TableModel):
         Index('idx_metric_date', 'metric_date'),
     )
 # Export all models
+class ProcessingTask(TableModel):
+    """
+    Background Processing Task Tracking
+    
+    Tracks status of file uploads, URL processing, and other async operations
+    Provides real-time status updates for knowledge base operations
+    """
+    __tablename__ = "processing_tasks"
+    
+    # Primary key
+    id: int = Field(primary_key=True)
+    
+    # Task identification
+    task_type: str = Field(max_length=50, description="Type of task: file_upload, url_scrape, etc.", nullable=False)
+    task_id: str = Field(max_length=100, description="Unique task identifier", nullable=False, index=True)
+    
+    # Task details
+    source_name: str = Field(max_length=500, description="Original filename or URL", nullable=False)
+    status: str = Field(max_length=20, default="pending", description="pending, processing, completed, failed", nullable=False)
+    progress_percentage: int = Field(default=0, description="Progress from 0-100")
+    
+    # Results
+    result_data: Dict = Field(sa_type=JSON, default_factory=dict, description="Task results and metadata")
+    error_message: str = Field(sa_type=TEXT, default="", description="Error details if failed")
+    
+    # Timing
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    started_at: Optional[str] = Field(default=None, description="When processing actually started")
+    completed_at: Optional[str] = Field(default=None, description="When task finished")
+    
+    # Optional metadata
+    user_metadata: Dict = Field(sa_type=JSON, default_factory=dict, description="User-provided metadata")
+    
+    class Config:
+        auto_embed_text_fields = False  # No need to embed task data
+    
+    __table_args__ = (
+        Index('idx_task_id', 'task_id'),
+        Index('idx_task_status', 'status'),
+        Index('idx_task_type', 'task_type'),
+        Index('idx_created_at', 'created_at'),
+    )
+
 __all__ = [
     "Ticket",
     "KnowledgeBaseArticle", 
     "AgentWorkflow",
     "PerformanceMetrics",
+    "ProcessingTask",
     "TicketStatus",
     "Priority", 
     "ResolutionType"

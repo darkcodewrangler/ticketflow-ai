@@ -7,7 +7,7 @@ from pytidb import TiDBClient,Table
 from typing import Optional, Dict, Any
 import logging
 from ticketflow.config import config
-from ticketflow.database.models import Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics
+from ticketflow.database.models import Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics, ProcessingTask
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,12 @@ class PyTiDBManager:
                 if_exists=if_exists_mode
             )
             
+            print("⚡ Creating Processing Tasks table...")
+            self.tables['processing_tasks'] = self.client.create_table(
+                schema=ProcessingTask,
+                if_exists=if_exists_mode
+            )
+            
             logger.info("✅ All tables initialized successfully!")
             
             # Log the amazing features we just got for free
@@ -165,6 +171,11 @@ class PyTiDBManager:
     def performance_metrics(self):
         """Quick access to metrics table"""
         return self.get_table('performance_metrics')
+    
+    @property
+    def processing_tasks(self):
+        """Quick access to processing tasks table"""
+        return self.get_table('processing_tasks')
     
     def close(self):
         """Close database connection"""
