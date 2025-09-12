@@ -24,6 +24,7 @@ from ticketflow.database import (
 from ticketflow.utils.helpers import get_isoformat
 from .llm_client import LLMClient
 from ticketflow.external_tools_manager import ExternalToolsManager
+from ticketflow.api.websocket_manager import websocket_manager
 
 logger = logging.getLogger(__name__)
 
@@ -83,26 +84,87 @@ class TicketFlowAgent:
             step_result = await self._step_ingest(ticket_data)
             ticket = step_result["ticket"]
             workflow_id = step_result["workflow_id"]
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.INGEST.value, "Ticket ingested", {
+                        "title": ticket.get("title"),
+                        "category": ticket.get("category"),
+                        "priority": ticket.get("priority")
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 2: Search for similar resolved tickets
             similar_cases = await self._step_search_similar(workflow_id, ticket)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.SEARCH_SIMILAR.value, f"Found {len(similar_cases)} similar tickets", {
+                        "count": len(similar_cases)
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 3: Search knowledge base
             kb_articles = await self._step_search_kb(workflow_id, ticket)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.SEARCH_KB.value, f"Found {len(kb_articles)} KB articles", {
+                        "count": len(kb_articles)
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 4: LLM analysis
             analysis = await self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.ANALYZE.value, "Analysis complete", {
+                        "confidence": analysis.get("overall_confidence")
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 5: Decision making
             decisions = await self._step_decide(workflow_id, ticket, analysis)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.DECIDE.value, f"Decision: {decisions.get('primary_decision')}", {
+                        "actions_count": len(decisions.get("actions", [])),
+                        "confidence": decisions.get("confidence")
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 6: Execute actions
             execution_results = await self._step_execute(workflow_id, ticket, decisions)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.EXECUTE.value, f"Executed {len(execution_results)} actions", {
+                        "actions": [r.get("action") for r in execution_results]
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 7: Finalize workflow
             final_result = await self._step_finalize(
                 workflow_id, ticket, analysis, execution_results, workflow_start
             )
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.FINALIZE.value, "Workflow completed", {
+                        "status": final_result.get("status"),
+                        "confidence": final_result.get("confidence"),
+                        "duration_ms": final_result.get("total_duration_ms")
+                    }
+                )
+            except Exception:
+                pass
             
             return {
                 "success": True,
@@ -121,6 +183,12 @@ class TicketFlowAgent:
             if workflow_id:
                 # Log error in workflow
                 await self._log_workflow_error(workflow_id, str(e))
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket_data.get("id"), "error", "Agent processing failed", {"error": str(e)}
+                )
+            except Exception:
+                pass
             
             return {
                 "success": False,
@@ -172,23 +240,74 @@ class TicketFlowAgent:
             
             # Step 2: Search for similar resolved tickets
             similar_cases = await self._step_search_similar(workflow_id, ticket)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.SEARCH_SIMILAR.value, f"Found {len(similar_cases)} similar tickets", {
+                        "count": len(similar_cases)
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 3: Search knowledge base
             kb_articles = await self._step_search_kb(workflow_id, ticket)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.SEARCH_KB.value, f"Found {len(kb_articles)} KB articles", {
+                        "count": len(kb_articles)
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 4: LLM analysis
             analysis = await self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.ANALYZE.value, "Analysis complete", {
+                        "confidence": analysis.get("overall_confidence")
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 5: Decision making
             decisions = await self._step_decide(workflow_id, ticket, analysis)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.DECIDE.value, f"Decision: {decisions.get('primary_decision')}", {
+                        "actions_count": len(decisions.get("actions", [])),
+                        "confidence": decisions.get("confidence")
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 6: Execute actions
             execution_results = await self._step_execute(workflow_id, ticket, decisions)
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.EXECUTE.value, f"Executed {len(execution_results)} actions", {
+                        "actions": [r.get("action") for r in execution_results]
+                    }
+                )
+            except Exception:
+                pass
             
             # Step 7: Finalize workflow
             final_result = await self._step_finalize(
                 workflow_id, ticket, analysis, execution_results, workflow_start
             )
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket.get('id'), AgentStep.FINALIZE.value, "Workflow completed", {
+                        "status": final_result.get("status"),
+                        "confidence": final_result.get("confidence"),
+                        "duration_ms": final_result.get("total_duration_ms")
+                    }
+                )
+            except Exception:
+                pass
             
             return {
                 "success": True,
@@ -207,6 +326,12 @@ class TicketFlowAgent:
             if workflow_id:
                 # Log error in workflow
                 await self._log_workflow_error(workflow_id, str(e))
+            try:
+                await websocket_manager.send_agent_update(
+                    ticket_id, "error", "Agent processing failed", {"error": str(e)}
+                )
+            except Exception:
+                pass
             
             return {
                 "success": False,

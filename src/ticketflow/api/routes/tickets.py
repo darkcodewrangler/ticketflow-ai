@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from typing import List, Optional, Dict, Any
 import logging
 
-from ...database.operations import TicketOperations
-from ...database.schemas import TicketCreateRequest, TicketResponse
-from ..dependencies import verify_db_connection
-from ...config import config
+from ticketflow.database.operations import TicketOperations
+from ticketflow.database.schemas import TicketCreateRequest, TicketResponse
+from ticketflow.api.dependencies import verify_db_connection
+from ticketflow.config import config
+from ticketflow.api.websocket_manager import websocket_manager
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,10 @@ async def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
         from ...agent.core import TicketFlowAgent
         
         logger.info(f"🤖 Starting auto-processing for ticket {ticket_id}")
+        try:
+            await websocket_manager.send_agent_update(ticket_id, "start", "Started auto-processing")
+        except Exception:
+            pass
         
         # Initialize agent
         agent = TicketFlowAgent()
@@ -73,11 +78,27 @@ async def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
         
         if result.get("success"):
             logger.info(f"✅ Auto-processing completed for ticket {ticket_id}")
+            try:
+                await websocket_manager.send_agent_update(ticket_id, "completed", "Auto-processing completed", {
+                    "workflow_id": result.get("workflow_id"),
+                    "status": result.get("final_status"),
+                    "confidence": result.get("confidence")
+                })
+            except Exception:
+                pass
         else:
             logger.warning(f"⚠️ Auto-processing failed for ticket {ticket_id}: {result.get('error')}")
+            try:
+                await websocket_manager.send_agent_update(ticket_id, "error", "Auto-processing failed", {"error": result.get('error')})
+            except Exception:
+                pass
             
     except Exception as e:
         logger.error(f"❌ Auto-processing error for ticket {ticket_id}: {e}")
+        try:
+            await websocket_manager.send_agent_update(ticket_id, "error", "Auto-processing error", {"error": str(e)})
+        except Exception:
+            pass
 
 @router.post("/")
 async def create_ticket(
@@ -99,6 +120,10 @@ async def create_ticket(
         
         # Create the ticket
         ticket = await TicketOperations.create_ticket(ticket_dict)
+        try:
+            await websocket_manager.send_ticket_created(TicketResponse.model_validate(ticket).model_dump())
+        except Exception:
+            pass
         
         # Trigger agent processing if enabled
         if should_process:
