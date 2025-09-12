@@ -10,6 +10,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
 
+from ticketflow.database.models import WorkflowStatus
 from ticketflow.database.schemas import TicketResponse
 
 from ticketflow.database import (
@@ -142,8 +143,13 @@ class TicketFlowAgent:
         workflow_start = time.time()
         
         try:
+            
             # Get the existing ticket from database
-            tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
+            # tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
+            tickets = await asyncio.get_event_loop().run_in_executor(
+            None, 
+            lambda: db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_pydantic()
+        )
             if not tickets:
                 raise ValueError(f"Ticket {ticket_id} not found")
             
@@ -817,7 +823,7 @@ class TicketFlowAgent:
         """Log workflow error"""
         step_data = {
             "step": "error",
-            "status": "failed",
+            "status":WorkflowStatus.FAILED.value,
             "message": f"Workflow failed: {error_message}",
             "error": error_message
         }

@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from ticketflow.database.connection import db_manager
 from ticketflow.database.models import KnowledgeBaseArticle
-from ticketflow.database.operations.utils import OperationsUtils
+from ticketflow.database.operations.utils import   reranker
 from ticketflow.utils.helpers import get_isoformat, get_value
 logger = logging.getLogger(__name__)
 class KnowledgeBaseOperations:
@@ -48,12 +48,11 @@ class KnowledgeBaseOperations:
             
             # PyTiDB's built-in hybrid search on KB articles
             searchQuery = db_manager.kb_articles.search(
-
                 query,
                 search_type='hybrid'      
             ).vector_column('content_vector').text_column('title').limit(limit).filter(filters)
-            if OperationsUtils.reranker is not None:
-                searchQuery = searchQuery.rerank(OperationsUtils.reranker,'title').rerank(OperationsUtils.reranker,'content_vector').distance_range(0.4)
+            if reranker is not None:
+                searchQuery = searchQuery.rerank(reranker,'title').rerank(reranker,'content_vector').distance_range(0.4)
 
 
             results=searchQuery.to_list()

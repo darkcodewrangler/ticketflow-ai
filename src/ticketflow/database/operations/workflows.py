@@ -64,16 +64,15 @@ class WorkflowOperations:
             
         except Exception as e:
             logger.error(f"❌ Failed to update workflow step: {e}")
+
             return False
 
     @staticmethod
-    async def complete_workflow(workflow_id: int, final_confidence: float = 0.0, 
-
-                         total_duration_ms: int = 0) -> bool:
+    async def complete_workflow(workflow_id: int, final_confidence: float = 0.0, total_duration_ms: int = 0) -> bool:
         """Mark workflow as completed"""
         try:
             updates = {
-                "status": "completed",
+                "status":WorkflowStatus.COMPLETED.value,
                 "completed_at": get_isoformat(),
                 "final_confidence": final_confidence,
                 "total_duration_ms": total_duration_ms
@@ -84,11 +83,13 @@ class WorkflowOperations:
                 values=updates
             )
             
-            logger.info(f"✅ Completed workflow {workflow_id}")
+            logger.info(f"✅ Completed workflow {workflow_id} with confidence {final_confidence} and duration {total_duration_ms}ms")
+
             return True
             
         except Exception as e:
             logger.error(f"❌ Failed to complete workflow: {e}")
+            
             return False
 
 

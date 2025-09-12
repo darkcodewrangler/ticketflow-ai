@@ -3,10 +3,13 @@ Agent API routes - Simplified version
 AI agent workflow management for ticket processing
 """
 
+
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List, Dict, Any
 from pydantic import BaseModel
 import logging
+
+from ticketflow.utils.helpers import get_value
 
 from ...database.operations import WorkflowOperations, TicketOperations
 from ...database.schemas import AgentWorkflowResponse, TicketResponse
@@ -34,8 +37,14 @@ async def process_ticket(
     try:
         # Verify ticket exists
         from ...database.connection import db_manager
-        tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
-        print(tickets)
+        import asyncio
+
+        tickets = await asyncio.get_event_loop().run_in_executor(
+            None, 
+            lambda: db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
+        )
+        # tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
+        
         if not tickets:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
@@ -46,20 +55,20 @@ async def process_ticket(
         
         # Convert ticket to dict for processing
         ticket_dict = {
-            "id": ticket.get("id"),
-            "title": ticket.get("title")    ,
-            "description": ticket.get("description"),
-            "category": ticket.get("category"),
-            "priority": ticket.get("priority"),
-            "user_email": ticket.get("user_email"),
-            "user_type": ticket.get("user_type"),
-            "status": ticket.get("status")
+            "id": get_value(ticket, "id"),
+            "title": get_value(ticket, "title"),
+            "description": get_value(ticket, "description"),
+            "category": get_value(ticket, "category"),
+            "priority": get_value(ticket, "priority"),
+            "user_email": get_value(ticket, "user_email"),
+            "user_type": get_value(ticket, "user_type"),
+            "status": get_value(ticket, "status")
         }
         
         # Trigger AI processing in background
         background_tasks.add_task(
             _trigger_agent_processing,
-            ticket.get("id"),
+            get_value(ticket, "id"),
             ticket_dict,
             workflow.id
         )
@@ -67,7 +76,7 @@ async def process_ticket(
         return {
             "message": f"Started processing ticket {request.ticket_id}",
             "workflow_id": workflow.id,
-            "status": "processing"
+            "status": "processing" 
         }
         
     except HTTPException:
@@ -195,10 +204,11 @@ async def complete_workflow(
         )
 
 
-async def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workflow_id: int):
+def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workflow_id: int):
     """Background task to trigger agent processing for a ticket"""
     try:
         from ...agent.core import TicketFlowAgent
+        import asyncio
         
         logger.info(f"🤖 Starting AI processing for ticket {ticket_id} (workflow {workflow_id})")
         
@@ -206,7 +216,8 @@ async def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any],
         agent = TicketFlowAgent()
         
         # Process the existing ticket (don't create a new one)
-        result = await agent.process_existing_ticket(ticket_id, workflow_id)
+        result = asyncio.run(agent.process_existing_ticket(ticket_id, workflow_id))
+
         
         if result.get("success"):
             logger.info(f"✅ AI processing completed for ticket {ticket_id}")
@@ -217,11 +228,12 @@ async def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any],
         logger.error(f"❌ AI processing error for ticket {ticket_id}: {e}")
         # Update workflow with error
         try:
-           await WorkflowOperations.update_workflow_step(workflow_id, {
+           asyncio.run(WorkflowOperations.update_workflow_step(workflow_id, {
                 "step": "error",
                 "status": "failed",
                 "message": f"AI processing failed: {str(e)}",
                 "error": str(e)
-            })
+            }))
+
         except Exception as update_error:
             logger.error(f"Failed to update workflow with error: {update_error}")

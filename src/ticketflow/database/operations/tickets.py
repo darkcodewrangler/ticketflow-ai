@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 from datetime import  timedelta
 import logging
 
-from ticketflow.database.operations.utils import OperationsUtils
+from ticketflow.database.operations.utils import reranker
 
 from ticketflow.database.models import (
     Ticket, 
@@ -116,8 +116,8 @@ class TicketOperations:
                 ).vector_column('description_vector').text_column('title').distance_range(lower_bound=0.4).filter(filters)
 
 
-                if OperationsUtils.reranker is not None:
-                    searchQuery = searchQuery.rerank(OperationsUtils.reranker,'description').rerank(OperationsUtils.reranker,'title')
+                if reranker is not None:
+                    searchQuery = searchQuery.rerank(reranker,'description_vector').rerank(reranker,'title')
                 results = searchQuery.limit(limit).to_list();
                 logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
 
