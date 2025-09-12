@@ -16,6 +16,8 @@ from ticketflow.api.response_models import (
     ResponseMessages, ErrorCodes
 )
 from ticketflow.database.connection import db_manager
+from ticketflow.agent.core import TicketFlowAgent
+        
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -66,8 +68,7 @@ def should_auto_process(ticket_data: Dict[str, Any]) -> bool:
 async def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
     """Background task to trigger agent processing for a ticket"""
     try:
-        from ...agent.core import TicketFlowAgent
-        
+       
         logger.info(f"🤖 Starting auto-processing for ticket {ticket_id}")
         try:
             await websocket_manager.send_agent_update(ticket_id, "start", "Started auto-processing")

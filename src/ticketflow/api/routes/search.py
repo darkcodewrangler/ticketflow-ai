@@ -6,9 +6,9 @@ Unified search across tickets, knowledge base, and other content
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Dict, Any
 
-from ...database.operations import TicketOperations, KnowledgeBaseOperations
-from ..dependencies import verify_db_connection
-from ..response_models import success_response, error_response
+from ticketflow.database.operations import TicketOperations, KnowledgeBaseOperations
+from ticketflow.api.dependencies import verify_db_connection
+from ticketflow.api.response_models import success_response, error_response
 
 router = APIRouter()
 

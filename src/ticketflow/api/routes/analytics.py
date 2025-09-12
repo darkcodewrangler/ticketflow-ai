@@ -10,7 +10,7 @@ from ticketflow.utils.helpers import get_isoformat, get_value, utcnow
 from ticketflow.database.operations import AnalyticsOperations
 from ticketflow.database.schemas import DashboardMetricsResponse
 from ticketflow.api.dependencies import verify_db_connection
-from ..response_models import (
+from ticketflow.api.response_models import (
     success_response, error_response, paginated_response,
     ResponseMessages, ErrorCodes
 )

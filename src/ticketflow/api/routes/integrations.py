@@ -6,11 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from typing import Dict, Any
 import logging
 
-from ...database.operations import TicketOperations
-from ...database.schemas import WebhookTicketRequest, TicketResponse
-from ..dependencies import verify_db_connection
-from ..routes.tickets import should_auto_process, trigger_agent_processing, parse_auto_process_param
-from ..response_models import success_response, error_response
+from ticketflow.database.operations import TicketOperations
+from ticketflow.database.schemas import WebhookTicketRequest, TicketResponse
+from ticketflow.api.dependencies import verify_db_connection
+from ticketflow.api.routes.tickets import should_auto_process, trigger_agent_processing, parse_auto_process_param
+from ticketflow.api.response_models import success_response, error_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

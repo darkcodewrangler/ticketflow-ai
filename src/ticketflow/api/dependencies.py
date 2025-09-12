@@ -7,7 +7,7 @@ PyTiDB doesn't need session management - operations work directly with tables!
 from fastapi import Depends, HTTPException
 from typing import Dict, Any
 
-from ..database.connection import db_manager
+from ticketflow.database.connection import db_manager
 
 
 def verify_db_connection():

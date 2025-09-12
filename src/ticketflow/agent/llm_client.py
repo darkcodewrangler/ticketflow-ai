@@ -7,10 +7,9 @@ import json
 import asyncio
 import logging
 from typing import Dict, List, Any, Optional
-import requests
+
 
 from ticketflow.agent.ai_client import AIClient
-from ..config import config
 
 logger = logging.getLogger(__name__)
 

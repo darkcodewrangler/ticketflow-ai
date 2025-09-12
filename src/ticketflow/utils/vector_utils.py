@@ -7,7 +7,7 @@ import json
 import numpy as np
 from typing import List, Optional, Union
 import requests
-from ..config import config
+from ticketflow.config import config
 
 class VectorManager:
     """Manages vector embeddings and TiDB vector operations"""

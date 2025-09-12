@@ -15,8 +15,8 @@ from ticketflow.database.operations import WorkflowOperations, TicketOperations
 from ticketflow.database.schemas import AgentWorkflowResponse, TicketResponse
 from ticketflow.api.dependencies import verify_db_connection, get_current_user
 from ticketflow.agent.core import TicketFlowAgent
-from ..websocket_manager import websocket_manager
-from ..response_models import (
+from ticketflow.api.websocket_manager import websocket_manager
+from ticketflow.api.response_models import (
     success_response, error_response, paginated_response,
     ResponseMessages, ErrorCodes
 )
