@@ -16,6 +16,10 @@ from ticketflow.database.schemas import AgentWorkflowResponse, TicketResponse
 from ticketflow.api.dependencies import verify_db_connection, get_current_user
 from ticketflow.agent.core import TicketFlowAgent
 from ..websocket_manager import websocket_manager
+from ..response_models import (
+    success_response, error_response, paginated_response,
+    ResponseMessages, ErrorCodes
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +50,11 @@ async def process_ticket(
         # tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
         
         if not tickets:
-            raise HTTPException(status_code=404, detail="Ticket not found")
+            return error_response(
+                message="Ticket not found",
+                error="Ticket with the specified ID does not exist",
+                error_code=ErrorCodes.TICKET_NOT_FOUND
+            )
         
         ticket = TicketResponse.model_dump(tickets[0])
     
@@ -79,18 +87,26 @@ async def process_ticket(
         except Exception:
             pass
         
-        return {
-            "message": f"Started processing ticket {request.ticket_id}",
+        processing_data = {
+            "ticket_id": request.ticket_id,
             "workflow_id": workflow.id,
-            "status": "processing" 
+            "status": "processing"
         }
         
-    except HTTPException:
-        raise
+        return success_response(
+            data=processing_data,
+            message=f"Started processing ticket {request.ticket_id}",
+            metadata={"workflow_id": workflow.id}
+        )
+        
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to start ticket processing: {str(e)}"
+        # Check if it's already an error response
+        if hasattr(e, 'get') and e.get('success') is False:
+            return e
+        return error_response(
+            message="Failed to start ticket processing",
+            error=str(e),
+            error_code=ErrorCodes.AGENT_PROCESSING_FAILED
         )
 
 
@@ -113,7 +129,7 @@ async def get_agent_status(
             limit=int(100)
         ).to_list()
         
-        return {
+        status_data = {
             "status": "active",
             "queue": {
                 "processing": len(active_workflows),
@@ -125,14 +141,21 @@ async def get_agent_status(
             ]
         }
         
+        return success_response(
+            data=status_data,
+            message=ResponseMessages.RETRIEVED,
+            metadata={"type": "agent_status"}
+        )
+        
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get agent status: {str(e)}"
+        return error_response(
+            message="Failed to retrieve agent status",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
         )
 
 
-@router.get("/workflows", response_model=List[AgentWorkflowResponse])
+@router.get("/workflows")
 async def get_workflows(
     limit: int = 50,
     _: bool = Depends(verify_db_connection)
@@ -145,15 +168,22 @@ async def get_workflows(
             order_by={"started_at": "desc"}
         ).to_list()
         
-        return [AgentWorkflowResponse.model_validate(w) for w in workflows]
+        workflow_list = [AgentWorkflowResponse.model_validate(w).model_dump() for w in workflows]
+        return success_response(
+            data=workflow_list,
+            message=ResponseMessages.RETRIEVED,
+            count=len(workflow_list),
+            metadata={"limit": limit}
+        )
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get workflows: {str(e)}"
+        return error_response(
+            message="Failed to retrieve workflows",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
         )
 
 
-@router.get("/workflows/{workflow_id}", response_model=AgentWorkflowResponse)
+@router.get("/workflows/{workflow_id}")
 async def get_workflow(
     workflow_id: int,
     _: bool = Depends(verify_db_connection)
@@ -167,15 +197,23 @@ async def get_workflow(
         ).to_list()
         
         if not workflows:
-            raise HTTPException(status_code=404, detail="Workflow not found")
+            return error_response(
+                message="Workflow not found",
+                error="Workflow with the specified ID does not exist",
+                error_code=ErrorCodes.WORKFLOW_NOT_FOUND
+            )
         
-        return AgentWorkflowResponse.model_validate(workflows[0])
-    except HTTPException:
-        raise
+        workflow_data = AgentWorkflowResponse.model_validate(workflows[0]).model_dump()
+        return success_response(
+            data=workflow_data,
+            message=ResponseMessages.RETRIEVED,
+            metadata={"workflow_id": workflow_id}
+        )
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get workflow: {str(e)}"
+        return error_response(
+            message="Failed to retrieve workflow",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
         )
 
 
@@ -191,19 +229,29 @@ async def complete_workflow(
         success = await WorkflowOperations.complete_workflow(int(workflow_id), float(confidence))
         
         if not success:
-            raise HTTPException(status_code=404, detail="Workflow not found")
+            return error_response(
+                message="Workflow not found",
+                error="Cannot complete non-existent workflow",
+                error_code=ErrorCodes.WORKFLOW_NOT_FOUND
+            )
         
-        return {
-            "message": "Workflow completed successfully",
-            "workflow_id": workflow_id
+        completion_data = {
+            "workflow_id": workflow_id,
+            "confidence": confidence,
+            "completed": True
         }
         
-    except HTTPException:
-        raise
+        return success_response(
+            data=completion_data,
+            message="Workflow completed successfully",
+            metadata={"workflow_id": workflow_id, "confidence": confidence}
+        )
+        
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to complete workflow: {str(e)}"
+        return error_response(
+            message="Failed to complete workflow",
+            error=str(e),
+            error_code=ErrorCodes.WORKFLOW_EXECUTION_FAILED
         )
 
 

@@ -11,7 +11,11 @@ from ticketflow.database.schemas import TicketCreateRequest, TicketResponse
 from ticketflow.api.dependencies import verify_db_connection
 from ticketflow.config import config
 from ticketflow.api.websocket_manager import websocket_manager
-
+from ticketflow.api.response_models import (
+    success_response, error_response, paginated_response,
+    ResponseMessages, ErrorCodes
+)
+from ticketflow.database.connection import db_manager
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -134,17 +138,25 @@ async def create_ticket(
             )
             logger.info(f"🎯 Auto-processing enabled for ticket {ticket.id}")
         
-        # Return response with processing info
-        response_data = TicketResponse.model_validate(ticket).dict()
-        response_data["auto_processing"] = should_process
+        # Return standardized response with processing info
+        ticket_data = TicketResponse.model_validate(ticket).model_dump()
+        ticket_data["auto_processing"] = should_process
         
-        return response_data
+        return success_response(
+            data=ticket_data,
+            message=ResponseMessages.TICKET_CREATED,
+            metadata={"auto_processing_enabled": should_process}
+        )
         
     except Exception as e:
         logger.error(f"Failed to create ticket: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create ticket: {str(e)}")
+        return error_response(
+            message="Failed to create ticket",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )
 
-@router.get("/", response_model=List[TicketResponse])
+@router.get("/")
 async def get_tickets(
     status: Optional[str] = Query(None, description="Filter tickets by status"),
     limit: int = Query(50, ge=1, le=100, description="Number of tickets to return"),
@@ -157,11 +169,21 @@ async def get_tickets(
         else:
             tickets = await TicketOperations.get_recent_tickets(limit=int(limit))
         
-        return [TicketResponse.model_validate(ticket) for ticket in tickets]
+        ticket_list = [TicketResponse.model_validate(ticket).model_dump() for ticket in tickets]
+        return success_response(
+            data=ticket_list,
+            message=ResponseMessages.RETRIEVED,
+            count=len(ticket_list),
+            metadata={"filtered_by_status": status is not None, "status_filter": status}
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get tickets: {str(e)}")
+        return error_response(
+            message="Failed to retrieve tickets",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )
 
-@router.get("/recent", response_model=List[TicketResponse])
+@router.get("/recent")
 async def get_recent_tickets(
     days: int = Query(7, ge=1, le=30, description="Number of days to look back"),
     limit: int = Query(100, ge=1, le=100, description="Number of tickets to return"),
@@ -171,11 +193,21 @@ async def get_recent_tickets(
     try:
         tickets = await TicketOperations.get_recent_tickets(int(days), int(limit))
 
-        return [TicketResponse.model_validate(ticket) for ticket in tickets]
+        ticket_list = [TicketResponse.model_validate(ticket).model_dump() for ticket in tickets]
+        return success_response(
+            data=ticket_list,
+            message=ResponseMessages.RETRIEVED,
+            count=len(ticket_list),
+            metadata={"days_back": days, "limit": limit}
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get recent tickets: {str(e)}")
+        return error_response(
+            message="Failed to retrieve recent tickets",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )
 
-@router.get("/{ticket_id}", response_model=TicketResponse)
+@router.get("/{ticket_id}")
 async def get_ticket(
     ticket_id: int,
     _: bool = Depends(verify_db_connection)
@@ -183,19 +215,30 @@ async def get_ticket(
     """Get a specific ticket by ID"""
     try:
         # PyTiDB query for specific ticket
-        from ...database.connection import db_manager
+      
         tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
         
         if not tickets:
-            raise HTTPException(status_code=404, detail="Ticket not found")
+            return error_response(
+                message=ResponseMessages.TICKET_NOT_FOUND,
+                error="Ticket not found",
+                error_code=ErrorCodes.TICKET_NOT_FOUND
+            )
         
-        return TicketResponse.model_dump(tickets[0])
-    except HTTPException:
-        raise
+        ticket_data = TicketResponse.model_dump(tickets[0])
+        return success_response(
+            data=ticket_data,
+            message=ResponseMessages.RETRIEVED,
+            metadata={"ticket_id": ticket_id}
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get ticket: {str(e)}")
+        return error_response(
+            message="Failed to retrieve ticket",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )
 
-@router.get("/{ticket_id}/similar", response_model=List[dict])
+@router.get("/{ticket_id}/similar")
 async def get_similar_tickets(
     ticket_id: int,
     limit: int = Query(10, ge=1, le=50, description="Number of similar tickets to return"),
@@ -204,18 +247,29 @@ async def get_similar_tickets(
     """Get similar tickets using vector search"""
     try:
         # Get the source ticket
-        from ...database.connection import db_manager
+        
         tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
         
         if not tickets:
-            raise HTTPException(status_code=404, detail="Ticket not found")
+            return error_response(
+                message=ResponseMessages.TICKET_NOT_FOUND,
+                error="Ticket not found",
+                error_code=ErrorCodes.TICKET_NOT_FOUND
+            )
         
         ticket = TicketResponse.model_dump(tickets[0])
       
         similar_tickets = await TicketOperations.find_similar_to_ticket(ticket, int(limit))
         
-        return similar_tickets
-    except HTTPException:
-        raise
+        return success_response(
+            data=similar_tickets,
+            message="Similar tickets retrieved successfully",
+            count=len(similar_tickets),
+            metadata={"source_ticket_id": ticket_id, "similarity_limit": limit}
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to find similar tickets: {str(e)}")
+        return error_response(
+            message="Failed to find similar tickets",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )

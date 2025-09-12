@@ -101,8 +101,8 @@ class KnowledgeBaseOperations:
             return db_manager.kb_articles.query(
                 filters={"category": category},
                 limit=limit,
-                order_by=[("created_at", "desc")]
-            )
+                order_by={"created_at":"desc"}
+            ).to_list()
         except Exception as e:
             logger.error(f"❌ Failed to get articles by category: {e}")
             return []

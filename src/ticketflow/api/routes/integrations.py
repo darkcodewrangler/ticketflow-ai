@@ -10,6 +10,7 @@ from ...database.operations import TicketOperations
 from ...database.schemas import WebhookTicketRequest, TicketResponse
 from ..dependencies import verify_db_connection
 from ..routes.tickets import should_auto_process, trigger_agent_processing, parse_auto_process_param
+from ..response_models import success_response, error_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -39,15 +40,15 @@ async def receive_external_ticket(
         
         # Validate required fields
         if not normalized_data.get("title") or normalized_data["title"] == "No title provided":
-            raise HTTPException(
-                status_code=400, 
-                detail="Title or subject is required"
+            return error_response(
+                message="Title or subject is required",
+                status_code=400
             )
         
         if not normalized_data.get("description") or normalized_data["description"] == "No description provided":
-            raise HTTPException(
-                status_code=400, 
-                detail="Description or body is required"
+            return error_response(
+                message="Description or body is required",
+                status_code=400
             )
         
         # Parse auto_process parameter
@@ -76,19 +77,20 @@ async def receive_external_ticket(
         # Return created ticket with processing info
         response_data = TicketResponse.model_validate(ticket).model_dump()
         response_data["auto_processing"] = should_process
+
+        return success_response(
+            message="Webhook ticket created successfully",
+            data=response_data
+        )
         
-        return response_data
-        
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"❌ Webhook ticket creation failed: {e}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to process webhook ticket: {str(e)}"
+        return error_response(
+            message=f"Failed to process webhook ticket: {str(e)}",
+            status_code=500
         )
 
-@router.post("/webhook/batch", response_model=Dict[str, Any])
+@router.post("/webhook/batch")
 async def receive_external_tickets_batch(
     tickets_data: list[WebhookTicketRequest],
     background_tasks: BackgroundTasks,
@@ -162,19 +164,23 @@ async def receive_external_tickets_batch(
             f"✅ Batch webhook processed: {len(created_tickets)} created, {len(failed_tickets)} failed"
         )
         
-        return {
-            "status": "completed",
-            "created_count": len(created_tickets),
-            "failed_count": len(failed_tickets),
-            "created_tickets": created_tickets,
-            "failed_tickets": failed_tickets
-        }
+        return success_response(
+            message="Batch webhook processed successfully",
+            data={
+                "status": "completed",
+                "created_count": len(created_tickets),
+                "failed_count": len(failed_tickets),
+                "created_tickets": created_tickets,
+                "failed_tickets": failed_tickets
+            },
+            count=len(created_tickets)
+        )
         
     except Exception as e:
         logger.error(f"❌ Batch webhook processing failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to process batch webhook: {str(e)}"
+        return error_response(
+            message=f"Failed to process batch webhook: {str(e)}",
+            status_code=500
         )
 
 @router.get("/webhook/health")
@@ -185,14 +191,17 @@ async def webhook_health_check():
     External platforms can use this to verify the webhook endpoint
     is available and responsive.
     """
-    return {
-        "status": "healthy",
-        "endpoint": "webhook",
-        "supported_platforms": ["zendesk", "freshdesk", "jira", "servicenow", "custom"],
-        "features": [
-            "flexible_field_mapping",
-            "automatic_validation", 
-            "batch_processing",
-            "metadata_preservation"
-        ]
-    }
+    return success_response(
+        message="Webhook endpoint is healthy",
+        data={
+            "status": "healthy",
+            "endpoint": "webhook",
+            "supported_platforms": ["zendesk", "freshdesk", "jira", "servicenow", "custom"],
+            "features": [
+                "flexible_field_mapping",
+                "automatic_validation", 
+                "batch_processing",
+                "metadata_preservation"
+            ]
+        }
+    )

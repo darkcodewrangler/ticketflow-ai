@@ -8,6 +8,7 @@ from typing import List, Dict, Any
 
 from ...database.operations import TicketOperations, KnowledgeBaseOperations
 from ..dependencies import verify_db_connection
+from ..response_models import success_response, error_response
 
 router = APIRouter()
 
@@ -20,20 +21,25 @@ async def search_tickets(
     """Search tickets using vector similarity"""
     try:
         if not query.strip():
-            raise HTTPException(status_code=400, detail="Query cannot be empty")
+            return error_response(
+                message="Query cannot be empty",
+                status_code=400
+            )
         
         # Use the existing similar tickets search
         similar_tickets = await TicketOperations.find_similar_tickets(query, int(limit))
         
-        return {
-            "query": query,
-            "results": similar_tickets,
-            "count": len(similar_tickets)
-        }
-    except HTTPException:
-        raise
+        return success_response(
+            message="Ticket search completed successfully",
+            data=similar_tickets,
+            count=len(similar_tickets),
+            metadata={"query": query, "limit": limit}
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        return error_response(
+            message=f"Search failed: {str(e)}",
+            status_code=500
+        )
 
 @router.get("/knowledge")
 async def search_knowledge(
@@ -45,19 +51,24 @@ async def search_knowledge(
     """Search knowledge base articles"""
     try:
         if not query.strip():
-            raise HTTPException(status_code=400, detail="Query cannot be empty")
+            return error_response(
+                message="Query cannot be empty",
+                status_code=400
+            )
         
-        results =await  KnowledgeBaseOperations.search_articles(query, category, int(limit))
+        results = await KnowledgeBaseOperations.search_articles(query, category, int(limit))
         
-        return {
-            "query": query,
-            "results": results,
-            "count": len(results)
-        }
-    except HTTPException:
-        raise
+        return success_response(
+            message="Knowledge base search completed successfully",
+            data=results,
+            count=len(results),
+            metadata={"query": query, "category": category, "limit": limit}
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        return error_response(
+            message=f"Search failed: {str(e)}",
+            status_code=500
+        )
 
 @router.get("/unified")
 async def unified_search(
@@ -69,7 +80,10 @@ async def unified_search(
     """Unified search across tickets and knowledge base"""
     try:
         if not query.strip():
-            raise HTTPException(status_code=400, detail="Query cannot be empty")
+            return error_response(
+                message="Query cannot be empty",
+                status_code=400
+            )
         
         # Search tickets
         similar_tickets = await TicketOperations.find_similar_tickets(query, int(ticket_limit))
@@ -77,18 +91,23 @@ async def unified_search(
         # Search knowledge base
         kb_results = await KnowledgeBaseOperations.search_articles(query, None, int(kb_limit))
         
-        return {
-            "query": query,
-            "tickets": {
-                "results": similar_tickets,
-                "count": len(similar_tickets)
+        return success_response(
+            message="Unified search completed successfully",
+            data={
+                "tickets": {
+                    "results": similar_tickets,
+                    "count": len(similar_tickets)
+                },
+                "knowledge_base": {
+                    "results": kb_results,
+                    "count": len(kb_results)
+                }
             },
-            "knowledge_base": {
-                "results": kb_results,
-                "count": len(kb_results)
-            }
-        }
-    except HTTPException:
-        raise
+            count=len(similar_tickets) + len(kb_results),
+            metadata={"query": query, "ticket_limit": ticket_limit, "kb_limit": kb_limit}
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unified search failed: {str(e)}")
+        return error_response(
+            message=f"Unified search failed: {str(e)}",
+            status_code=500
+        )
