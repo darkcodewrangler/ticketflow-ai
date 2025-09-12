@@ -160,6 +160,7 @@ async def create_ticket(
 async def get_tickets(
     status: Optional[str] = Query(None, description="Filter tickets by status"),
     limit: int = Query(50, ge=1, le=100, description="Number of tickets to return"),
+    days: int = Query(None, ge=1, le=60, description="Days old tickets to return"),
     _: bool = Depends(verify_db_connection)
 ):
     """Get tickets, optionally filtered by status"""
@@ -167,14 +168,15 @@ async def get_tickets(
         if status:
             tickets = await TicketOperations.get_tickets_by_status(status, int(limit))
         else:
-            tickets = await TicketOperations.get_recent_tickets(limit=int(limit))
+            tickets = await TicketOperations.get_recent_tickets(limit=int(limit),days= int(days) if days else None)
         
         ticket_list = [TicketResponse.model_validate(ticket).model_dump() for ticket in tickets]
         return success_response(
             data=ticket_list,
             message=ResponseMessages.RETRIEVED,
             count=len(ticket_list),
-            metadata={"filtered_by_status": status is not None, "status_filter": status}
+            metadata={"filtered_by_status": status is not None, "status_filter": status,
+            "filtered_by_days": days is not None, "days_filter": days}
         )
     except Exception as e:
         return error_response(

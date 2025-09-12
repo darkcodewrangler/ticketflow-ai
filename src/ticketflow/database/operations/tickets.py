@@ -77,18 +77,25 @@ class TicketOperations:
             return []
 
     @staticmethod
-    async def get_recent_tickets(days: int = 1, limit: int = 100) -> List[Ticket]:
+    async def get_recent_tickets(days: int = None, limit: int = 100) -> List[Ticket]:
         """Get recent tickets"""
         try:
-            since_date = get_isoformat(utcnow() - timedelta(days=days))
+            if days is not None:
+               since_date = get_isoformat(utcnow() - timedelta(days=days))
             
             # PyTiDB query with date filter
-            return db_manager.tickets.query(
+               return db_manager.tickets.query(
                 filters={"created_at": {GTE: since_date}},
                 limit=limit,
                 order_by={"created_at": "desc"}
-            ).to_list()
+                ).to_list()
 
+            else:
+             return db_manager.tickets.query(
+                    limit=100,
+                    order_by={"created_at": "desc"}
+                ).to_list()
+        
         except Exception as e:
             logger.error(f"❌ Failed to get recent tickets: {e}")
             return []
