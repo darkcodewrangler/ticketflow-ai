@@ -363,6 +363,66 @@ class WebhookTicketRequest(BaseModel):
             }
         }
 
+# Pydantic models for API requests/responses
+class SettingResponse(BaseModel):
+    """Response model for a single setting"""
+    id: int
+    key: str
+    category: str
+    name: str
+    description: str
+    setting_type: str
+    value: Any  # Will be converted based on setting_type
+    default_value: Any
+    is_enabled: bool
+    is_required: bool
+    is_sensitive: bool
+    validation_rules: Dict[str, Any]
+    allowed_values: List[str]
+    created_at: str
+    updated_at: str
+    updated_by: str
+
+class SettingCreateRequest(BaseModel):
+    """Request model for creating a new setting"""
+    key: str = Field(..., min_length=1, max_length=100, description="Unique setting key")
+    category: str = Field(..., min_length=1, max_length=50, description="Setting category")
+    name: str = Field(..., min_length=1, max_length=200, description="Human-readable name")
+    setting_type: str = Field(..., description="Data type")
+    value: str = Field(default="", description="Setting value")
+    default_value: str = Field(default="", description="Default value")
+    description: str = Field(default="", description="Setting description")
+    is_enabled: bool = Field(default=True, description="Whether setting is enabled")
+    is_required: bool = Field(default=False, description="Whether setting is required")
+    is_sensitive: bool = Field(default=False, description="Whether setting contains sensitive data")
+    validation_rules: Optional[Dict[str, Any]] = Field(default=None, description="Validation rules")
+    allowed_values: Optional[List[str]] = Field(default=None, description="Allowed values")
+    
+    @validator('setting_type')
+    def validate_setting_type(cls, v):
+        valid_types = [t.value for t in SettingType]
+        if v not in valid_types:
+            raise ValueError(f"Invalid setting_type. Must be one of: {valid_types}")
+        return v
+    
+    @validator('category')
+    def validate_category(cls, v):
+        valid_categories = [c.value for c in SettingCategory]
+        if v not in valid_categories:
+            raise ValueError(f"Invalid category. Must be one of: {valid_categories}")
+        return v
+
+class SettingUpdateRequest(BaseModel):
+    """Request model for updating a setting"""
+    value: Optional[str] = Field(None, description="New setting value")
+    is_enabled: Optional[bool] = Field(None, description="Whether setting is enabled")
+
+class SettingsListResponse(BaseModel):
+    """Response model for settings list"""
+    settings: List[SettingResponse]
+    total: int
+    category: Optional[str] = None
+
 
 # Export all schemas for easy imports
 __all__ = [
@@ -378,8 +438,13 @@ __all__ = [
     "KnowledgeBaseCreateRequest",
     "KnowledgeBaseUpdateRequest",
     "WebhookTicketRequest",
+    "SettingCreateRequest",
+    "SettingUpdateRequest",
+
     
     # Response schemas
+    "SettingsListResponse",
+    "SettingResponse",
     "TicketResponse",
     "AgentWorkflowResponse",
     "KnowledgeBaseResponse",
@@ -389,4 +454,5 @@ __all__ = [
     "KnowledgeBaseSearchResult",
     "AgentConfigResponse",
     "WorkflowStepResponse"
+
 ]
