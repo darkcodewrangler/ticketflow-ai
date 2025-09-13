@@ -19,6 +19,7 @@ class Config:
     TIDB_CA: str = os.getenv("TIDB_CA", "")  # Path to CA cert if needed
     SLACK_BOT_TOKEN: str = os.getenv("SLACK_BOT_TOKEN", None)
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "") or os.getenv("TICKETFLOW_ENCRYPTION_KEY", "")
     # OpenAI settings
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
     OPENROUTER_BASE_URL: Optional[str] = os.getenv("OPENROUTER_BASE_URL", 'https://openrouter.ai/api/v1')

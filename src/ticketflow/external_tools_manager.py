@@ -1,10 +1,11 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import asyncio
 import resend
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.errors import SlackApiError
 
 from .config import config
+from .database import PyTiDBManager, SettingsManager
 import logging
 logger = logging.getLogger(__name__)
 
@@ -13,36 +14,113 @@ class ExternalToolsManager:
     """
     Manages external tool integrations for the AI agent
     Handles notifications, integrations, and external actions
+    Uses database settings for configuration with fallback to environment variables
     """
     
-    def __init__(self):
-        self.slack_enabled = bool(config.SLACK_BOT_TOKEN) if hasattr(config, 'SLACK_BOT_TOKEN') else False
-        self.email_enabled = bool(config.RESEND_API_KEY) if hasattr(config, 'RESEND_API_KEY') else False
+    def __init__(self, settings_manager: Optional[SettingsManager] = None):
+        self.settings_manager = settings_manager
+        self.slack_client = None
+        self.slack_enabled = False
+        self.email_enabled = False
         
-        # Initialize Slack client if token is available
-        if self.slack_enabled:
-            self.slack_client = AsyncWebClient(token=config.SLACK_BOT_TOKEN)
-        else:
-            self.slack_client = None
-        
-        # Initialize Resend if API key is available
-        if self.email_enabled:
-            resend.api_key = config.RESEND_API_KEY
+        # Initialize settings if not provided
+        if not self.settings_manager:
+            db_manager = PyTiDBManager()
+            if db_manager.connect():
+                self.settings_manager = SettingsManager(db_manager, config.ENCRYPTION_KEY)
+            else:
+                logger.warning("Failed to connect to database for settings management")
     
-    async def send_slack_notification(self, channel: str, message: str, ticket_id: int = None) -> Dict[str, Any]:
+    async def _initialize_integrations(self):
+        """
+        Initialize integrations based on database settings
+        """
+        try:
+            # Check Slack settings
+            slack_enabled = await self.settings_manager.get_setting_value('slack_notifications_enabled', False)
+            slack_token = await self.settings_manager.get_setting_value('slack_bot_token', '')
+            
+            if slack_enabled and slack_token:
+                self.slack_client = AsyncWebClient(token=slack_token)
+                self.slack_enabled = True
+                logger.info("Slack integration initialized from database settings")
+            else:
+                # Fallback to environment variables
+                if hasattr(config, 'SLACK_BOT_TOKEN') and config.SLACK_BOT_TOKEN:
+                    self.slack_client = AsyncWebClient(token=config.SLACK_BOT_TOKEN)
+                    self.slack_enabled = True
+                    logger.info("Slack integration initialized from environment variables")
+                else:
+                    logger.warning("Slack integration disabled - no token found")
+            
+            # Check Email settings
+            email_enabled = await self.settings_manager.get_setting_value('email_notifications_enabled', False)
+            
+            if email_enabled:
+                # For now, still use environment variable for Resend API key
+                # TODO: Add resend_api_key to settings when needed
+                if hasattr(config, 'RESEND_API_KEY') and config.RESEND_API_KEY:
+                    resend.api_key = config.RESEND_API_KEY
+                    self.email_enabled = True
+                    logger.info("Email integration initialized")
+                else:
+                    logger.warning("Email integration disabled - no API key found")
+            else:
+                logger.info("Email notifications disabled in settings")
+                
+        except Exception as e:
+            logger.error(f"Failed to initialize integrations from settings: {e}")
+            # Fallback to environment variables
+            if hasattr(config, 'SLACK_BOT_TOKEN') and config.SLACK_BOT_TOKEN:
+                self.slack_client = AsyncWebClient(token=config.SLACK_BOT_TOKEN)
+                self.slack_enabled = True
+            if hasattr(config, 'RESEND_API_KEY') and config.RESEND_API_KEY:
+                resend.api_key = config.RESEND_API_KEY
+                self.email_enabled = True
+    
+    async def send_slack_notification(self, channel: str = None, message: str = "", ticket_id: int = None, notification_type: str = "general") -> Dict[str, Any]:
         """Send Slack notification with rich formatting"""
+        # Initialize integrations if not done yet
+        if not hasattr(self, '_initialized'):
+            await self._initialize_integrations()
+            self._initialized = True
+            
         if not self.slack_enabled or not self.slack_client:
             return {"status": "disabled", "message": "Slack integration not configured"}
         
         try:
+            # Determine channel from settings if not provided
+            if not channel:
+                if notification_type == "new_ticket":
+                    channel = await self.settings_manager.get_setting_value('slack_new_ticket_channel', '#general')
+                elif notification_type == "escalated_ticket":
+                    channel = await self.settings_manager.get_setting_value('slack_escalated_ticket_channel', '#general')
+                elif notification_type == "resolved_ticket":
+                    channel = await self.settings_manager.get_setting_value('slack_resolved_ticket_channel', '#general')
+                else:
+                    channel = await self.settings_manager.get_setting_value('slack_default_channel', '#general')
+            
             # Format the message with rich blocks if ticket_id is provided
             if ticket_id:
+                if notification_type == "new_ticket":
+                    emoji = "🆕"
+                    title = f"New Ticket #{ticket_id}"
+                elif notification_type == "escalated_ticket":
+                    emoji = "🚨"
+                    title = f"Escalated Ticket #{ticket_id}"
+                elif notification_type == "resolved_ticket":
+                    emoji = "✅"
+                    title = f"Resolved Ticket #{ticket_id}"
+                else:
+                    emoji = "🎫"
+                    title = f"Ticket #{ticket_id} Update"
+                    
                 blocks = [
                     {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"🎫 *Ticket #{ticket_id} Update*\n{message}"
+                            "text": f"{emoji} *{title}*\n{message}"
                         }
                     },
                     {
@@ -60,7 +138,7 @@ class ExternalToolsManager:
                 response = await self.slack_client.chat_postMessage(
                     channel=channel,
                     blocks=blocks,
-                    text=f"Ticket #{ticket_id} Update: {message}"  # Fallback text
+                    text=f"{title}: {message}"  # Fallback text
                 )
             else:
                 # Send simple text message
@@ -69,7 +147,7 @@ class ExternalToolsManager:
                     text=f"🤖 TicketFlow AI: {message}"
                 )
             
-            logger.info(f"Slack notification sent to {channel}: {message[:50]}...")
+            logger.info(f"Slack notification sent to {channel} for ticket {ticket_id} (type: {notification_type}): {message[:50]}...")
             
             return {
                 "status": "sent",
@@ -94,39 +172,82 @@ class ExternalToolsManager:
                 "error": error_msg
             }
     
-    async def send_email_notification(self, recipient: str, subject: str, body: str, html_body: str = None) -> Dict[str, Any]:
-        """Send email notification using Resend"""
+    async def send_email_notification(self, to_email: str = None, subject: str = "", content: str = "", ticket_id: int = None, notification_type: str = "general") -> Dict[str, Any]:
+        """
+        Send an email notification
+        
+        Args:
+            to_email: Recipient email address (optional, will use settings if not provided)
+            subject: Email subject
+            content: Email content (HTML supported)
+            ticket_id: Optional ticket ID for context
+            notification_type: Type of notification (new_ticket, escalated_ticket, resolved_ticket, general)
+            
+        Returns:
+            Dict with success status and response data
+        """
+        # Initialize integrations if not done yet
+        if not hasattr(self, '_initialized'):
+            await self._initialize_integrations()
+            self._initialized = True
+            
         if not self.email_enabled:
-            return {"status": "disabled", "message": "Email integration not configured"}
+            logger.warning("Email integration not enabled or configured")
+            return {"success": False, "error": "Email not configured"}
         
         try:
-            # Prepare email content
-            email_params = {
-                "from": "TicketFlow AI <victory@notif.klozbuy.com>",
-                "to": ["luckyvictory54@gmail.com"],
-                "subject": subject,
-                "text": body
-            }
+            # Determine recipient from settings if not provided
+            if not to_email:
+                if notification_type == "new_ticket":
+                    to_email = await self.settings_manager.get_setting_value('email_new_ticket_recipient', '')
+                elif notification_type == "escalated_ticket":
+                    to_email = await self.settings_manager.get_setting_value('email_escalated_ticket_recipient', '')
+                elif notification_type == "resolved_ticket":
+                    to_email = await self.settings_manager.get_setting_value('email_resolved_ticket_recipient', '')
+                else:
+                    to_email = await self.settings_manager.get_setting_value('email_default_recipient', '')
+                
+                if not to_email:
+                    logger.warning(f"No email recipient configured for notification type: {notification_type}")
+                    return {"success": False, "error": "No recipient configured"}
             
-            # Add HTML body if provided
-            if html_body:
-                email_params["html"] = html_body
+            # Get sender email from settings
+            from_email = await self.settings_manager.get_setting_value('email_sender_address', 'noreply@ticketflow.ai')
+            
+            # Add ticket context to subject if provided
+            if ticket_id:
+                if notification_type == "new_ticket":
+                    formatted_subject = f"[New Ticket #{ticket_id}] {subject}"
+                elif notification_type == "escalated_ticket":
+                    formatted_subject = f"[Escalated Ticket #{ticket_id}] {subject}"
+                elif notification_type == "resolved_ticket":
+                    formatted_subject = f"[Resolved Ticket #{ticket_id}] {subject}"
+                else:
+                    formatted_subject = f"[Ticket #{ticket_id}] {subject}"
+            else:
+                formatted_subject = subject
             
             # Send email using Resend
-            response = resend.Emails.send(email_params)
+            response = resend.Emails.send({
+                "from": from_email,
+                "to": [to_email],
+                "subject": formatted_subject,
+                "html": content
+            })
             
-            logger.info(f"Email sent to {recipient}: {subject} (ID: {response.get('id', 'unknown')})")
-            
+            logger.info(f"Email notification sent to {to_email} for ticket {ticket_id} (type: {notification_type})")
             return {
-                "status": "sent",
-                "recipient": recipient,
-                "message_id": response.get("id", f"email_{int(asyncio.get_event_loop().time())}"),
-                "resend_response": response
+                "success": True,
+                "email_id": response.get("id"),
+                "recipient": to_email
             }
             
         except Exception as e:
-            logger.error(f"Email notification failed: {e}")
-            return {"status": "failed", "error": str(e)}
+            logger.error(f"Error sending email notification: {e}")
+            return {
+                "success": False,
+                "error": f"Email error: {str(e)}"
+            }
     
     async def create_calendar_event(self, title: str, description: str, duration_hours: int = 1) -> Dict[str, Any]:
         """Create calendar event for follow-up"""

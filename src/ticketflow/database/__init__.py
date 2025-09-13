@@ -19,6 +19,7 @@ from ticketflow.database.operations import (
     WorkflowOperations,
     AnalyticsOperations
 )
+from ticketflow.database.settings_manager import SettingsManager
 
 __all__ = [
     # Connection management
@@ -42,7 +43,10 @@ __all__ = [
     "TicketOperations",
     "KnowledgeBaseOperations",
     "WorkflowOperations",
-    "AnalyticsOperations"
+    "AnalyticsOperations",
+    
+    # Settings
+    "SettingsManager"
 ]
 
 # Version info

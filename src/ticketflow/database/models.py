@@ -43,6 +43,22 @@ class WorkflowStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+class SettingType(str, Enum):
+    STRING = "string"
+    INTEGER = "integer"
+    FLOAT = "float"
+    BOOLEAN = "boolean"
+    JSON = "json"
+    ENCRYPTED = "encrypted"  # For sensitive data like tokens
+
+class SettingCategory(str, Enum):
+    SLACK = "slack"
+    EMAIL = "email"
+    NOTIFICATIONS = "notifications"
+    SYSTEM = "system"
+    AGENT = "agent"
+    SECURITY = "security"
+
 class Ticket(TableModel):
     """
     AI-Powered Ticket Model with Automatic Embeddings
@@ -331,13 +347,68 @@ class ProcessingTask(TableModel):
         Index('idx_created_at', 'created_at'),
     )
 
+class Settings(TableModel):
+    """
+    Application Settings Model
+    
+    Stores all application configuration settings with support for:
+    - Different data types (string, int, float, boolean, json, encrypted)
+    - Categorization (slack, email, notifications, system, etc.)
+    - Encryption for sensitive data (API tokens, passwords)
+    - Enable/disable functionality
+    - Default values and validation
+    """
+    __tablename__ = "settings"
+    
+    # Primary key
+    id: int = Field(primary_key=True)
+    
+    # Setting identification
+    key: str = Field(max_length=100, description="Unique setting key (e.g., 'slack_bot_token')", nullable=False, index=True)
+    category: str = Field(max_length=50, description="Setting category for organization", nullable=False, index=True)
+    
+    # Setting metadata
+    name: str = Field(max_length=200, description="Human-readable setting name", nullable=False)
+    description: str = Field(sa_type=TEXT, description="Detailed description of the setting", default="")
+    setting_type: str = Field(max_length=20, description="Data type: string, integer, float, boolean, json, encrypted", nullable=False)
+    
+    # Setting value and state
+    value: str = Field(sa_type=TEXT, description="Setting value (encrypted if sensitive)", default="")
+    default_value: str = Field(sa_type=TEXT, description="Default value for the setting", default="")
+    is_enabled: bool = Field(default=True, description="Whether this setting is enabled/active")
+    is_required: bool = Field(default=False, description="Whether this setting is required for functionality")
+    is_sensitive: bool = Field(default=False, description="Whether this setting contains sensitive data (will be encrypted)")
+    
+    # Validation and constraints
+    validation_rules: Dict = Field(sa_type=JSON, default_factory=dict, description="Validation rules (min, max, regex, etc.)")
+    allowed_values: List[str] = Field(sa_type=JSON, default_factory=list, description="List of allowed values (for enum-like settings)")
+    
+    # Metadata
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Creation timestamp")
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Last update timestamp")
+    updated_by: str = Field(max_length=100, default="system", description="Who last updated this setting")
+    
+    class Config:
+        auto_embed_text_fields = False  # No need to embed settings data
+    
+    __table_args__ = (
+        Index('idx_settings_key', 'key'),
+        Index('idx_settings_category', 'category'),
+        Index('idx_settings_enabled', 'is_enabled'),
+        Index('idx_settings_required', 'is_required'),
+    )
+
 __all__ = [
     "Ticket",
     "KnowledgeBaseArticle", 
     "AgentWorkflow",
     "PerformanceMetrics",
     "ProcessingTask",
+    "Settings",
     "TicketStatus",
     "Priority", 
-    "ResolutionType"
+    "ResolutionType",
+    "WorkflowStatus",
+    "SettingType",
+    "SettingCategory"
 ]
