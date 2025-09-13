@@ -7,18 +7,20 @@ import logging
 from ticketflow.database.connection import db_manager
 from ticketflow.database import SettingsManager
 from ticketflow.database.models import SettingType, SettingCategory
-from ticketflow.api.response_models import SuccessResponse, ErrorResponse
+from ticketflow.api.response_models import (
+    success_response, error_response,
+    ResponseMessages, ErrorCodes
+)
+from ticketflow.api.dependencies import verify_db_connection
 from ticketflow.config import config
 from ticketflow.database.schemas import SettingCreateRequest, SettingResponse, SettingUpdateRequest, SettingsListResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Dependency to get settings manager
-async def get_settings_manager() -> SettingsManager:
+# Helper function to get settings manager
+def get_settings_manager() -> SettingsManager:
     """Get settings manager instance"""
-    if not db_manager._connected:
-        raise HTTPException(status_code=503, detail="Database connection not available")
     return SettingsManager(db_manager, config.ENCRYPTION_KEY)
 
 def _convert_setting_to_response(setting: Dict[str, Any]) -> SettingResponse:
@@ -72,11 +74,11 @@ def _convert_setting_to_response(setting: Dict[str, Any]) -> SettingResponse:
         updated_by=setting['updated_by']
     )
 
-@router.get("/", response_model=SuccessResponse[SettingsListResponse])
+@router.get("/")
 async def get_all_settings(
     category: Optional[str] = None,
     include_sensitive: bool = False,
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Get all settings, optionally filtered by category.
@@ -89,13 +91,16 @@ async def get_all_settings(
         List of settings
     """
     try:
+        settings_manager = get_settings_manager()
+        
         if category:
             # Validate category
             valid_categories = [c.value for c in SettingCategory]
             if category not in valid_categories:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid category. Must be one of: {valid_categories}"
+                return error_response(
+                    message=f"Invalid category. Must be one of: {valid_categories}",
+                    error_code=ErrorCodes.BAD_REQUEST,
+                    status_code=400
                 )
             
             settings_data = await settings_manager.get_settings_by_category(
@@ -126,22 +131,24 @@ async def get_all_settings(
             category=category
         )
         
-        return SuccessResponse(
+        return success_response(
             data=response_data,
             message=f"Retrieved {len(settings_response)} settings"
         )
         
     except Exception as e:
         logger.error(f"Failed to get settings: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve settings"
+        return error_response(
+            message="Failed to retrieve settings",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
    
 
-@router.get("/validate/required", response_model=SuccessResponse[Dict[str, Any]])
+@router.get("/validate/required")
 async def validate_all_required_settings(
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Validate all required settings have proper values.
@@ -150,12 +157,14 @@ async def validate_all_required_settings(
         Validation results for all required settings
     """
     try:
+        settings_manager = get_settings_manager()
+        
         # Validate all required settings
         validation_errors = await settings_manager.validate_all_required_settings()
         
         is_valid = len(validation_errors) == 0
         
-        return SuccessResponse(
+        return success_response(
             data={
                 "is_valid": is_valid,
                 "errors": validation_errors,
@@ -167,18 +176,18 @@ async def validate_all_required_settings(
         
     except Exception as e:
         logger.error(f"Failed to validate required settings: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to validate required settings"
+        return error_response(
+            message="Failed to validate required settings",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
-    finally:
-        await settings_manager.db.close()
 
-@router.get("/{key}", response_model=SuccessResponse[SettingResponse])
+@router.get("/{key}")
 async def get_setting(
     key: str,
     include_sensitive: bool = False,
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Get a specific setting by key.
@@ -191,12 +200,15 @@ async def get_setting(
         Setting data
     """
     try:
+        settings_manager = get_settings_manager()
+        
         setting = await settings_manager.get_setting(key, decrypt=include_sensitive)
         
         if not setting:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Setting '{key}' not found"
+            return error_response(
+                message=f"Setting '{key}' not found",
+                error_code=ErrorCodes.NOT_FOUND,
+                status_code=404
             )
         
         # Don't include sensitive values unless explicitly requested
@@ -206,26 +218,24 @@ async def get_setting(
         
         setting_response = _convert_setting_to_response(setting)
         
-        return SuccessResponse(
+        return success_response(
             data=setting_response,
             message=f"Retrieved setting '{key}'"
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to get setting {key}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve setting"
+        return error_response(
+            message="Failed to retrieve setting",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
-    finally:
-        await settings_manager.db.close()
 
-@router.post("/", response_model=SuccessResponse[SettingResponse])
+@router.post("/")
 async def create_setting(
     request: SettingCreateRequest,
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Create a new setting.
@@ -237,12 +247,15 @@ async def create_setting(
         Created setting data
     """
     try:
+        settings_manager = get_settings_manager()
+        
         # Check if setting already exists
         existing = await settings_manager.get_setting(request.key)
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Setting '{request.key}' already exists"
+            return error_response(
+                message=f"Setting '{request.key}' already exists",
+                error_code=ErrorCodes.CONFLICT,
+                status_code=409
             )
         
         # Create setting
@@ -263,9 +276,10 @@ async def create_setting(
         )
         
         if not setting:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create setting"
+            return error_response(
+                message="Failed to create setting",
+                error_code=ErrorCodes.INTERNAL_ERROR,
+                status_code=500
             )
         
         # Don't include sensitive values in response
@@ -275,27 +289,25 @@ async def create_setting(
         
         setting_response = _convert_setting_to_response(setting)
         
-        return SuccessResponse(
+        return success_response(
             data=setting_response,
             message=f"Created setting '{request.key}'"
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to create setting {request.key}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create setting"
+        return error_response(
+            message="Failed to create setting",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
-    finally:
-        await settings_manager.db.close()
 
-@router.put("/{key}", response_model=SuccessResponse[SettingResponse])
+@router.put("/{key}")
 async def update_setting(
     key: str,
     request: SettingUpdateRequest,
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Update a setting value and/or enabled status.
@@ -308,21 +320,25 @@ async def update_setting(
         Updated setting data
     """
     try:
+        settings_manager = get_settings_manager()
+        
         # Check if setting exists
         existing = await settings_manager.get_setting(key)
         if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Setting '{key}' not found"
+            return error_response(
+                message=f"Setting '{key}' not found",
+                error_code=ErrorCodes.NOT_FOUND,
+                status_code=404
             )
         
         # Validate the new value if provided
         if request.value is not None:
             is_valid, error_msg = await settings_manager.validate_setting(key, request.value)
             if not is_valid:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Validation failed: {error_msg}"
+                return error_response(
+                    message=f"Validation failed: {error_msg}",
+                    error_code=ErrorCodes.VALIDATION_ERROR,
+                    status_code=400
                 )
         
         # Update setting
@@ -334,9 +350,10 @@ async def update_setting(
         )
         
         if not setting:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update setting"
+            return error_response(
+                message="Failed to update setting",
+                error_code=ErrorCodes.INTERNAL_ERROR,
+                status_code=500
             )
         
         # Don't include sensitive values in response
@@ -346,32 +363,31 @@ async def update_setting(
         
         setting_response = _convert_setting_to_response(setting)
         
-        return SuccessResponse(
+        return success_response(
             data=setting_response,
             message=f"Updated setting '{key}'"
         )
         
-    except HTTPException:
-        raise
     except ValueError as e:
         # Validation errors
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+        return error_response(
+            message=str(e),
+            error_code=ErrorCodes.VALIDATION_ERROR,
+            status_code=400
         )
     except Exception as e:
         logger.error(f"Failed to update setting {key}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update setting"
+        return error_response(
+            message="Failed to update setting",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
-    finally:
-        await settings_manager.db.close()
 
-@router.delete("/{key}", response_model=SuccessResponse[Dict[str, str]])
+@router.delete("/{key}")
 async def delete_setting(
     key: str,
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Delete a setting.
@@ -383,49 +399,52 @@ async def delete_setting(
         Success confirmation
     """
     try:
+        settings_manager = get_settings_manager()
+        
         # Check if setting exists
         existing = await settings_manager.get_setting(key)
         if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Setting '{key}' not found"
+            return error_response(
+                message=f"Setting '{key}' not found",
+                error_code=ErrorCodes.NOT_FOUND,
+                status_code=404
             )
         
         # Check if setting is required
         if existing['is_required']:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot delete required setting '{key}'"
+            return error_response(
+                message=f"Cannot delete required setting '{key}'",
+                error_code=ErrorCodes.BAD_REQUEST,
+                status_code=400
             )
         
         # Delete setting
         success = await settings_manager.delete_setting(key)
         
         if not success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete setting"
+            return error_response(
+                message="Failed to delete setting",
+                error_code=ErrorCodes.INTERNAL_ERROR,
+                status_code=500
             )
         
-        return SuccessResponse(
+        return success_response(
             data={"key": key, "status": "deleted"},
             message=f"Deleted setting '{key}'"
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to delete setting {key}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete setting"
+        return error_response(
+            message="Failed to delete setting",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
-    finally:
-        await settings_manager.db.close()
 
-@router.post("/initialize", response_model=SuccessResponse[Dict[str, Any]])
+@router.post("/initialize")
 async def initialize_default_settings(
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Initialize default settings in the database.
@@ -434,6 +453,8 @@ async def initialize_default_settings(
         Initialization status
     """
     try:
+        settings_manager = get_settings_manager()
+        
         await settings_manager.initialize_default_settings()
         
         # Count settings by category
@@ -442,7 +463,7 @@ async def initialize_default_settings(
             settings = await settings_manager.get_settings_by_category(category.value, decrypt=False)
             category_counts[category.value] = len(settings)
         
-        return SuccessResponse(
+        return success_response(
             data={
                 "status": "initialized",
                 "category_counts": category_counts,
@@ -453,14 +474,14 @@ async def initialize_default_settings(
         
     except Exception as e:
         logger.error(f"Failed to initialize default settings: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to initialize default settings"
+        return error_response(
+            message="Failed to initialize default settings",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
-    finally:
-        await settings_manager.db.close()
 
-@router.get("/categories/list", response_model=SuccessResponse[List[str]])
+@router.get("/categories/list")
 async def get_setting_categories():
     """
     Get list of available setting categories.
@@ -468,13 +489,23 @@ async def get_setting_categories():
     Returns:
         List of setting categories
     """
-    categories = [category.value for category in SettingCategory]
-    return SuccessResponse(
-        data=categories,
-        message=f"Retrieved {len(categories)} setting categories"
-    )
+    try:
+        categories = [category.value for category in SettingCategory]
+        return success_response(
+            data=categories,
+            message=f"Retrieved {len(categories)} setting categories"
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get categories: {e}")
+        return error_response(
+            message="Failed to retrieve categories",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
+        )
 
-@router.get("/types/list", response_model=SuccessResponse[List[str]])
+@router.get("/types/list")
 async def get_setting_types():
     """
     Get list of available setting types.
@@ -482,17 +513,27 @@ async def get_setting_types():
     Returns:
         List of setting types
     """
-    types = [setting_type.value for setting_type in SettingType]
-    return SuccessResponse(
-        data=types,
-        message=f"Retrieved {len(types)} setting types"
-    )
+    try:
+        types = [setting_type.value for setting_type in SettingType]
+        return success_response(
+            data=types,
+            message=f"Retrieved {len(types)} setting types"
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get types: {e}")
+        return error_response(
+            message="Failed to retrieve types",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
+        )
 
-@router.post("/validate/{key}", response_model=SuccessResponse[Dict[str, Any]])
+@router.post("/validate/{key}")
 async def validate_setting_value(
     key: str,
     value: str,
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Validate a setting value without updating it.
@@ -505,42 +546,43 @@ async def validate_setting_value(
         Validation result
     """
     try:
+        settings_manager = get_settings_manager()
+        
         # Check if setting exists
         existing = await settings_manager.get_setting(key)
         if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Setting '{key}' not found"
+            return error_response(
+                message=f"Setting '{key}' not found",
+                error_code=ErrorCodes.NOT_FOUND,
+                status_code=404
             )
         
         # Validate the value
-        is_valid, error_msg = await settings_manager.validate_setting(key, value)
+        is_valid, error_msg = await settings_manager.validate_setting(key, request.value)
         
-        return SuccessResponse(
+        return success_response(
             data={
                 "key": key,
-                "value": value,
+                "value": request.value,
                 "is_valid": is_valid,
                 "error_message": error_msg if not is_valid else None
             },
             message=f"Validation {'passed' if is_valid else 'failed'} for setting '{key}'"
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to validate setting {key}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to validate setting"
+        return error_response(
+            message="Failed to validate setting",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
-    finally:
-        await settings_manager.db.close()
 
-@router.post("/reset/{key}", response_model=SuccessResponse[SettingResponse])
+@router.post("/reset/{key}")
 async def reset_setting_to_default(
     key: str,
-    settings_manager: SettingsManager = Depends(get_settings_manager)
+    _: bool = Depends(verify_db_connection)
 ):
     """
     Reset a setting to its default value.
@@ -552,12 +594,15 @@ async def reset_setting_to_default(
         Reset setting data
     """
     try:
+        settings_manager = get_settings_manager()
+        
         # Check if setting exists
         existing = await settings_manager.get_setting(key)
         if not existing:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Setting '{key}' not found"
+            return error_response(
+                message=f"Setting '{key}' not found",
+                error_code=ErrorCodes.NOT_FOUND,
+                status_code=404
             )
         
         # Reset to default value
@@ -569,9 +614,10 @@ async def reset_setting_to_default(
         )
         
         if not setting:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to reset setting"
+            return error_response(
+                message="Failed to reset setting",
+                error_code=ErrorCodes.INTERNAL_ERROR,
+                status_code=500
             )
         
         # Don't include sensitive values in response
@@ -581,18 +627,16 @@ async def reset_setting_to_default(
         
         setting_response = _convert_setting_to_response(setting)
         
-        return SuccessResponse(
+        return success_response(
             data=setting_response,
             message=f"Reset setting '{key}' to default value"
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to reset setting {key}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to reset setting"
+        return error_response(
+            message="Failed to reset setting",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR,
+            status_code=500
         )
-    finally:
-        await settings_manager.db.close()
