@@ -54,7 +54,9 @@ class TicketOperations:
             )
             
             # PyTiDB automatically generates embeddings for title and description!
-            created_ticket = db_manager.tickets.insert(ticket)
+            result = db_manager.tickets.insert(ticket)
+            # Handle case where insert returns a list
+            created_ticket = result[0] if isinstance(result, list) else result
             
             logger.info(f"✅ Created ticket {created_ticket.id} with auto-embeddings")
             return created_ticket

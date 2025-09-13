@@ -260,7 +260,7 @@ async def _process_uploaded_file(
         )
         logger.error(f"❌ Failed to process file {filename}: {e}")
 
-async def _process_url_source(
+def _process_url_source(
     task_id: str,
     url: str,
     follow_links: bool,
@@ -283,10 +283,10 @@ async def _process_url_source(
         
         # Scrape content from URL
         ProcessingTaskOperations.update_task_status(task_id, "processing", 30)
-        scraped_pages = await scraper.scrape_url(
+        scraped_pages = asyncio.run( scraper.scrape_url(
             url, follow_links=follow_links, max_depth=max_depth
-        )
-        
+        ))
+        print(f"{scraped_pages}")
         articles_created = []
         total_pages = len(scraped_pages)
         
@@ -298,10 +298,10 @@ async def _process_url_source(
             
             # Generate AI metadata if not provided
             if not all([category, author]) or not tags:
-                ai_metadata = await ai_generator.generate_metadata(
+                ai_metadata = asyncio.run( ai_generator.generate_metadata(
                     page_data['title'],
                     page_data['content']
-                )
+                ))
                 
                 page_category = category or ai_metadata.get('category', 'web_content')
                 page_author = author or ai_metadata.get('author', 'Web Source')
@@ -323,7 +323,7 @@ async def _process_url_source(
                 'author': page_author
             }
             
-            article = await KnowledgeBaseOperations.create_article(article_data)
+            article = asyncio.run( KnowledgeBaseOperations.create_article(article_data))
             articles_created.append({
                 'id': article.id,
                 'title': article.title,

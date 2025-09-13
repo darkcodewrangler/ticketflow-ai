@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Any
 import uuid
 from datetime import datetime
 from ticketflow.database.connection import db_manager
+from ticketflow.database.models import ProcessingTask
 from ticketflow.utils.helpers import get_isoformat
 import logging
 
@@ -20,26 +21,29 @@ class ProcessingTaskOperations:
         try:
             task_id = str(uuid.uuid4())
             
-            task_data = {
-                "task_type": task_type,
-                "task_id": task_id,
-                "source_name": source_name,
-                "status": "pending",
-                "progress_percentage": 0,
-                "result_data": {},
-                "error_message": "",
-                "created_at": get_isoformat(),
-                "user_metadata": user_metadata or {}
-            }
+            # Create ProcessingTask object
+            task = ProcessingTask(
+                task_type=task_type,
+                task_id=task_id,
+                source_name=source_name,
+                status="pending",
+                progress_percentage=0,
+                result_data={},
+                error_message="",
+                created_at=get_isoformat(),
+                user_metadata=user_metadata or {}
+            )
             
-            # Insert the task data
-            db_manager.processing_tasks.insert([task_data])
+            # Insert the task
+            result = db_manager.processing_tasks.insert(task)
+            # Handle case where insert returns a list
+            created_task = result[0] if isinstance(result, list) else result
             logger.info(f"✅ Created processing task {task_id} for {source_name}")
             
             return {
                 "task_id": task_id,
                 "status": "pending",
-                "created_at": task_data["created_at"]
+                "created_at": created_task.created_at
             }
             
         except Exception as e:

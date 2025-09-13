@@ -24,7 +24,9 @@ class WorkflowOperations:
                 status=WorkflowStatus.RUNNING.value
             )
             
-            created_workflow = db_manager.agent_workflows.insert(workflow)
+            result = db_manager.agent_workflows.insert(workflow)
+            # Handle case where insert returns a list
+            created_workflow = result[0] if isinstance(result, list) else result
             logger.info(f"🔄 Created workflow {created_workflow.id} for ticket {ticket_id}")
             return created_workflow
             

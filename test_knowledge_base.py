@@ -72,8 +72,8 @@ def test_url_processing():
     
     try:
         data = {
-            'url': 'https://httpbin.org/html',  # Simple test URL
-            'follow_links': False,
+            'url': 'https://blog.geltechng.com/web-development/how-nigerian-businesses-can-benefit-from-custom-web-development',  # Simple test URL
+            'follow_links':False,
             'max_depth': 1,
             'category': 'Web Content',
             'tags': 'test,web-scraping',
@@ -157,7 +157,7 @@ def main():
     print(f"Testing against: {BASE_URL}")
     
     # Test file upload
-    file_task_id = test_file_upload()
+    # file_task_id = test_file_upload()
     
     # Test URL processing
     url_task_id = test_url_processing()
@@ -166,8 +166,8 @@ def main():
     time.sleep(2)
     
     # Test status checking
-    if file_task_id:
-        test_processing_status(file_task_id)
+    # if file_task_id:
+    #     test_processing_status(file_task_id)
     
     if url_task_id:
         test_processing_status(url_task_id)

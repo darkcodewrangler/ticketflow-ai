@@ -27,7 +27,9 @@ class KnowledgeBaseOperations:
             )
             
             # PyTiDB automatically generates embeddings for title, content, and summary!
-            created_article = db_manager.kb_articles.insert(article)
+            result = db_manager.kb_articles.insert(article)
+            # Handle case where insert returns a list
+            created_article = result[0] if isinstance(result, list) else result
             
             logger.info(f"📚 Created KB article {created_article.id} with auto-embeddings")
             return created_article

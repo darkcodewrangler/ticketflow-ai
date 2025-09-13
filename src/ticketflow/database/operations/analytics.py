@@ -188,7 +188,9 @@ class AnalyticsOperations:
                 estimated_cost_saved=auto_resolved * 12.5  # $50/hour * 0.25 hours
             )
             
-            created_metrics = db_manager.performance_metrics.insert(metrics)
+            result = db_manager.performance_metrics.insert(metrics)
+            # Handle case where insert returns a list
+            created_metrics = result[0] if isinstance(result, list) else result
             logger.info(f"📊 Created daily metrics for {target_date}")
             return created_metrics
             
