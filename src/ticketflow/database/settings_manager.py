@@ -728,6 +728,92 @@ class SettingsManager:
                 'is_sensitive': False
             },
             
+            # Resend API Settings
+            {
+                'key': 'resend_api_key',
+                'category': SettingCategory.EMAIL,
+                'name': 'Resend API Key',
+                'description': 'API key for Resend email service',
+                'setting_type': SettingType.ENCRYPTED,
+                'value': '',
+                'default_value': '',
+                'is_enabled': True,
+                'is_required': False,
+                'is_sensitive': True
+            },
+            {
+                'key': 'resend_from_email',
+                'category': SettingCategory.EMAIL,
+                'name': 'Resend From Email',
+                'description': 'Email address to send from using Resend service',
+                'setting_type': SettingType.STRING,
+                'value': '',
+                'default_value': '',
+                'is_enabled': True,
+                'is_required': False,
+                'is_sensitive': False
+            },
+            {
+                'key': 'resend_from_name',
+                'category': SettingCategory.EMAIL,
+                'name': 'Resend From Name',
+                'description': 'Display name for emails sent via Resend',
+                'setting_type': SettingType.STRING,
+                'value': 'TicketFlow Support',
+                'default_value': 'TicketFlow Support',
+                'is_enabled': True,
+                'is_required': False,
+                'is_sensitive': False
+            },
+            {
+                'key': 'resend_enabled',
+                'category': SettingCategory.EMAIL,
+                'name': 'Enable Resend Service',
+                'description': 'Use Resend API instead of SMTP for email delivery',
+                'setting_type': SettingType.BOOLEAN,
+                'value': 'false',
+                'default_value': 'false',
+                'is_enabled': True,
+                'is_required': False,
+                'is_sensitive': False
+            },
+            {
+                'key': 'resend_webhook_secret',
+                'category': SettingCategory.EMAIL,
+                'name': 'Resend Webhook Secret',
+                'description': 'Secret key for validating Resend webhook requests',
+                'setting_type': SettingType.ENCRYPTED,
+                'value': '',
+                'default_value': '',
+                'is_enabled': True,
+                'is_required': False,
+                'is_sensitive': True
+            },
+            {
+                'key': 'resend_track_opens',
+                'category': SettingCategory.EMAIL,
+                'name': 'Track Email Opens',
+                'description': 'Enable email open tracking via Resend',
+                'setting_type': SettingType.BOOLEAN,
+                'value': 'true',
+                'default_value': 'true',
+                'is_enabled': True,
+                'is_required': False,
+                'is_sensitive': False
+            },
+            {
+                'key': 'resend_track_clicks',
+                'category': SettingCategory.EMAIL,
+                'name': 'Track Email Clicks',
+                'description': 'Enable email click tracking via Resend',
+                'setting_type': SettingType.BOOLEAN,
+                'value': 'true',
+                'default_value': 'true',
+                'is_enabled': True,
+                'is_required': False,
+                'is_sensitive': False
+            },
+            
             # System Settings
             {
                 'key': 'system_timezone',
