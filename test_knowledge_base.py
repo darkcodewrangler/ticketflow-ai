@@ -73,8 +73,8 @@ def test_url_processing():
     try:
         data = {
             'url': 'https://blog.geltechng.com/web-development/how-nigerian-businesses-can-benefit-from-custom-web-development',  # Simple test URL
-            'follow_links':False,
-            'max_depth': 1,
+            'follow_links':True,
+            'max_depth': 3,
             'category': 'Web Content',
             'tags': 'test,web-scraping',
             'author': 'Test User'

@@ -102,8 +102,6 @@ async def upload_knowledge_source(
 async def process_url_source(
     background_tasks: BackgroundTasks,
     url: str = Form(...),
-    follow_links: bool = Form(True),
-    max_depth: int = Form(3),
     category: Optional[str] = Form(None),
     tags: Optional[str] = Form(None),
     author: Optional[str] = Form(None),
@@ -118,18 +116,13 @@ async def process_url_source(
                 error_code=ErrorCodes.BAD_REQUEST
             )
         
-        # Validate depth
-        if max_depth < 1 or max_depth > 5:
-            return error_response(
-                message="Max depth must be between 1 and 5",
-                error_code=ErrorCodes.BAD_REQUEST
-            )
+
         
         # Create processing task
         task_info = ProcessingTaskOperations.create_task(
             task_type="url_scraping",
             source_name=url,
-            user_metadata={"follow_links": follow_links, "max_depth": max_depth, "category": category, "tags": tags, "author": author}
+            user_metadata={"category": category, "tags": tags, "author": author}
         )
         task_id = task_info["task_id"]
         
@@ -138,8 +131,6 @@ async def process_url_source(
             _process_url_source,
             task_id,
             url,
-            follow_links,
-            max_depth,
             category,
             tags.split(',') if tags else None,
             author
@@ -147,7 +138,7 @@ async def process_url_source(
         
         return success_response(
             message="URL processing started. Content will be extracted and processed in background.",
-            data={"url": url, "follow_links": follow_links, "max_depth": max_depth, "status": "processing", "task_id": task_id}
+            data={"url": url, "status": "processing", "task_id": task_id}
         )
         
     except Exception as e:
@@ -263,8 +254,6 @@ async def _process_uploaded_file(
 def _process_url_source(
     task_id: str,
     url: str,
-    follow_links: bool,
-    max_depth: int,
     category: Optional[str],
     tags: Optional[List[str]],
     author: Optional[str]
@@ -283,9 +272,7 @@ def _process_url_source(
         
         # Scrape content from URL
         ProcessingTaskOperations.update_task_status(task_id, "processing", 30)
-        scraped_pages = asyncio.run( scraper.scrape_url(
-            url, follow_links=follow_links, max_depth=max_depth
-        ))
+        scraped_pages = asyncio.run(scraper.scrape_url(url))
         print(f"{scraped_pages}")
         articles_created = []
         total_pages = len(scraped_pages)
