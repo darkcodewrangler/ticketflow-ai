@@ -17,6 +17,7 @@ beautifulsoup4==4.13.5
 requests==2.32.5
 python-multipart==0.0.20
 aiohttp==3.10.11
+PyPDF2==3.0.1
 
 # External Integrations
 slack-sdk==3.36.0

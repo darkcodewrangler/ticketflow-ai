@@ -2,11 +2,14 @@
 Handles processing of different file types for knowledge base ingestion
 """
 
-import csv
 import io
 import re
 from typing import Dict, Any, List
 import logging
+try:
+    import PyPDF2
+except ImportError:
+    PyPDF2 = None
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +20,7 @@ class KnowledgeBaseProcessor:
         self.supported_types = {
             'text/markdown': self._process_markdown,
             'text/plain': self._process_text,
-            'text/csv': self._process_csv,
-            'application/csv': self._process_csv
+            'application/pdf': self._process_pdf
         }
     
     async def process_file_content(
@@ -29,9 +31,6 @@ class KnowledgeBaseProcessor:
     ) -> Dict[str, Any]:
         """Process file content based on type"""
         try:
-            # Decode content
-            text_content = content.decode('utf-8')
-            
             # Get processor for content type
             processor = self.supported_types.get(content_type)
             if not processor:
@@ -41,12 +40,18 @@ class KnowledgeBaseProcessor:
                     processor = self._process_markdown
                 elif extension == 'txt':
                     processor = self._process_text
-                elif extension == 'csv':
-                    processor = self._process_csv
+                elif extension == 'pdf':
+                    processor = self._process_pdf
                 else:
                     processor = self._process_text  # Default fallback
             
-            return await processor(text_content, filename)
+            # Handle PDF files differently (binary content)
+            if processor == self._process_pdf:
+                return await processor(content, filename)
+            else:
+                # Decode content for text-based files
+                text_content = content.decode('utf-8')
+                return await processor(text_content, filename)
             
         except UnicodeDecodeError:
             logger.error(f"Failed to decode file {filename} as UTF-8")
@@ -107,37 +112,53 @@ class KnowledgeBaseProcessor:
             'format': 'text'
         }
     
-    async def _process_csv(self, content: str, filename: str) -> Dict[str, Any]:
-        """Process CSV files"""
+    async def _process_pdf(self, content: bytes, filename: str) -> Dict[str, Any]:
+        """Process PDF files"""
         try:
-            # Parse CSV
-            csv_reader = csv.DictReader(io.StringIO(content))
-            rows = list(csv_reader)
+            if PyPDF2 is None:
+                raise ValueError("PyPDF2 library is not installed. Please install it to process PDF files.")
             
-            if not rows:
-                raise ValueError("CSV file is empty")
+            # Create PDF reader from bytes
+            pdf_stream = io.BytesIO(content)
+            pdf_reader = PyPDF2.PdfReader(pdf_stream)
+            
+            if len(pdf_reader.pages) == 0:
+                raise ValueError("PDF file has no pages")
+            
+            # Extract text from all pages
+            text_content = ""
+            for page_num, page in enumerate(pdf_reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text.strip():
+                        text_content += f"\n\n--- Page {page_num + 1} ---\n\n{page_text}"
+                except Exception as e:
+                    logger.warning(f"Failed to extract text from page {page_num + 1}: {e}")
+                    continue
+            
+            if not text_content.strip():
+                raise ValueError("No readable text found in PDF")
             
             # Extract title from filename
             title = self._extract_title_from_filename(filename)
             
-            # Convert CSV to readable format
-            formatted_content = self._format_csv_content(rows, csv_reader.fieldnames)
+            # Clean and format content
+            formatted_content = self._clean_pdf_content(text_content)
             
             # Generate summary
-            summary = f"CSV data with {len(rows)} rows and {len(csv_reader.fieldnames)} columns: {', '.join(csv_reader.fieldnames[:5])}"
-            if len(csv_reader.fieldnames) > 5:
-                summary += "..."
+            word_count = len(formatted_content.split())
+            summary = f"PDF document with {len(pdf_reader.pages)} pages and approximately {word_count} words"
             
             return {
                 'title': title,
                 'content': formatted_content,
                 'summary': summary,
-                'format': 'csv'
+                'format': 'pdf'
             }
             
         except Exception as e:
-            logger.error(f"Failed to process CSV file {filename}: {e}")
-            raise ValueError(f"Invalid CSV format: {e}")
+            logger.error(f"Failed to process PDF file {filename}: {e}")
+            raise ValueError(f"Invalid PDF format: {e}")
     
     def _extract_title_from_filename(self, filename: str) -> str:
         """Extract a clean title from filename"""
@@ -165,38 +186,37 @@ class KnowledgeBaseProcessor:
         
         return '\n'.join(cleaned_lines).strip()
     
-    def _format_csv_content(self, rows: List[Dict], fieldnames: List[str]) -> str:
-        """Format CSV data into readable text"""
-        if not rows or not fieldnames:
-            return "Empty CSV data"
+    def _clean_pdf_content(self, content: str) -> str:
+        """Clean and format PDF content for better processing"""
+        if not content.strip():
+            return "Empty PDF content"
         
-        # Create a formatted representation
-        content_parts = []
-        content_parts.append(f"CSV Data Summary:")
-        content_parts.append(f"Columns: {', '.join(fieldnames)}")
-        content_parts.append(f"Total Rows: {len(rows)}")
-        content_parts.append("\nData Preview:")
+        # Remove excessive whitespace and normalize line breaks
+        content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)
+        content = re.sub(r'[ \t]+', ' ', content)
         
-        # Show first few rows in a readable format
-        for i, row in enumerate(rows[:10]):  # Show first 10 rows
-            content_parts.append(f"\nRow {i+1}:")
-            for field in fieldnames:
-                value = row.get(field, '')
-                if value:
-                    content_parts.append(f"  {field}: {value}")
+        # Split into lines and clean each line
+        lines = content.split('\n')
+        cleaned_lines = []
         
-        if len(rows) > 10:
-            content_parts.append(f"\n... and {len(rows) - 10} more rows")
+        for line in lines:
+            # Strip whitespace from each line
+            line = line.strip()
+            
+            # Skip very short lines that are likely formatting artifacts
+            if len(line) < 2 and not line.isdigit():
+                continue
+                
+            # Keep the line
+            cleaned_lines.append(line)
         
-        # Add searchable content by concatenating all values
-        content_parts.append("\nFull Data for Search:")
-        all_values = []
-        for row in rows:
-            for field in fieldnames:
-                value = str(row.get(field, '')).strip()
-                if value:
-                    all_values.append(f"{field}: {value}")
+        # Join lines back together
+        cleaned_content = '\n'.join(cleaned_lines)
         
-        content_parts.append(' | '.join(all_values))
+        # Remove page separators if they're too frequent
+        cleaned_content = re.sub(r'\n--- Page \d+ ---\n', '\n\n', cleaned_content)
         
-        return '\n'.join(content_parts)
+        # Final cleanup
+        cleaned_content = re.sub(r'\n{3,}', '\n\n', cleaned_content)
+        
+        return cleaned_content.strip()

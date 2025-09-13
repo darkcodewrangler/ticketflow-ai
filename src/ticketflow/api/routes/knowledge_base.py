@@ -50,16 +50,16 @@ async def upload_knowledge_source(
     author: Optional[str] = Form(None),
     _: bool = Depends(verify_db_connection)
 ):
-    """Upload and process knowledge base files (markdown, txt, csv)"""
+    """Upload and process knowledge base files (markdown, txt, pdf)"""
     try:
         # Validate file type
-        allowed_types = ['text/markdown', 'text/plain', 'text/csv', 'application/csv']
-        allowed_extensions = ['.md', '.txt', '.csv']
+        allowed_types = ['text/markdown', 'text/plain', 'application/pdf']
+        allowed_extensions = ['.md', '.txt', '.pdf']
         
         file_extension = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
         if file.content_type not in allowed_types and f'.{file_extension}' not in allowed_extensions:
             return error_response(
-                message="Unsupported file type. Only markdown (.md), text (.txt), and CSV (.csv) files are allowed.",
+                message="Unsupported file type. Only markdown (.md), text (.txt), and PDF (.pdf) files are allowed.",
                 error_code=ErrorCodes.BAD_REQUEST
             )
         
