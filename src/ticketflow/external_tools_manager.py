@@ -1,6 +1,8 @@
 from typing import Dict, Any
 import asyncio
 import resend
+from slack_sdk.web.async_client import AsyncWebClient
+from slack_sdk.errors import SlackApiError
 
 from .config import config
 import logging
@@ -17,38 +19,80 @@ class ExternalToolsManager:
         self.slack_enabled = bool(config.SLACK_BOT_TOKEN) if hasattr(config, 'SLACK_BOT_TOKEN') else False
         self.email_enabled = bool(config.RESEND_API_KEY) if hasattr(config, 'RESEND_API_KEY') else False
         
+        # Initialize Slack client if token is available
+        if self.slack_enabled:
+            self.slack_client = AsyncWebClient(token=config.SLACK_BOT_TOKEN)
+        else:
+            self.slack_client = None
+        
         # Initialize Resend if API key is available
         if self.email_enabled:
             resend.api_key = config.RESEND_API_KEY
     
     async def send_slack_notification(self, channel: str, message: str, ticket_id: int = None) -> Dict[str, Any]:
-        """Send Slack notification"""
-        if not self.slack_enabled:
+        """Send Slack notification with rich formatting"""
+        if not self.slack_enabled or not self.slack_client:
             return {"status": "disabled", "message": "Slack integration not configured"}
         
         try:
-            # In a real implementation, this would use the Slack SDK
-            notification_data = {
-                "channel": channel,
-                "message": message,
-                "ticket_id": ticket_id,
-                "timestamp": asyncio.get_event_loop().time()
-            }
-            
-            # Simulate sending notification
-            await asyncio.sleep(0.1)  # Simulate network delay
+            # Format the message with rich blocks if ticket_id is provided
+            if ticket_id:
+                blocks = [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"🎫 *Ticket #{ticket_id} Update*\n{message}"
+                        }
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"Ticket ID: {ticket_id} | TicketFlow AI"
+                            }
+                        ]
+                    }
+                ]
+                
+                # Send message with blocks
+                response = await self.slack_client.chat_postMessage(
+                    channel=channel,
+                    blocks=blocks,
+                    text=f"Ticket #{ticket_id} Update: {message}"  # Fallback text
+                )
+            else:
+                # Send simple text message
+                response = await self.slack_client.chat_postMessage(
+                    channel=channel,
+                    text=f"🤖 TicketFlow AI: {message}"
+                )
             
             logger.info(f"Slack notification sent to {channel}: {message[:50]}...")
             
             return {
                 "status": "sent",
                 "channel": channel,
-                "message_id": f"slack_{int(asyncio.get_event_loop().time())}"
+                "message_id": response["ts"],
+                "ok": response["ok"]
             }
             
+        except SlackApiError as e:
+            error_msg = f"Slack API error: {e.response['error']}"
+            logger.error(error_msg)
+            return {
+                "status": "failed",
+                "error": error_msg,
+                "error_code": e.response['error']
+            }
         except Exception as e:
-            logger.error(f"Slack notification failed: {e}")
-            return {"status": "failed", "error": str(e)}
+            error_msg = f"Slack notification failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "status": "failed",
+                "error": error_msg
+            }
     
     async def send_email_notification(self, recipient: str, subject: str, body: str, html_body: str = None) -> Dict[str, Any]:
         """Send email notification using Resend"""
