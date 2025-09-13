@@ -11,7 +11,7 @@ from ticketflow.api.response_models import SuccessResponse, ErrorResponse
 from ticketflow.config import config
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/settings", tags=["settings"])
+router = APIRouter()
 
 # Pydantic models for API requests/responses
 class SettingResponse(BaseModel):
@@ -196,8 +196,7 @@ async def get_all_settings(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve settings"
         )
-    finally:
-         await settings_manager.db.close()
+   
 
 @router.get("/validate/required", response_model=SuccessResponse[Dict[str, Any]])
 async def validate_all_required_settings(

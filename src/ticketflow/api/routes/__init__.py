@@ -10,7 +10,7 @@ from . import workflows
 from . import search
 from . import analytics
 from . import agent
-
+from . import settings
 # Export all route modules
 __all__ = [
     "tickets",
@@ -18,5 +18,6 @@ __all__ = [
     "workflows",
     "search",
     "analytics",
-    "agent"
+    "agent",
+    "settings"
 ]

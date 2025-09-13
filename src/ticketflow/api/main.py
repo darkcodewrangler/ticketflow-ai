@@ -21,9 +21,16 @@ from ticketflow.database import (
 )
 from ticketflow.agent.core import TicketFlowAgent, AgentConfig
 from .websocket_manager import websocket_manager
-from .routes import tickets, knowledge_base, workflows, search, analytics, agent, integrations
-from . import settings
-from ticketflow.config import config
+from .routes import (
+    tickets, 
+    knowledge_base, 
+    workflows, 
+    search, 
+    analytics, 
+    agent, 
+    integrations, 
+    settings
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +113,7 @@ async def root():
             "analytics": "/api/analytics",
             "agent": "/api/agent",
             "integrations": "/api/integrations",
+            "settings": "/api/settings",
             "websocket": "/ws",
             "docs": "/docs"
         }
