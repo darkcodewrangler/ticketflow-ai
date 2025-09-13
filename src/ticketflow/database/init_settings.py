@@ -27,12 +27,11 @@ async def initialize_settings_table(encryption_key: Optional[str] = None) -> boo
     Returns:
         True if initialization successful, False otherwise
     """
-    if not db_manager._connected():
-        db_manager.connect()
     try:
-        # Initialize database connection
-        logger.info("Connecting to database...")
-      
+        # Ensure database connection
+        if not db_manager._connected:
+            logger.info("Connecting to database...")
+            db_manager.connect()
         
         # Initialize database tables (this will create the settings table)
         logger.info("Initializing database tables...")
@@ -63,11 +62,10 @@ async def verify_settings_initialization() -> bool:
     Returns:
         True if verification successful, False otherwise
     """
-    if not db_manager._connected():
-        db_manager.connect()
     try:
-        # Initialize database connection
-        if not db_manager._connected():
+        # Ensure database connection
+        if not db_manager._connected:
+            logger.info("Connecting to database for verification...")
             db_manager.connect()
         
         settings_manager = SettingsManager(db_manager)

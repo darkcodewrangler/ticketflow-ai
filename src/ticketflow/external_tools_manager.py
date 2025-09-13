@@ -5,7 +5,8 @@ from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.errors import SlackApiError
 
 from .config import config
-from .database import PyTiDBManager, SettingsManager
+from .database.connection import db_manager
+from .database import SettingsManager
 import logging
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,10 @@ class ExternalToolsManager:
         
         # Initialize settings if not provided
         if not self.settings_manager:
-            db_manager = PyTiDBManager()
-            if db_manager.connect():
+            if db_manager._connected:
                 self.settings_manager = SettingsManager(db_manager, config.ENCRYPTION_KEY)
             else:
-                logger.warning("Failed to connect to database for settings management")
+                logger.warning("Database not connected for settings management")
     
     async def _initialize_integrations(self):
         """

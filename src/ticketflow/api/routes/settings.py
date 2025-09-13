@@ -4,7 +4,8 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field, validator
 import logging
 
-from ticketflow.database import PyTiDBManager, SettingsManager
+from ticketflow.database.connection import db_manager
+from ticketflow.database import SettingsManager
 from ticketflow.database.models import SettingType, SettingCategory
 from ticketflow.api.response_models import SuccessResponse, ErrorResponse
 from ticketflow.config import config
@@ -75,14 +76,8 @@ class SettingsListResponse(BaseModel):
 # Dependency to get settings manager
 async def get_settings_manager() -> SettingsManager:
     """Get settings manager instance"""
-    db_manager = PyTiDBManager(
-        host=config.TIDB_HOST,
-        port=config.TIDB_PORT,
-        user=config.TIDB_USER,
-        password=config.TIDB_PASSWORD,
-        database=config.TIDB_DATABASE,
-        ca_path=config.TIDB_CA_PATH
-    )
+    if not db_manager._connected:
+        raise HTTPException(status_code=503, detail="Database connection not available")
     return SettingsManager(db_manager, config.ENCRYPTION_KEY)
 
 def _convert_setting_to_response(setting: Dict[str, Any]) -> SettingResponse:

@@ -2,11 +2,9 @@ from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 import json
 import logging
-from sqlalchemy import select, update, delete
-from sqlalchemy.exc import IntegrityError
 
-from ticketflow.database.models import Settings, SettingType, SettingCategory
 from ticketflow.database.connection import PyTiDBManager
+from ticketflow.database.models import Settings, SettingType, SettingCategory
 from ticketflow.utils.encryption import EncryptionManager
 from ticketflow.config import config
 
@@ -56,43 +54,43 @@ class SettingsManager:
             Setting data or None if not found
         """
         try:
-            async with self.db.get_session() as session:
-                result = await session.execute(
-                    select(Settings).where(Settings.key == key)
-                )
-                setting = result.scalar_one_or_none()
-                
-                if not setting:
-                    return None
-                
-                setting_dict = {
-                    'id': setting.id,
-                    'key': setting.key,
-                    'category': setting.category,
-                    'name': setting.name,
-                    'description': setting.description,
-                    'setting_type': setting.setting_type,
-                    'value': setting.value,
-                    'default_value': setting.default_value,
-                    'is_enabled': setting.is_enabled,
-                    'is_required': setting.is_required,
-                    'is_sensitive': setting.is_sensitive,
-                    'validation_rules': setting.validation_rules,
-                    'allowed_values': setting.allowed_values,
-                    'created_at': setting.created_at,
-                    'updated_at': setting.updated_at,
-                    'updated_by': setting.updated_by
-                }
-                
-                # Decrypt sensitive values if requested
-                if decrypt and setting.is_sensitive and setting.value:
-                    try:
-                        setting_dict['value'] = self.encryption.decrypt(setting.value)
-                    except Exception as e:
-                        logger.error(f"Failed to decrypt setting {key}: {e}")
-                        setting_dict['value'] = ""
-                
-                return setting_dict
+            # Use the standard db.settings pattern
+            results = self.db.settings.query(filters={'key': key}, limit=1).to_list()
+            
+            if not results:
+                return None
+            
+            setting = results[0]
+            
+            # Convert to dict - assuming setting is a dict-like object from PyTiDB
+            setting_dict = {
+                'id': setting.get('id'),
+                'key': setting.get('key'),
+                'category': setting.get('category'),
+                'name': setting.get('name'),
+                'description': setting.get('description'),
+                'setting_type': setting.get('setting_type'),
+                'value': setting.get('value'),
+                'default_value': setting.get('default_value'),
+                'is_enabled': bool(setting.get('is_enabled', True)),
+                'is_required': bool(setting.get('is_required', False)),
+                'is_sensitive': bool(setting.get('is_sensitive', False)),
+                'validation_rules': json.loads(setting.get('validation_rules')) if setting.get('validation_rules') else {},
+                'allowed_values': json.loads(setting.get('allowed_values')) if setting.get('allowed_values') else [],
+                'created_at': setting.get('created_at'),
+                'updated_at': setting.get('updated_at'),
+                'updated_by': setting.get('updated_by')
+            }
+            
+            # Decrypt sensitive values if requested
+            if decrypt and setting_dict['is_sensitive'] and setting_dict['value']:
+                try:
+                    setting_dict['value'] = self.encryption.decrypt(setting_dict['value'])
+                except Exception as e:
+                    logger.error(f"Failed to decrypt setting {key}: {e}")
+                    setting_dict['value'] = ""
+            
+            return setting_dict
                 
         except Exception as e:
             logger.error(f"Failed to get setting {key}: {e}")
@@ -128,44 +126,44 @@ class SettingsManager:
             List of settings in the category
         """
         try:
-            async with self.db.get_session() as session:
-                result = await session.execute(
-                    select(Settings).where(Settings.category == category)
-                )
-                settings = result.scalars().all()
+            # Use the standard db.settings pattern
+            results = self.db.settings.query(filters={'category': category}).to_list()
+            
+            if not results:
+                return []
+            
+            settings_list = []
+            for setting in results:
+                setting_dict = {
+                    'id': setting.get('id'),
+                    'key': setting.get('key'),
+                    'category': setting.get('category'),
+                    'name': setting.get('name'),
+                    'description': setting.get('description'),
+                    'setting_type': setting.get('setting_type'),
+                    'value': setting.get('value'),
+                    'default_value': setting.get('default_value'),
+                    'is_enabled': bool(setting.get('is_enabled', True)),
+                    'is_required': bool(setting.get('is_required', False)),
+                    'is_sensitive': bool(setting.get('is_sensitive', False)),
+                    'validation_rules': json.loads(setting.get('validation_rules')) if setting.get('validation_rules') else {},
+                    'allowed_values': json.loads(setting.get('allowed_values')) if setting.get('allowed_values') else [],
+                    'created_at': setting.get('created_at'),
+                    'updated_at': setting.get('updated_at'),
+                    'updated_by': setting.get('updated_by')
+                }
                 
-                settings_list = []
-                for setting in settings:
-                    setting_dict = {
-                        'id': setting.id,
-                        'key': setting.key,
-                        'category': setting.category,
-                        'name': setting.name,
-                        'description': setting.description,
-                        'setting_type': setting.setting_type,
-                        'value': setting.value,
-                        'default_value': setting.default_value,
-                        'is_enabled': setting.is_enabled,
-                        'is_required': setting.is_required,
-                        'is_sensitive': setting.is_sensitive,
-                        'validation_rules': setting.validation_rules,
-                        'allowed_values': setting.allowed_values,
-                        'created_at': setting.created_at,
-                        'updated_at': setting.updated_at,
-                        'updated_by': setting.updated_by
-                    }
-                    
-                    # Decrypt sensitive values if requested
-                    if decrypt and setting.is_sensitive and setting.value:
-                        try:
-                            setting_dict['value'] = self.encryption.decrypt(setting.value)
-                        except Exception as e:
-                            logger.error(f"Failed to decrypt setting {setting.key}: {e}")
-                            setting_dict['value'] = ""
-                    
-                    settings_list.append(setting_dict)
+                # Decrypt sensitive values if requested
+                if decrypt and setting_dict['is_sensitive'] and setting_dict['value']:
+                    try:
+                        setting_dict['value'] = self.encryption.decrypt(setting_dict['value'])
+                    except Exception as e:
+                        logger.error(f"Failed to decrypt setting {setting_dict['key']}: {e}")
+                        setting_dict['value'] = ""
                 
-                return settings_list
+                settings_list.append(setting_dict)
+            
+            return settings_list
                 
         except Exception as e:
             logger.error(f"Failed to get settings for category {category}: {e}")
@@ -219,33 +217,38 @@ class SettingsManager:
             if is_sensitive and default_value:
                 encrypted_default = self.encryption.encrypt(default_value)
             
-            async with self.db.get_session() as session:
-                setting = Settings(
-                    key=key,
-                    category=category,
-                    name=name,
-                    description=description,
-                    setting_type=setting_type,
-                    value=encrypted_value,
-                    default_value=encrypted_default,
-                    is_enabled=is_enabled,
-                    is_required=is_required,
-                    is_sensitive=is_sensitive,
-                    validation_rules=validation_rules or {},
-                    allowed_values=allowed_values or [],
-                    updated_by=updated_by
-                )
-                
-                session.add(setting)
-                await session.commit()
-                await session.refresh(setting)
-                
-                logger.info(f"Created setting: {key}")
-                return await self.get_setting(key)
-                
-        except IntegrityError:
-            logger.error(f"Setting with key {key} already exists")
-            return None
+            # Create new setting using standard db.settings pattern
+            validation_rules_json = json.dumps(validation_rules) if validation_rules else None
+            allowed_values_json = json.dumps(allowed_values) if allowed_values else None
+            
+            setting_data = {
+                'key': key,
+                'category': category,
+                'name': name,
+                'setting_type': setting_type,
+                'value': encrypted_value,
+                'default_value': encrypted_default,
+                'description': description,
+                'is_enabled': is_enabled,
+                'is_required': is_required,
+                'is_sensitive': is_sensitive,
+                'validation_rules': validation_rules_json,
+                'allowed_values': allowed_values_json,
+                'updated_by': updated_by,
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            }
+            
+            result = self.db.settings.insert(setting_data)
+            
+            logger.info(f"Created setting: {key}")
+            return await self.get_setting(key)
+            
+        except Exception as integrity_error:
+            if "Duplicate entry" in str(integrity_error) or "UNIQUE constraint" in str(integrity_error):
+                logger.error(f"Setting with key {key} already exists")
+                return None
+            raise
         except Exception as e:
             logger.error(f"Failed to create setting {key}: {e}")
             return None
@@ -283,7 +286,7 @@ class SettingsManager:
                     raise ValueError(error_msg)
             
             update_data = {
-                'updated_at': datetime.utcnow().isoformat(),
+                'updated_at': datetime.now(),
                 'updated_by': updated_by
             }
             
@@ -297,13 +300,11 @@ class SettingsManager:
             if is_enabled is not None:
                 update_data['is_enabled'] = is_enabled
             
-            async with self.db.get_session() as session:
-                await session.execute(
-                    update(Settings)
-                    .where(Settings.key == key)
-                    .values(**update_data)
-                )
-                await session.commit()
+            # Use standard db.settings.update() pattern
+            self.db.settings.update(
+                filters={'key': key},
+                values=update_data
+            )
             
             logger.info(f"Updated setting: {key}")
             return await self.get_setting(key)
@@ -323,18 +324,11 @@ class SettingsManager:
             True if deleted successfully, False otherwise
         """
         try:
-            async with self.db.get_session() as session:
-                result = await session.execute(
-                    delete(Settings).where(Settings.key == key)
-                )
-                await session.commit()
-                
-                if result.rowcount > 0:
-                    logger.info(f"Deleted setting: {key}")
-                    return True
-                else:
-                    logger.warning(f"Setting {key} not found for deletion")
-                    return False
+            # Use standard db.settings pattern
+            result = self.db.settings.delete(filters={'key': key})
+            
+            logger.info(f"Deleted setting: {key}")
+            return True
                     
         except Exception as e:
             logger.error(f"Failed to delete setting {key}: {e}")
@@ -481,32 +475,33 @@ class SettingsManager:
         errors = {}
         
         try:
-            async with self.db.get_session() as session:
-                result = await session.execute(
-                    select(Settings).where(Settings.is_required == True)
-                )
-                required_settings = result.scalars().all()
+            # Use standard db.settings pattern
+            results = self.db.settings.query(filters={'is_required': True}).to_list()
+            
+            if not results:
+                return errors
+            
+            for setting in results:
+                setting_dict = {
+                    'key': setting.get('key'),
+                    'setting_type': setting.get('setting_type'),
+                    'is_required': bool(setting.get('is_required', False)),
+                    'validation_rules': json.loads(setting.get('validation_rules')) if setting.get('validation_rules') else {},
+                    'allowed_values': json.loads(setting.get('allowed_values')) if setting.get('allowed_values') else []
+                }
                 
-                for setting in required_settings:
-                    setting_dict = {
-                        'key': setting.key,
-                        'setting_type': setting.setting_type,
-                        'is_required': setting.is_required,
-                        'validation_rules': setting.validation_rules or {},
-                        'allowed_values': setting.allowed_values or []
-                    }
-                    
-                    # Get the actual value (decrypt if needed)
-                    value = setting.value
-                    if setting.is_sensitive and value:
-                        try:
-                            value = self.encryption.decrypt(value)
-                        except Exception:
-                            value = None
-                    
-                    is_valid, error_msg = self._validate_setting_value(value, setting_dict)
-                    if not is_valid:
-                        errors[setting.key] = error_msg
+                # Get the actual value (decrypt if needed)
+                value = setting.get('value')
+                is_sensitive = bool(setting.get('is_sensitive', False))
+                if is_sensitive and value:
+                    try:
+                        value = self.encryption.decrypt(value)
+                    except Exception:
+                        value = None
+                
+                is_valid, error_msg = self._validate_setting_value(value, setting_dict)
+                if not is_valid:
+                    errors[setting_dict['key']] = error_msg
                 
         except Exception as e:
             logger.error(f"Failed to validate required settings: {e}")
