@@ -1,51 +1,69 @@
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+import logging
 
-from fastapi import APIRouter
-from ticketflow.database.connection import db_manager
-from ticketflow.database.models import APIKey
+from fastapi import APIRouter, Depends, HTTPException, Query
 from ticketflow.database.operations.auth import AuthOperations
+from ticketflow.database.schemas import APIKeyCreateRequest, APIKeyResponse, APIKeyUpdateRequest
+from ticketflow.api.dependencies import verify_db_connection
+from ticketflow.api.response_models import (
+    success_response, error_response, paginated_response,
+    ResponseMessages, ErrorCodes
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
 @router.post("/keys")
-async def create_api_key(key_data: Dict[str, Any]):
-    """Create new API key (admin only for demo)"""
-    api_key, key_hash = AuthOperations.generate_api_key()
-    
-    key_record = APIKey(
-        key_name=key_data["name"],
-        api_key="",  # Never store the actual key
-        key_hash=key_hash,
-        organization=key_data.get("organization", ""),
-        can_create_tickets=key_data.get("can_create_tickets", True),
-        can_read_tickets=key_data.get("can_read_tickets", True),
-        can_process_tickets=key_data.get("can_process_tickets", False),
-        can_read_analytics=key_data.get("can_read_analytics", False)
-    )
-    
-    created_key = db_manager.api_keys.insert(key_record)
-    
-    return {
-        "api_key": api_key,  # Only returned once!
-        "key_name": created_key.key_name,
-        "permissions": {
-            "create_tickets": created_key.can_create_tickets,
-            "read_tickets": created_key.can_read_tickets,
-            "process_tickets": created_key.can_process_tickets,
-            "read_analytics": created_key.can_read_analytics
-        },
-        "warning": "Store this key securely - it won't be shown again"
-    }
+async def create_api_key(
+    key_data: Dict[str, Any],
+    _: bool = Depends(verify_db_connection)
+):
+    """Create new API key"""
+    try:
+        # Validate required fields
+        if not key_data.get("name"):
+            return error_response(
+                message="Key name is required",
+                error_code=ErrorCodes.VALIDATION_ERROR
+            )
+        
+        created_key, api_key = await AuthOperations.create_api_key(key_data)
+        
+        return success_response(
+            data={
+                "api_key": api_key,  # Only returned once!
+                "key_name": created_key.key_name,
+                "organization": created_key.organization,
+                "permissions": {
+                    "create_tickets": created_key.can_create_tickets,
+                    "read_tickets": created_key.can_read_tickets,
+                    "process_tickets": created_key.can_process_tickets,
+                    "read_analytics": created_key.can_read_analytics
+                },
+                "warning": "Store this key securely - it won't be shown again"
+            },
+            message="API key created successfully"
+        )
+    except Exception as e:
+        return error_response(
+            message="Failed to create API key",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )
 
 @router.get("/keys")
-async def list_api_keys():
+async def list_api_keys(
+    limit: int = Query(50, ge=1, le=100, description="Number of keys to return"),
+    _: bool = Depends(verify_db_connection)
+):
     """List API keys (without showing actual keys)"""
-    keys = db_manager.api_keys.query(filters={"is_active": True}).to_list()
-    
-    return {
-        "keys": [{
+    try:
+        keys = await AuthOperations.get_api_keys(limit=limit)
+        
+        key_list = [{
             "id": key.id,
             "key_name": key.key_name,
             "organization": key.organization,
@@ -58,4 +76,79 @@ async def list_api_keys():
                 "read_analytics": key.can_read_analytics
             }
         } for key in keys]
-    }
+        
+        return success_response(
+            data=key_list,
+            message=ResponseMessages.RETRIEVED,
+            count=len(key_list)
+        )
+    except Exception as e:
+        return error_response(
+             message="Failed to retrieve API keys",
+             error=str(e),
+             error_code=ErrorCodes.INTERNAL_ERROR
+         )
+
+
+
+
+@router.put("/keys/{key_id}")
+async def update_api_key(
+    key_id: str,
+    update_data: Dict[str, Any],
+    _: bool = Depends(verify_db_connection)
+):
+    """Update API key"""
+    try:
+        updated_key = await AuthOperations.update_api_key(key_id, update_data)
+        if not updated_key:
+            return error_response(
+                message="API key not found",
+                error_code=ErrorCodes.NOT_FOUND
+            )
+        
+        return success_response(
+            data={
+                "id": updated_key.id,
+                "key_name": updated_key.key_name,
+                "organization": updated_key.organization,
+                "permissions": {
+                    "create_tickets": updated_key.can_create_tickets,
+                    "read_tickets": updated_key.can_read_tickets,
+                    "process_tickets": updated_key.can_process_tickets,
+                    "read_analytics": updated_key.can_read_analytics
+                }
+            },
+            message=ResponseMessages.UPDATED
+        )
+    except Exception as e:
+        return error_response(
+            message="Failed to update API key",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )
+
+
+@router.delete("/keys/{key_id}")
+async def delete_api_key(
+    key_id: str,
+    _: bool = Depends(verify_db_connection)
+):
+    """Delete API key"""
+    try:
+        success = await AuthOperations.delete_api_key(key_id)
+        if not success:
+            return error_response(
+                message="API key not found",
+                error_code=ErrorCodes.NOT_FOUND
+            )
+        
+        return success_response(
+            message=ResponseMessages.DELETED
+        )
+    except Exception as e:
+        return error_response(
+            message="Failed to delete API key",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )

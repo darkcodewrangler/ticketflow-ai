@@ -17,7 +17,8 @@ from ticketflow.database.operations import (
     TicketOperations,
     KnowledgeBaseOperations,
     WorkflowOperations,
-    AnalyticsOperations
+    AnalyticsOperations,
+    AuthOperations
 )
 from ticketflow.database.settings_manager import SettingsManager
 
@@ -44,6 +45,7 @@ __all__ = [
     "KnowledgeBaseOperations",
     "WorkflowOperations",
     "AnalyticsOperations",
+    "AuthOperations",
     
     # Settings
     "SettingsManager"
