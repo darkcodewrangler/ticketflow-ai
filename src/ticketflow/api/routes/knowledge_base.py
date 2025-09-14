@@ -98,7 +98,7 @@ async def upload_knowledge_source(
             error_code=ErrorCodes.INTERNAL_ERROR
         )
 
-@router.post("/url")
+@router.post("/crawl-url")
 async def process_url_source(
     background_tasks: BackgroundTasks,
     url: str = Form(...),
