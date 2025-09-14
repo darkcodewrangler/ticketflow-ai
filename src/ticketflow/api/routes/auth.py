@@ -4,7 +4,6 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from ticketflow.database.operations.auth import AuthOperations
-from ticketflow.database.schemas import APIKeyCreateRequest, APIKeyResponse, APIKeyUpdateRequest
 from ticketflow.api.dependencies import verify_db_connection
 from ticketflow.api.response_models import (
     success_response, error_response, paginated_response,
@@ -35,6 +34,7 @@ async def create_api_key(
         return success_response(
             data={
                 "api_key": api_key,  # Only returned once!
+                "key_preview": created_key.key_preview,
                 "key_name": created_key.key_name,
                 "organization": created_key.organization,
                 "permissions": {
@@ -66,6 +66,7 @@ async def list_api_keys(
         key_list = [{
             "id": key.id,
             "key_name": key.key_name,
+            "key_preview": key.key_preview,
             "organization": key.organization,
             "created_at": key.created_at,
             "last_used": key.last_used,
@@ -90,6 +91,43 @@ async def list_api_keys(
          )
 
 
+@router.get("/keys/{key_id}")
+async def get_api_key(
+    key_id: int,
+    _: bool = Depends(verify_db_connection)
+):
+    """Get API key by ID"""
+    try:
+        key = await AuthOperations.get_api_key_by_id(key_id)
+        if not key:
+            return error_response(
+                message="API key not found",
+                error_code=ErrorCodes.NOT_FOUND
+            )
+        
+        return success_response(
+            data={
+                "id": key.id,
+                "key_name": key.key_name,
+                "key_preview": key.key_preview,
+                "organization": key.organization,
+                "created_at": key.created_at,
+                "last_used": key.last_used,
+                "permissions": {
+                    "create_tickets": key.can_create_tickets,
+                    "read_tickets": key.can_read_tickets,
+                    "process_tickets": key.can_process_tickets,
+                    "read_analytics": key.can_read_analytics
+                }
+            },
+            message="API key retrieved successfully"
+        )
+    except Exception as e:
+        return error_response(
+            message="Failed to retrieve API key",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )
 
 
 @router.put("/keys/{key_id}")

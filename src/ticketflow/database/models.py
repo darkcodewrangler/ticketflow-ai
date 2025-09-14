@@ -404,8 +404,9 @@ class APIKey(TableModel):
     
     id: int = Field(primary_key=True)
     key_name: str = Field(max_length=100, description="Human-readable key name")
-    api_key: str = Field(max_length=64, unique=True, description="The actual API key")
+    api_key: str = Field(max_length=64, description="The actual API key (empty for security)")
     key_hash: str = Field(max_length=128, description="Hashed version for security")
+    key_preview: str = Field(max_length=20, description="Preview of the key for display (e.g., tk_abc12...r678)")
     
     # Simple permissions
     can_create_tickets: bool = Field(default=True)

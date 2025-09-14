@@ -24,14 +24,15 @@ class AuthOperations:
     async def create_api_key(key_data: Dict[str, Any]) -> tuple[APIKey, str]:
         """Create new API key with standardized pattern"""
         try:
-            # Generate secure API key
-            api_key, key_hash = AuthOperations.generate_api_key()
+            # Generate secure API key, hash, and preview
+            api_key, key_hash, key_preview = AuthOperations.generate_api_key()
             
             # Create APIKey instance
             key_record = APIKey(
                 key_name=get_value(key_data, "name", ""),
                 api_key="",  # Never store the actual key
                 key_hash=key_hash,
+                key_preview=key_preview,
                 organization=get_value(key_data, "organization", ""),
                 can_create_tickets=get_value(key_data, "can_create_tickets", True),
                 can_read_tickets=get_value(key_data, "can_read_tickets", True),
@@ -51,26 +52,40 @@ class AuthOperations:
             raise
     
     @staticmethod
-    def generate_api_key() -> tuple[str, str]:
-        """Generate API key and its hash"""
+    def generate_api_key() -> tuple[str, str, str]:
+        """Generate API key, its hash, and preview"""
         # Generate secure random key
         api_key = f"tk_{''.join(secrets.choice('abcdefghijklmnopqrstuvwxyz0123456789') for _ in range(32))}"
         
         # Hash for storage
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
         
-        return api_key, key_hash
+        # Create preview (first 8 chars + ... + last 4 chars)
+        key_preview = f"{api_key[:8]}...{api_key[-4:]}"
+        
+        return api_key, key_hash, key_preview
     
     @staticmethod
     async def get_api_keys(filters: Dict[str, Any] = None, limit: int = 50) -> List[APIKey]:
         """Get API keys with optional filters"""
         try:
             query_filters = filters or {"is_active": True}
-            keys = db_manager.api_keys.query(
+            results = db_manager.api_keys.query(
                 filters=query_filters,
                 limit=limit,
                 order_by={"created_at": "desc"}
             ).to_list()
+            
+            # Convert dict results to APIKey objects
+            keys = []
+            for result in results:
+                if isinstance(result, dict):
+                    # Convert dict to APIKey object
+                    key = APIKey(**result)
+                    keys.append(key)
+                else:
+                    # Already an APIKey object
+                    keys.append(result)
             
             logger.info(f"📋 Retrieved {len(keys)} API keys")
             return keys
@@ -83,29 +98,52 @@ class AuthOperations:
     async def get_api_key_by_id(key_id: int) -> Optional[APIKey]:
         """Get API key by ID"""
         try:
-            keys = db_manager.api_keys.query(
+            results = db_manager.api_keys.query(
                 filters={"id": key_id, "is_active": True},
                 limit=1
             ).to_list()
             
-            if not keys:
+            if not results:
                 logger.warning(f"⚠️ API key {key_id} not found")
                 return None
             
-            return keys[0]
+            result = results[0]
+            if isinstance(result, dict):
+                # Convert dict to APIKey object
+                return APIKey(**result)
+            else:
+                # Already an APIKey object
+                return result
             
         except Exception as e:
             logger.error(f"❌ Failed to get API key {key_id}: {e}")
             raise
     
     @staticmethod
-    async def update_api_key(key_id: int, updates: Dict[str, Any]) -> Optional[APIKey]:
-        """Update API key with standardized pattern"""
+    async def update_api_key(key_id: int, update_data: Dict[str, Any]) -> Optional[APIKey]:
+        """Update API key with standardized pattern - only name and organization allowed"""
         try:
+            # Only allow updating name and organization for security
+            allowed_fields = {"key_name", "organization"}
+            
+            filtered_data = {
+                k: v for k, v in update_data.items() 
+                if k in allowed_fields and v is not None
+            }
+            
+            # Handle 'name' field mapping to 'key_name'
+            if "name" in update_data:
+                filtered_data["key_name"] = update_data["name"]
+                filtered_data.pop("name", None)
+            
+            if not filtered_data:
+                logger.warning("⚠️ No valid fields to update (only name and organization allowed)")
+                return None
+            
             # Update the key
             updated_count = db_manager.api_keys.update(
                 filters={"id": key_id, "is_active": True},
-                values=updates
+                values=filtered_data
             )
             
             if updated_count == 0:
@@ -114,7 +152,7 @@ class AuthOperations:
             
             # Return updated key
             updated_key = await AuthOperations.get_api_key_by_id(key_id)
-            logger.info(f"✅ Updated API key {key_id}")
+            logger.info(f"🔄 Updated API key {key_id} (name/org only)")
             return updated_key
             
         except Exception as e:
@@ -127,7 +165,7 @@ class AuthOperations:
         try:
             updated_count = db_manager.api_keys.update(
                 filters={"id": key_id, "is_active": True},
-                values={"is_active": False, "deactivated_at": get_isoformat()}
+                values={"is_active": False}
             )
             
             if updated_count == 0:
