@@ -4,22 +4,20 @@ Provides REST API and WebSocket support for real-time demos
 """
 
 import uvicorn
-import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
-from typing import Dict, List, Any
+
+
 
 from ticketflow.database import (
     db_manager, 
     TicketOperations, 
     KnowledgeBaseOperations,
-    AnalyticsOperations
+    
 )
-from ticketflow.agent.core import TicketFlowAgent, AgentConfig
 from .websocket_manager import websocket_manager
 from .routes import (
     tickets, 
@@ -29,7 +27,7 @@ from .routes import (
     analytics, 
     agent, 
     integrations, 
-    settings
+    settings,auth
 )
 
 logger = logging.getLogger(__name__)
@@ -83,6 +81,7 @@ app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"]
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
 # WebSocket endpoint for real-time updates
 app.include_router(websocket_manager.router)
@@ -114,6 +113,7 @@ async def root():
             "agent": "/api/agent",
             "integrations": "/api/integrations",
             "settings": "/api/settings",
+            "auth": "/api/auth",
             "websocket": "/ws",
             "docs": "/docs"
         }

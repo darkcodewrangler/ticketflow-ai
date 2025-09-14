@@ -398,6 +398,40 @@ class Settings(TableModel):
         Index('idx_settings_required', 'is_required'),
     )
 
+class APIKey(TableModel):
+    """API key authentication"""
+    __tablename__ = "api_keys"
+    
+    id: int = Field(primary_key=True)
+    key_name: str = Field(max_length=100, description="Human-readable key name")
+    api_key: str = Field(max_length=64, unique=True, description="The actual API key")
+    key_hash: str = Field(max_length=128, description="Hashed version for security")
+    
+    # Simple permissions
+    can_create_tickets: bool = Field(default=True)
+    can_read_tickets: bool = Field(default=True)
+    can_process_tickets: bool = Field(default=False)  # Agent processing
+    can_read_analytics: bool = Field(default=False)   # Sensitive data
+    
+    # Metadata
+    created_by: str = Field(default="system")
+    organization: str = Field(default="", description="Company/org using this key")
+    is_active: bool = Field(default=True)
+    
+    # Timestamps
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    last_used: Optional[str] = Field(default=None)
+    expires_at: Optional[str] = Field(default=None)
+
+    class Config:
+        auto_embed_text_fields = False  # No need for embeddings
+
+    __table_args__ = (
+        Index('idx_key_hash', 'key_hash'),
+        Index('idx_created_by', 'created_by'),
+        Index('idx_organization', 'organization'),
+        Index('idx_is_active', 'is_active'),
+    )
 __all__ = [
     "Ticket",
     "KnowledgeBaseArticle", 
@@ -410,5 +444,6 @@ __all__ = [
     "ResolutionType",
     "WorkflowStatus",
     "SettingType",
-    "SettingCategory"
+    "SettingCategory",
+    "APIKey"
 ]

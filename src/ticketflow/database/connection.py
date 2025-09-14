@@ -7,7 +7,7 @@ from pytidb import TiDBClient,Table
 from typing import Optional, Dict, Any
 import logging
 from ticketflow.config import config
-from ticketflow.database.models import Settings, Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics, ProcessingTask
+from ticketflow.database.models import APIKey, Settings, Ticket, KnowledgeBaseArticle, AgentWorkflow, PerformanceMetrics, ProcessingTask
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +129,11 @@ class PyTiDBManager:
                 schema=Settings,
                 if_exists=if_exists_mode
             )
+            print("🔑 Creating API Keys table...")
+            self.tables['api_keys'] = self.client.create_table(
+                schema=APIKey,
+                if_exists=if_exists_mode
+            )
             
             logger.info("✅ All tables initialized successfully!")
             
@@ -186,6 +191,11 @@ class PyTiDBManager:
     def settings(self):
         """Quick access to settings table"""
         return self.get_table('settings')
+    
+    @property
+    def api_keys(self):
+        """Quick access to api keys table"""
+        return self.get_table('api_keys')
     
     def close(self):
         """Close database connection"""

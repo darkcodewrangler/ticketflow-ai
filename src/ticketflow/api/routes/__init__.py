@@ -11,6 +11,8 @@ from . import search
 from . import analytics
 from . import agent
 from . import settings
+from . import auth
+
 # Export all route modules
 __all__ = [
     "tickets",
@@ -19,5 +21,6 @@ __all__ = [
     "search",
     "analytics",
     "agent",
-    "settings"
+    "settings",
+    "auth"
 ]
