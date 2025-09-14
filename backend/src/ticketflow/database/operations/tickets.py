@@ -79,7 +79,7 @@ class TicketOperations:
             return []
 
     @staticmethod
-    async def get_recent_tickets(days: int = None, limit: int = 100) -> List[Ticket]:
+    async def get_recent_tickets(days: int = None, limit: int = 20) -> List[Ticket]:
         """Get recent tickets"""
         try:
             if days is not None:
@@ -94,7 +94,7 @@ class TicketOperations:
 
             else:
              return db_manager.tickets.query(
-                    limit=100,
+                    limit=limit,
                     order_by={"created_at": "desc"}
                 ).to_list()
         

@@ -126,8 +126,9 @@ async def create_ticket(
         
         # Create the ticket
         ticket = await TicketOperations.create_ticket(ticket_dict)
+        ticket_data = TicketResponse.model_validate(ticket).model_dump()
         try:
-            await websocket_manager.send_ticket_created(TicketResponse.model_validate(ticket).model_dump())
+            await websocket_manager.send_ticket_created(ticket_data)
         except Exception:
             pass
         
@@ -141,7 +142,6 @@ async def create_ticket(
             logger.info(f"🎯 Auto-processing enabled for ticket {ticket.id}")
         
         # Return standardized response with processing info
-        ticket_data = TicketResponse.model_validate(ticket).model_dump()
         ticket_data["auto_processing"] = should_process
         
         return success_response(

@@ -287,7 +287,7 @@ def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workf
             except Exception:
                 pass
         else:
-            logger.warning(f"⚠️ AI processing failed for ticket {ticket_id}: {result.get('error')}")
+            logger.warning(f"⚠️ Agent processing failed for ticket {ticket_id}: {result.get('error')}")
             try:
                 asyncio.run(websocket_manager.send_agent_update(ticket_id, "error", "Processing failed", {"error": result.get('error')}))
             except Exception:

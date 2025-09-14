@@ -21,7 +21,7 @@ from ticketflow.database import (
     TicketStatus,
     Priority
 )
-from ticketflow.utils.helpers import get_isoformat
+from ticketflow.utils.helpers import get_isoformat, get_value
 from .llm_client import LLMClient
 from ticketflow.external_tools_manager import ExternalToolsManager
 from ticketflow.api.websocket_manager import websocket_manager
@@ -86,10 +86,10 @@ class TicketFlowAgent:
             workflow_id = step_result["workflow_id"]
             try:
                 await websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.INGEST.value, "Ticket ingested", {
-                        "title": ticket.get("title"),
-                        "category": ticket.get("category"),
-                        "priority": ticket.get("priority")
+                    get_value(ticket, 'id'), AgentStep.INGEST.value, "Ticket ingested", {
+                        "title": get_value(ticket, 'title'),
+                        "category": get_value(ticket, 'category'),
+                        "priority": get_value(ticket, 'priority')
                     }
                 )
             except Exception:
@@ -99,7 +99,7 @@ class TicketFlowAgent:
             similar_cases = await self._step_search_similar(workflow_id, ticket)
             try:
                 await websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.SEARCH_SIMILAR.value, f"Found {len(similar_cases)} similar tickets", {
+                    get_value(ticket, 'id'), AgentStep.SEARCH_SIMILAR.value, f"Found {len(similar_cases)} similar tickets", {
                         "count": len(similar_cases)
                     }
                 )
@@ -110,7 +110,7 @@ class TicketFlowAgent:
             kb_articles = await self._step_search_kb(workflow_id, ticket)
             try:
                 await websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.SEARCH_KB.value, f"Found {len(kb_articles)} KB articles", {
+                    get_value(ticket, 'id'), AgentStep.SEARCH_KB.value, f"Found {len(kb_articles)} KB articles", {
                         "count": len(kb_articles)
                     }
                 )
@@ -121,7 +121,7 @@ class TicketFlowAgent:
             analysis = await self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
             try:
                 await websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.ANALYZE.value, "Analysis complete", {
+                    get_value(ticket, 'id'), AgentStep.ANALYZE.value, "Analysis complete", {
                         "confidence": analysis.get("overall_confidence")
                     }
                 )
@@ -132,7 +132,7 @@ class TicketFlowAgent:
             decisions = await self._step_decide(workflow_id, ticket, analysis)
             try:
                 await websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.DECIDE.value, f"Decision: {decisions.get('primary_decision')}", {
+                    get_value(ticket, 'id'), AgentStep.DECIDE.value, f"Decision: {decisions.get('primary_decision')}", {
                         "actions_count": len(decisions.get("actions", [])),
                         "confidence": decisions.get("confidence")
                     }
@@ -144,7 +144,7 @@ class TicketFlowAgent:
             execution_results = await self._step_execute(workflow_id, ticket, decisions)
             try:
                 await websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.EXECUTE.value, f"Executed {len(execution_results)} actions", {
+                    get_value(ticket, 'id'), AgentStep.EXECUTE.value, f"Executed {len(execution_results)} actions", {
                         "actions": [r.get("action") for r in execution_results]
                     }
                 )
@@ -168,7 +168,7 @@ class TicketFlowAgent:
             
             return {
                 "success": True,
-                "ticket_id": ticket.get('id'),
+                "ticket_id": get_value(ticket, 'id'),
                 "workflow_id": workflow_id,
                 "final_status": final_result["status"],
                 "confidence": final_result["confidence"],
@@ -185,7 +185,7 @@ class TicketFlowAgent:
                 await self._log_workflow_error(workflow_id, str(e))
             try:
                 await websocket_manager.send_agent_update(
-                    ticket_data.get("id"), "error", "Agent processing failed", {"error": str(e)}
+                    get_value(ticket, "id"), "error", "Agent processing failed", {"error": str(e)}
                 )
             except Exception:
                 pass
@@ -214,9 +214,8 @@ class TicketFlowAgent:
             
             # Get the existing ticket from database
             # tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
-            tickets = await asyncio.get_event_loop().run_in_executor(
-            None, 
-            lambda: db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_pydantic()
+            tickets = await asyncio.to_thread(
+            db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_pydantic()
         )
             if not tickets:
                 raise ValueError(f"Ticket {ticket_id} not found")
@@ -229,10 +228,10 @@ class TicketFlowAgent:
                 "status": "completed",
                 "message": f"Processing existing ticket {ticket_id}",
                 "data": {
-                    "ticket_id": ticket.get("id"),
-                    "title": ticket.get("title")[:50] + "...",
-                    "category": ticket.get("category"),
-                    "priority": ticket.get("priority")
+                    "ticket_id": get_value(ticket, "id"),
+                    "title": get_value(ticket, "title")[:50] + "...",
+                    "category": get_value(ticket, "category"),
+                    "priority": get_value(ticket, "priority")
                 },
                 "duration_ms": 0
             }
@@ -353,21 +352,24 @@ class TicketFlowAgent:
             "status": "completed",
             "message": f"Ticket created with auto-embeddings",
             "data": {
-                "ticket_id": ticket.get('id'),
-                "title": ticket.title[:50] + "...",
-                "category": ticket.category,
-                "priority": ticket.priority
+                "ticket_id": get_value(ticket, 'id'),
+                "title": get_value(ticket, 'title')[:50] + "...",
+                "category": get_value(ticket, 'category'),
+                "priority": get_value(ticket, 'priority')
             },
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        workflow = await WorkflowOperations.create_workflow(ticket.get('id'), [initial_step])
+        workflow = await WorkflowOperations.create_workflow(ticket.id, [initial_step])
         
-        logger.info(f"Agent ingested ticket {ticket.get('id')}")
+        logger.info(f"Agent ingested ticket {ticket.id}")
+        
+        # Convert ticket to dict for consistent handling throughout the workflow
+        ticket_dict = TicketResponse.model_validate(ticket).model_dump()
         
         return {
-            "ticket": ticket,
-            "workflow_id": workflow.get('id')
+            "ticket": ticket_dict,
+            "workflow_id": workflow.id
         }
     
     async def _step_search_similar(self, workflow_id: int, ticket: dict) -> List[Dict]:
@@ -375,7 +377,7 @@ class TicketFlowAgent:
         step_start = time.time()
         
         # Use PyTiDB's intelligent search
-        search_query = f"{ticket.get("title")} {ticket.get("description")}"
+        search_query = f"{get_value(ticket,"title",'')} {get_value(ticket,"description",'')}"
         similar_tickets = await TicketOperations.find_similar_tickets(
             search_query, 
             limit=self.config.max_similar_tickets,
