@@ -827,7 +827,7 @@ class TicketFlowAgent:
             email_result = await self.external_tools.send_email_notification(
               
                 subject=f"Ticket #{ticket.get("id")} Escalated - {ticket.get("title")   }",
-                body=f"""
+                content=f"""
                 {params['message']}
                 
                 Ticket Details:

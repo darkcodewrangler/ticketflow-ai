@@ -3,6 +3,7 @@ PyTiDB AI-powered database operations for TicketFlow AI
 Leverages automatic embeddings and built-in search capabilities
 """
 
+import asyncio
 from typing import List, Optional, Dict, Any
 from datetime import  timedelta
 import logging
@@ -119,15 +120,12 @@ class TicketOperations:
             # First try with hybrid search (vector + full-text)
             try:
                 # PyTiDB's built-in hybrid search (vector + full-text + reranking)
-                searchQuery= db_manager.tickets.search(
+                results=await asyncio.to_thread(db_manager.tickets.search(
                     query_text,
                     search_type='hybrid', 
-                ).vector_column('description_vector').text_column('title').distance_range(lower_bound=0.4).filter(filters)
+                ).vector_column('description_vector').text_column('title').distance_range(lower_bound=0.4).filter(filters).rerank(reranker,'title').limit(limit).to_list())
 
-
-                if reranker is not None:
-                    searchQuery = searchQuery.rerank(reranker,'title')
-                results = searchQuery.limit(limit).to_list();
+                print(results)
                 logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
 
             except Exception as vector_error:
@@ -138,7 +136,7 @@ class TicketOperations:
                     limit=limit,
                     order_by={"created_at": "desc"}
                 ).to_list()
-            
+            print(results)
             # Convert to our expected format - handle both objects and dicts
             similar_tickets = []
             for result in results:

@@ -37,16 +37,13 @@ async def process_ticket(
     request: ProcessTicketRequest,
     background_tasks: BackgroundTasks,
     _: bool = Depends(verify_db_connection),
-    api_key_data: dict = Depends(require_permissions(["process_tickets"]))
+    # api_key_data: dict = Depends(require_permissions(["process_tickets"]))
 ):
     """Start processing a ticket with the AI agent"""
     try:
         # Verify ticket exists
-
-        tickets = await asyncio.get_event_loop().run_in_executor(
-            None, 
-            lambda: db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
-        )
+        tickets = await asyncio.to_thread(db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_list())
+        print(tickets)
         # tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
         
         if not tickets:
