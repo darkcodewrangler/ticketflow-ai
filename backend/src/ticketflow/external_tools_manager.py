@@ -82,8 +82,178 @@ class ExternalToolsManager:
                 resend.api_key = config.RESEND_API_KEY
                 self.email_enabled = True
     
+    async def _verify_slack_channel_exists(self, channel: str) -> Dict[str, Any]:
+        """
+        Verify if a Slack channel exists
+        
+        Args:
+            channel: Channel name (with or without # prefix)
+            
+        Returns:
+            Dict with verification result and channel info
+        """
+        if not self.slack_enabled or not self.slack_client:
+            return {"exists": False, "error": "Slack integration not configured"}
+        
+        try:
+            # Normalize channel name (remove # if present)
+            channel_name = channel.lstrip('#')
+            
+            # Try to get channel info
+            response = await self.slack_client.conversations_list(
+                types="public_channel,private_channel",
+                limit=1000
+            )
+            
+            # Search for the channel
+            for ch in response["channels"]:
+                if ch["name"] == channel_name:
+                    return {
+                        "exists": True,
+                        "channel_id": ch["id"],
+                        "channel_name": ch["name"],
+                        "is_private": ch["is_private"]
+                    }
+            
+            return {"exists": False, "channel_name": channel_name}
+            
+        except SlackApiError as e:
+            logger.error(f"Error verifying channel {channel}: {e.response['error']}")
+            return {
+                "exists": False,
+                "error": f"Slack API error: {e.response['error']}",
+                "error_code": e.response['error']
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error verifying channel {channel}: {str(e)}")
+            return {"exists": False, "error": f"Verification failed: {str(e)}"}
+    
+    async def _check_channel_creation_permissions(self) -> Dict[str, Any]:
+        """
+        Check if the bot has permissions to create channels
+        
+        Returns:
+            Dict with permission status and details
+        """
+        if not self.slack_enabled or not self.slack_client:
+            return {"can_create": False, "error": "Slack integration not configured"}
+        
+        try:
+            # Test bot permissions by checking auth info
+            auth_response = await self.slack_client.auth_test()
+            
+            if not auth_response["ok"]:
+                return {"can_create": False, "error": "Bot authentication failed"}
+            
+            # Check bot scopes - we need channels:write or conversations:write
+            try:
+                # Try to get bot info to check scopes
+                bot_info = await self.slack_client.bots_info(bot=auth_response["bot_id"])
+                
+                if bot_info["ok"] and "bot" in bot_info:
+                    scopes = bot_info["bot"].get("app_oauth_scopes", [])
+                    required_scopes = ["channels:write", "conversations:write"]
+                    
+                    has_permission = any(scope in scopes for scope in required_scopes)
+                    
+                    return {
+                        "can_create": has_permission,
+                        "bot_id": auth_response["bot_id"],
+                        "scopes": scopes,
+                        "required_scopes": required_scopes
+                    }
+                else:
+                    # Fallback: assume we can create if auth is successful
+                    logger.warning("Could not verify bot scopes, assuming creation permissions")
+                    return {"can_create": True, "bot_id": auth_response["bot_id"]}
+                    
+            except SlackApiError as scope_error:
+                # If we can't check scopes, assume we have permission if auth works
+                logger.warning(f"Could not check bot scopes: {scope_error.response['error']}")
+                return {"can_create": True, "bot_id": auth_response["bot_id"]}
+            
+        except SlackApiError as e:
+            logger.error(f"Error checking channel creation permissions: {e.response['error']}")
+            return {
+                "can_create": False,
+                "error": f"Permission check failed: {e.response['error']}",
+                "error_code": e.response['error']
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error checking permissions: {str(e)}")
+            return {"can_create": False, "error": f"Permission check failed: {str(e)}"}
+    
+    async def _create_slack_channel(self, channel_name: str, is_private: bool = False) -> Dict[str, Any]:
+        """
+        Create a new Slack channel
+        
+        Args:
+            channel_name: Name of the channel to create (without # prefix)
+            is_private: Whether to create a private channel
+            
+        Returns:
+            Dict with creation result and channel info
+        """
+        if not self.slack_enabled or not self.slack_client:
+            return {"created": False, "error": "Slack integration not configured"}
+        
+        try:
+            # Normalize channel name
+            channel_name = channel_name.lstrip('#').lower()
+            
+            # Validate channel name format
+            if not channel_name or len(channel_name) > 21:
+                return {
+                    "created": False,
+                    "error": "Invalid channel name: must be 1-21 characters"
+                }
+            
+            # Create the channel
+            response = await self.slack_client.conversations_create(
+                name=channel_name,
+                is_private=is_private
+            )
+            
+            if response["ok"]:
+                channel_info = response["channel"]
+                logger.info(f"Successfully created Slack channel: #{channel_name}")
+                
+                return {
+                    "created": True,
+                    "channel_id": channel_info["id"],
+                    "channel_name": channel_info["name"],
+                    "is_private": channel_info["is_private"]
+                }
+            else:
+                return {
+                    "created": False,
+                    "error": "Channel creation failed: unknown error"
+                }
+                
+        except SlackApiError as e:
+            error_code = e.response['error']
+            
+            if error_code == "name_taken":
+                error_msg = f"Channel #{channel_name} already exists"
+            elif error_code == "invalid_name":
+                error_msg = f"Invalid channel name: {channel_name}"
+            elif error_code == "missing_scope":
+                error_msg = "Insufficient permissions to create channels"
+            else:
+                error_msg = f"Slack API error: {error_code}"
+            
+            logger.error(f"Error creating channel #{channel_name}: {error_msg}")
+            return {
+                "created": False,
+                "error": error_msg,
+                "error_code": error_code
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error creating channel #{channel_name}: {str(e)}")
+            return {"created": False, "error": f"Channel creation failed: {str(e)}"}
+    
     async def send_slack_notification(self, channel: str = None, message: str = "", ticket_id: int = None, notification_type: str = "general") -> Dict[str, Any]:
-        """Send Slack notification with rich formatting"""
+        """Send Slack notification with rich formatting and automatic channel creation"""
         # Initialize integrations if not done yet
         if not hasattr(self, '_initialized'):
             await self._initialize_integrations()
@@ -105,6 +275,58 @@ class ExternalToolsManager:
                     channel = await self.settings_manager.get_setting_value('slack_agent_assignment_channel', '#assignments')
                 else:
                     channel = await self.settings_manager.get_setting_value('slack_new_ticket_channel', '#tickets')
+            
+            # Verify channel exists before attempting to send message
+            channel_verification = await self._verify_slack_channel_exists(channel)
+            
+            if not channel_verification["exists"]:
+                # Channel doesn't exist, check if we can create it
+                if "error" in channel_verification:
+                    logger.error(f"Channel verification failed for {channel}: {channel_verification['error']}")
+                    return {
+                        "status": "failed",
+                        "error": f"Channel verification failed: {channel_verification['error']}",
+                        "channel": channel
+                    }
+                
+                logger.info(f"Channel {channel} does not exist, checking creation permissions...")
+                
+                # Check if we have permissions to create the channel
+                permission_check = await self._check_channel_creation_permissions()
+                
+                if not permission_check["can_create"]:
+                    error_msg = f"Channel {channel} does not exist and insufficient permissions to create it"
+                    if "error" in permission_check:
+                        error_msg += f": {permission_check['error']}"
+                    
+                    logger.error(error_msg)
+                    return {
+                        "status": "failed",
+                        "error": error_msg,
+                        "channel": channel,
+                        "permission_details": permission_check
+                    }
+                
+                # Attempt to create the channel
+                logger.info(f"Creating channel {channel}...")
+                creation_result = await self._create_slack_channel(
+                    channel_verification["channel_name"],
+                    is_private=False  # Default to public channels
+                )
+                
+                if not creation_result["created"]:
+                    error_msg = f"Failed to create channel {channel}: {creation_result['error']}"
+                    logger.error(error_msg)
+                    return {
+                        "status": "failed",
+                        "error": error_msg,
+                        "channel": channel,
+                        "creation_details": creation_result
+                    }
+                
+                logger.info(f"Successfully created channel {channel}")
+                # Update channel reference to use the created channel ID or name
+                channel = f"#{creation_result['channel_name']}"
             
             # Format the message with rich blocks if ticket_id is provided
             if ticket_id:
@@ -163,19 +385,46 @@ class ExternalToolsManager:
             }
             
         except SlackApiError as e:
-            error_msg = f"Slack API error: {e.response['error']}"
-            logger.error(error_msg)
+            error_code = e.response['error']
+            
+            # Enhanced error handling with specific context
+            if error_code == "channel_not_found":
+                error_msg = f"Channel {channel} not found after verification - this should not happen"
+                logger.error(f"{error_msg}. Channel verification may have failed.")
+            elif error_code == "not_in_channel":
+                error_msg = f"Bot is not a member of channel {channel}"
+                logger.error(f"{error_msg}. Bot may need to be invited to the channel.")
+            elif error_code == "is_archived":
+                error_msg = f"Channel {channel} is archived"
+                logger.error(f"{error_msg}. Channel needs to be unarchived before posting.")
+            elif error_code == "msg_too_long":
+                error_msg = f"Message too long for Slack (max 40,000 characters)"
+                logger.error(f"{error_msg}. Message length: {len(message)} characters.")
+            elif error_code == "rate_limited":
+                error_msg = f"Slack API rate limit exceeded"
+                logger.error(f"{error_msg}. Consider implementing retry logic with backoff.")
+            else:
+                error_msg = f"Slack API error: {error_code}"
+                logger.error(f"{error_msg} for channel {channel}, ticket {ticket_id}, type {notification_type}")
+            
             return {
                 "status": "failed",
                 "error": error_msg,
-                "error_code": e.response['error']
+                "error_code": error_code,
+                "channel": channel,
+                "ticket_id": ticket_id,
+                "notification_type": notification_type
             }
         except Exception as e:
             error_msg = f"Slack notification failed: {str(e)}"
-            logger.error(error_msg)
+            logger.error(f"{error_msg} for channel {channel}, ticket {ticket_id}, type {notification_type}")
+            logger.exception("Full exception details:")
             return {
                 "status": "failed",
-                "error": error_msg
+                "error": error_msg,
+                "channel": channel,
+                "ticket_id": ticket_id,
+                "notification_type": notification_type
             }
     
     async def send_email_notification(self, to_email: str = None, subject: str = "", content: str = "", ticket_id: int = None, notification_type: str = "general") -> Dict[str, Any]:
