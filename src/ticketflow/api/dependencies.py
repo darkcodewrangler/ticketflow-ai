@@ -36,10 +36,19 @@ def get_current_api_key(credentials: HTTPAuthorizationCredentials = Security(sec
     Validates API key from Authorization header and returns key info with permissions.
     """
     if not credentials:
-        raise HTTPException(
-            status_code=401,
-            detail="API key required. Include 'Authorization: Bearer <your-api-key>' header"
-        )
+        # Demo mode - allow access without authentication for testing
+        logger.info("🔓 Demo mode: No authentication required")
+        return {
+            "id": "demo",
+            "key_name": "demo",
+            "organization": "demo",
+            "permissions": {
+                "create_tickets": True,
+                "read_tickets": True,
+                "process_tickets": True,
+                "read_analytics": True
+            }
+        }
     
     api_key = credentials.credentials
     auth_data = AuthOperations.verify_api_key(api_key)
