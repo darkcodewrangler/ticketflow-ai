@@ -599,8 +599,8 @@ class SettingsManager:
                 'name': 'New Ticket Channel',
                 'description': 'Slack channel for new ticket notifications',
                 'setting_type': SettingType.STRING,
-                'value': '#tickets',
-                'default_value': '#tickets',
+                'value': '#general',
+                'default_value': '#general',
                 'is_enabled': True,
                 'is_required': False,
                 'is_sensitive': False
