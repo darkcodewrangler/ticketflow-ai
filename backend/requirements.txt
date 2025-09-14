@@ -4,7 +4,7 @@ uvicorn==0.35.0
 websockets==15.0.1
 
 # Database
-pytidb=0.0.13
+pytidb==0.0.13
 pytidb[models]==0.0.13
 # AI and ML
 openai==1.105.0
@@ -25,6 +25,7 @@ resend==2.13.1
 # Utilities
 python-dotenv==1.1.1
 pydantic==2.11.7
+pydantic[email]==2.11.7
 asyncio-mqtt==0.16.2
 cryptography==42.0.5
 

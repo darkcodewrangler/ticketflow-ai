@@ -9,7 +9,7 @@ TicketFlow AI includes comprehensive Slack integration that allows you to send n
 ✅ **Rich Message Formatting**: Ticket notifications include structured blocks with emojis and context  
 ✅ **Error Handling**: Comprehensive error handling with detailed logging  
 ✅ **Async Support**: Non-blocking async implementation  
-✅ **Flexible Messaging**: Support for both simple text and rich formatted messages  
+✅ **Flexible Messaging**: Support for both simple text and rich formatted messages
 
 ## Setup Instructions
 
@@ -30,6 +30,8 @@ In your Slack app settings:
    - `chat:write` - Send messages
    - `chat:write.public` - Send messages to public channels
    - `channels:read` - View basic information about public channels
+   - `channels:manage` - Join or create new channels
+   - `chat:write.customize` - Customize bot messages
 
 ### 3. Install App to Workspace
 
@@ -40,6 +42,7 @@ In your Slack app settings:
 ### 4. Configure Environment
 
 Add to your `.env` file:
+
 ```env
 SLACK_BOT_TOKEN=xoxb-your-bot-token-here
 ```
@@ -49,6 +52,7 @@ SLACK_BOT_TOKEN=xoxb-your-bot-token-here
 ### 5. Invite Bot to Channels
 
 For each channel you want to send notifications to:
+
 1. Go to the channel
 2. Type `/invite @YourBotName`
 3. Or mention the bot: `@YourBotName`
@@ -56,6 +60,7 @@ For each channel you want to send notifications to:
 ## Usage Examples
 
 ### Simple Notification
+
 ```python
 from ticketflow.external_tools_manager import ExternalToolsManager
 
@@ -68,6 +73,7 @@ result = await tools_manager.send_slack_notification(
 ```
 
 ### Ticket Update Notification
+
 ```python
 result = await tools_manager.send_slack_notification(
     channel="#support",
@@ -79,10 +85,12 @@ result = await tools_manager.send_slack_notification(
 ## Message Formats
 
 ### Simple Messages
+
 - Prefixed with 🤖 TicketFlow AI emoji
 - Plain text format
 
 ### Ticket Messages
+
 - Rich block format with 🎫 ticket emoji
 - Includes ticket ID in header
 - Context footer with ticket ID and system name
@@ -106,6 +114,7 @@ python test_slack_integration.py
 ```
 
 This will:
+
 - Check if Slack is properly configured
 - Test simple notifications
 - Test rich ticket notifications
@@ -116,24 +125,29 @@ This will:
 ### Common Issues
 
 **"not_allowed_token_type" Error**
+
 - You're using an App Token (`xapp-`) instead of a Bot Token (`xoxb-`)
 - Solution: Use the Bot User OAuth Token from OAuth & Permissions
 
 **"channel_not_found" Error**
+
 - The bot hasn't been invited to the channel
 - Solution: Invite the bot to the channel using `/invite @BotName`
 
 **"missing_scope" Error**
+
 - Bot doesn't have required permissions
 - Solution: Add `chat:write` and `chat:write.public` scopes
 
 **"invalid_auth" Error**
+
 - Token is invalid or expired
 - Solution: Regenerate the bot token in Slack app settings
 
 ### Debug Mode
 
 Enable debug logging in your `.env`:
+
 ```env
 DEBUG=true
 LOG_LEVEL=DEBUG
@@ -149,6 +163,7 @@ LOG_LEVEL=DEBUG
 ## Integration with TicketFlow AI
 
 The Slack integration is automatically used by the AI agent for:
+
 - Ticket status updates
 - Priority escalations
 - System notifications

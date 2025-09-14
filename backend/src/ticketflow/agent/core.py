@@ -805,7 +805,7 @@ class TicketFlowAgent:
             logger.error(f"User notification failed: {e}")
             return {
                 "notification_type": "user",
-                    "recipient": user_email  ,
+                "recipient": user_email  ,
                 "message": params["message"],
                 "status": "failed",
                 "error": str(e)
@@ -822,9 +822,8 @@ class TicketFlowAgent:
             )
             
             # Send email to team (using a team email address)
-            team_email = "victorylucky96@gmail.com"  # This would be configured in real implementation
             email_result = await self.external_tools.send_email_notification(
-                recipient=team_email,
+              
                 subject=f"Ticket #{ticket.get("id")} Escalated - {ticket.get("title")   }",
                 body=f"""
                 {params['message']}
