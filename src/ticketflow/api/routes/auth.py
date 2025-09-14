@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from ticketflow.database.operations.auth import AuthOperations
-from ticketflow.api.dependencies import verify_db_connection
+from ticketflow.api.dependencies import verify_db_connection, get_current_api_key, require_permissions
 from ticketflow.api.response_models import (
     success_response, error_response, paginated_response,
     ResponseMessages, ErrorCodes
@@ -57,7 +57,8 @@ async def create_api_key(
 @router.get("/keys")
 async def list_api_keys(
     limit: int = Query(50, ge=1, le=100, description="Number of keys to return"),
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(get_current_api_key)
 ):
     """List API keys (without showing actual keys)"""
     try:
@@ -94,7 +95,8 @@ async def list_api_keys(
 @router.get("/keys/{key_id}")
 async def get_api_key(
     key_id: int,
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(get_current_api_key)
 ):
     """Get API key by ID"""
     try:
@@ -134,7 +136,8 @@ async def get_api_key(
 async def update_api_key(
     key_id: str,
     update_data: Dict[str, Any],
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(get_current_api_key)
 ):
     """Update API key"""
     try:
@@ -170,7 +173,8 @@ async def update_api_key(
 @router.delete("/keys/{key_id}")
 async def delete_api_key(
     key_id: str,
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(get_current_api_key)
 ):
     """Delete API key"""
     try:

@@ -6,9 +6,10 @@ Provides REST API and WebSocket support for real-time demos
 import uvicorn
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 
 
@@ -71,6 +72,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global exception handlers for authentication and authorization
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions with consistent error format"""
+    if exc.status_code == 401:
+        return JSONResponse(
+            status_code=401,
+            content={
+                "success": False,
+                "message": "Authentication failed",
+                "error": exc.detail,
+                "error_code": "AUTH_FAILED"
+            }
+        )
+    elif exc.status_code == 403:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "success": False,
+                "message": "Access denied",
+                "error": exc.detail,
+                "error_code": "INSUFFICIENT_PERMISSIONS"
+            }
+        )
+    else:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "success": False,
+                "message": "Request failed",
+                "error": exc.detail,
+                "error_code": "REQUEST_FAILED"
+            }
+        )
 
 # Include API routes
 app.include_router(tickets.router, prefix="/api/tickets", tags=["tickets"])

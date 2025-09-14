@@ -13,7 +13,7 @@ import logging
 from ticketflow.utils.helpers import get_value
 from ticketflow.database.operations import WorkflowOperations, TicketOperations
 from ticketflow.database.schemas import AgentWorkflowResponse, TicketResponse
-from ticketflow.api.dependencies import verify_db_connection, get_current_user
+from ticketflow.api.dependencies import verify_db_connection, get_current_user, require_permissions
 from ticketflow.agent.core import TicketFlowAgent
 from ticketflow.api.websocket_manager import websocket_manager
 from ticketflow.api.response_models import (
@@ -37,7 +37,7 @@ async def process_ticket(
     request: ProcessTicketRequest,
     background_tasks: BackgroundTasks,
     _: bool = Depends(verify_db_connection),
-    current_user: dict = Depends(get_current_user)
+    api_key_data: dict = Depends(require_permissions(["process_tickets"]))
 ):
     """Start processing a ticket with the AI agent"""
     try:
@@ -112,7 +112,8 @@ async def process_ticket(
 
 @router.get("/status")
 async def get_agent_status(
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_tickets"]))
 ):
     """Get current agent status and queue information"""
     try:
@@ -158,7 +159,8 @@ async def get_agent_status(
 @router.get("/workflows")
 async def get_workflows(
     limit: int = 50,
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_tickets"]))
 ):
     """Get recent workflows"""
     try:
@@ -186,7 +188,8 @@ async def get_workflows(
 @router.get("/workflows/{workflow_id}")
 async def get_workflow(
     workflow_id: int,
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_tickets"]))
 ):
     """Get a specific workflow"""
     try:
@@ -222,7 +225,7 @@ async def complete_workflow(
     workflow_id: int,
     confidence: float = 0.8,
     _: bool = Depends(verify_db_connection),
-    current_user: dict = Depends(get_current_user)
+    api_key_data: dict = Depends(require_permissions(["process_tickets"]))
 ):
     """Mark a workflow as completed"""
     try:

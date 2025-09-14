@@ -9,7 +9,7 @@ from typing import  Optional
 from ticketflow.utils.helpers import get_isoformat, get_value, utcnow
 from ticketflow.database.operations import AnalyticsOperations
 from ticketflow.database.schemas import DashboardMetricsResponse
-from ticketflow.api.dependencies import verify_db_connection
+from ticketflow.api.dependencies import verify_db_connection, require_permissions
 from ticketflow.api.response_models import (
     success_response, error_response, paginated_response,
     ResponseMessages, ErrorCodes
@@ -20,7 +20,8 @@ router = APIRouter()
 
 @router.get("/dashboard")
 async def get_dashboard_metrics(
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_analytics"]))
 ):
     """Get current dashboard metrics and KPIs"""
     try:
@@ -43,7 +44,8 @@ async def get_dashboard_metrics(
 @router.get("/performance/daily")
 async def get_daily_performance(
     date: Optional[str] = Query(None, description="Date (YYYY-MM-DD), defaults to today"),
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_analytics"]))
 ):
     """Get daily performance metrics"""
     try:
@@ -79,7 +81,8 @@ async def get_daily_performance(
 
 @router.get("/performance/summary")
 async def get_performance_summary(
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_analytics"]))
 ):
     """Get performance summary - simplified version"""
     try:
@@ -105,7 +108,8 @@ async def get_performance_summary(
 
 @router.get("/categories")
 async def get_category_breakdown(
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_analytics"]))
 ):
     """Get ticket breakdown by category"""
     try:
@@ -138,7 +142,8 @@ async def get_category_breakdown(
 
 @router.get("/stats")
 async def get_basic_stats(
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_analytics"]))
 ):
     """Get basic statistics from all data"""
     try:

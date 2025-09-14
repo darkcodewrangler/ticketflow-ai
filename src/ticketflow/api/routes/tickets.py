@@ -8,7 +8,7 @@ import logging
 
 from ticketflow.database.operations import TicketOperations
 from ticketflow.database.schemas import TicketCreateRequest, TicketResponse
-from ticketflow.api.dependencies import verify_db_connection
+from ticketflow.api.dependencies import verify_db_connection, get_current_api_key, require_permissions
 from ticketflow.config import config
 from ticketflow.api.websocket_manager import websocket_manager
 from ticketflow.api.response_models import (
@@ -110,7 +110,8 @@ async def create_ticket(
     ticket_data: TicketCreateRequest,
     background_tasks: BackgroundTasks,
     auto_process: str = Query("true", description="Whether to automatically process the ticket with AI agent (true/false)"),
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["create_tickets"]))
 ):
     """Create a new ticket with optional auto-processing"""
     try:
@@ -162,7 +163,8 @@ async def get_tickets(
     status: Optional[str] = Query(None, description="Filter tickets by status"),
     limit: int = Query(50, ge=1, le=100, description="Number of tickets to return"),
     days: int = Query(None, ge=1, le=60, description="Days old tickets to return"),
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_tickets"]))
 ):
     """Get tickets, optionally filtered by status"""
     try:
@@ -190,7 +192,8 @@ async def get_tickets(
 async def get_recent_tickets(
     days: int = Query(7, ge=1, le=30, description="Number of days to look back"),
     limit: int = Query(100, ge=1, le=100, description="Number of tickets to return"),
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_tickets"]))
 ):
     """Get recent tickets"""
     try:
@@ -213,7 +216,8 @@ async def get_recent_tickets(
 @router.get("/{ticket_id}")
 async def get_ticket(
     ticket_id: int,
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_tickets"]))
 ):
     """Get a specific ticket by ID"""
     try:
@@ -245,7 +249,8 @@ async def get_ticket(
 async def get_similar_tickets(
     ticket_id: int,
     limit: int = Query(10, ge=1, le=50, description="Number of similar tickets to return"),
-    _: bool = Depends(verify_db_connection)
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_tickets"]))
 ):
     """Get similar tickets using vector search"""
     try:
