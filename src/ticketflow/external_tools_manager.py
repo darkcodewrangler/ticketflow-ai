@@ -54,19 +54,23 @@ class ExternalToolsManager:
                     logger.warning("Slack integration disabled - no token found")
             
             # Check Email settings
-            email_enabled = await self.settings_manager.get_setting_value('email_notifications_enabled', False)
+            email_enabled = await self.settings_manager.get_setting_value('resend_notifications_enabled', False)
+            resend_api_key = await self.settings_manager.get_setting_value('resend_api_key', '')
             
-            if email_enabled:
-                # For now, still use environment variable for Resend API key
-                # TODO: Add resend_api_key to settings when needed
+            if email_enabled and resend_api_key:
+                resend.api_key = resend_api_key
+                self.email_enabled = True
+                logger.info("Resend email integration initialized from database settings")
+            elif email_enabled:
+                # Fallback to environment variable for Resend API key
                 if hasattr(config, 'RESEND_API_KEY') and config.RESEND_API_KEY:
                     resend.api_key = config.RESEND_API_KEY
                     self.email_enabled = True
-                    logger.info("Email integration initialized")
+                    logger.info("Resend email integration initialized from environment variables")
                 else:
-                    logger.warning("Email integration disabled - no API key found")
+                    logger.warning("Resend email integration disabled - no API key found")
             else:
-                logger.info("Email notifications disabled in settings")
+                logger.info("Resend email notifications disabled in settings")
                 
         except Exception as e:
             logger.error(f"Failed to initialize integrations from settings: {e}")
@@ -92,13 +96,15 @@ class ExternalToolsManager:
             # Determine channel from settings if not provided
             if not channel:
                 if notification_type == "new_ticket":
-                    channel = await self.settings_manager.get_setting_value('slack_new_ticket_channel', '#general')
+                    channel = await self.settings_manager.get_setting_value('slack_new_ticket_channel', '#tickets')
                 elif notification_type == "escalated_ticket":
-                    channel = await self.settings_manager.get_setting_value('slack_escalated_ticket_channel', '#general')
+                    channel = await self.settings_manager.get_setting_value('slack_escalation_channel', '#escalations')
                 elif notification_type == "resolved_ticket":
-                    channel = await self.settings_manager.get_setting_value('slack_resolved_ticket_channel', '#general')
+                    channel = await self.settings_manager.get_setting_value('slack_resolution_channel', '#resolutions')
+                elif notification_type == "agent_assignment":
+                    channel = await self.settings_manager.get_setting_value('slack_agent_assignment_channel', '#assignments')
                 else:
-                    channel = await self.settings_manager.get_setting_value('slack_default_channel', '#general')
+                    channel = await self.settings_manager.get_setting_value('slack_new_ticket_channel', '#tickets')
             
             # Format the message with rich blocks if ticket_id is provided
             if ticket_id:
@@ -199,20 +205,24 @@ class ExternalToolsManager:
             # Determine recipient from settings if not provided
             if not to_email:
                 if notification_type == "new_ticket":
-                    to_email = await self.settings_manager.get_setting_value('email_new_ticket_recipient', '')
+                    to_email = await self.settings_manager.get_setting_value('resend_new_ticket_recipient', '')
                 elif notification_type == "escalated_ticket":
-                    to_email = await self.settings_manager.get_setting_value('email_escalated_ticket_recipient', '')
+                    to_email = await self.settings_manager.get_setting_value('resend_escalation_recipient', '')
                 elif notification_type == "resolved_ticket":
-                    to_email = await self.settings_manager.get_setting_value('email_resolved_ticket_recipient', '')
+                    to_email = await self.settings_manager.get_setting_value('resend_resolution_recipient', '')
+                elif notification_type == "agent_assignment":
+                    to_email = await self.settings_manager.get_setting_value('resend_agent_assignment_recipient', '')
                 else:
-                    to_email = await self.settings_manager.get_setting_value('email_default_recipient', '')
+                    to_email = await self.settings_manager.get_setting_value('resend_new_ticket_recipient', '')
                 
                 if not to_email:
                     logger.warning(f"No email recipient configured for notification type: {notification_type}")
                     return {"success": False, "error": "No recipient configured"}
             
             # Get sender email from settings
-            from_email = await self.settings_manager.get_setting_value('email_sender_address', 'noreply@ticketflow.ai')
+            from_email = await self.settings_manager.get_setting_value('resend_from_email', 'noreply@ticketflow.ai')
+            from_name = await self.settings_manager.get_setting_value('resend_from_name', 'TicketFlow Support')
+            reply_to = await self.settings_manager.get_setting_value('resend_reply_to_email', from_email)
             
             # Add ticket context to subject if provided
             if ticket_id:
@@ -227,13 +237,31 @@ class ExternalToolsManager:
             else:
                 formatted_subject = subject
             
-            # Send email using Resend
-            response = resend.Emails.send({
-                "from": from_email,
+            # Get tracking settings
+            track_opens = await self.settings_manager.get_setting_value('resend_track_opens', True)
+            track_clicks = await self.settings_manager.get_setting_value('resend_track_clicks', True)
+            
+            # Prepare email data
+            email_data = {
+                "from": f"{from_name} <{from_email}>",
                 "to": [to_email],
                 "subject": formatted_subject,
                 "html": content
-            })
+            }
+            
+            # Add reply-to if different from sender
+            if reply_to and reply_to != from_email:
+                email_data["reply_to"] = [reply_to]
+            
+            # Add tracking options
+            if track_opens or track_clicks:
+                email_data["tags"] = [
+                    {"name": "notification_type", "value": notification_type},
+                    {"name": "ticket_id", "value": str(ticket_id) if ticket_id else "none"}
+                ]
+            
+            # Send email using Resend
+            response = resend.Emails.send(email_data)
             
             logger.info(f"Email notification sent to {to_email} for ticket {ticket_id} (type: {notification_type})")
             return {

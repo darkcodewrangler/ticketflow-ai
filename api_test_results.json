@@ -1,0 +1,125 @@
+{
+  "health_check": true,
+  "settings_tests": {
+    "get_all_settings": {
+      "status": "success",
+      "count": 37,
+      "categories": [
+        "system",
+        "agent",
+        "email",
+        "slack"
+      ]
+    },
+    "slack_settings": {
+      "status": "success",
+      "keys": [
+        "slack_bot_token",
+        "slack_new_ticket_channel",
+        "slack_escalated_ticket_channel",
+        "slack_resolved_ticket_channel",
+        "slack_notifications_enabled",
+        "slack_app_token",
+        "slack_signing_secret",
+        "slack_escalation_channel",
+        "slack_resolution_channel",
+        "slack_agent_assignment_channel"
+      ]
+    },
+    "email_settings": {
+      "status": "success",
+      "keys": [
+        "email_smtp_server",
+        "email_smtp_port",
+        "email_username",
+        "email_password",
+        "email_from_address",
+        "email_new_ticket_recipients",
+        "email_escalated_ticket_recipients",
+        "email_resolved_ticket_recipients",
+        "email_notifications_enabled",
+        "resend_api_key",
+        "resend_from_email",
+        "resend_from_name",
+        "resend_enabled",
+        "resend_webhook_secret",
+        "resend_track_opens",
+        "resend_track_clicks",
+        "resend_reply_to_email",
+        "resend_new_ticket_recipient",
+        "resend_escalation_recipient",
+        "resend_resolution_recipient",
+        "resend_agent_assignment_recipient",
+        "resend_notifications_enabled"
+      ]
+    },
+    "database_settings": {
+      "status": "success",
+      "message": "No database settings exposed"
+    }
+  },
+  "category_tests": {
+    "slack_category": {
+      "status": "success",
+      "count": 10,
+      "keys": [
+        "slack_bot_token",
+        "slack_new_ticket_channel",
+        "slack_escalated_ticket_channel",
+        "slack_resolved_ticket_channel",
+        "slack_notifications_enabled",
+        "slack_app_token",
+        "slack_signing_secret",
+        "slack_escalation_channel",
+        "slack_resolution_channel",
+        "slack_agent_assignment_channel"
+      ]
+    },
+    "email_category": {
+      "status": "success",
+      "count": 22,
+      "keys": [
+        "email_smtp_server",
+        "email_smtp_port",
+        "email_username",
+        "email_password",
+        "email_from_address",
+        "email_new_ticket_recipients",
+        "email_escalated_ticket_recipients",
+        "email_resolved_ticket_recipients",
+        "email_notifications_enabled",
+        "resend_api_key",
+        "resend_from_email",
+        "resend_from_name",
+        "resend_enabled",
+        "resend_webhook_secret",
+        "resend_track_opens",
+        "resend_track_clicks",
+        "resend_reply_to_email",
+        "resend_new_ticket_recipient",
+        "resend_escalation_recipient",
+        "resend_resolution_recipient",
+        "resend_agent_assignment_recipient",
+        "resend_notifications_enabled"
+      ]
+    },
+    "system_category": {
+      "status": "success",
+      "count": 3,
+      "keys": [
+        "system_timezone",
+        "system_max_tickets_per_page",
+        "system_auto_assign_tickets"
+      ]
+    },
+    "agent_category": {
+      "status": "success",
+      "count": 2,
+      "keys": [
+        "agent_max_concurrent_tickets",
+        "agent_response_timeout"
+      ]
+    }
+  },
+  "timestamp": 1109758.578
+}
