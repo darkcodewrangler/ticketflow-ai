@@ -398,6 +398,49 @@ class Settings(TableModel):
         Index('idx_settings_required', 'is_required'),
     )
 
+class LearningMetrics(TableModel):
+    """
+    Agent Learning Metrics Storage
+    
+    Stores AI agent learning data and performance metrics
+    Replaces JSON file storage with database persistence
+    """
+    __tablename__ = "learning_metrics"
+    
+    # Primary key
+    id: int = Field(primary_key=True)
+    
+    # Core metrics
+    total_tickets_processed: int = Field(default=0, description="Total number of tickets processed")
+    successful_resolutions: int = Field(default=0, description="Number of successful resolutions")
+    escalations: int = Field(default=0, description="Number of escalated tickets")
+    verification_failures: int = Field(default=0, description="Number of verification failures")
+    average_confidence: float = Field(default=0.0, description="Running average confidence score")
+    
+    # Feedback metrics
+    feedback_count: int = Field(default=0, description="Total feedback received")
+    positive_feedback: int = Field(default=0, description="Positive feedback count")
+    
+    # Pattern analysis (JSON fields for flexibility)
+    resolution_patterns: Dict = Field(sa_type=JSON, default_factory=dict, description="Resolution pattern analysis")
+    common_failures: Dict = Field(sa_type=JSON, default_factory=dict, description="Common failure patterns")
+    
+    # Metadata
+    agent_version: str = Field(default="1.0", description="Agent version when metrics were recorded")
+    is_active: bool = Field(default=True, description="Whether this is the active metrics record")
+    
+    # Timestamps
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    
+    class Config:
+        auto_embed_text_fields = False  # No need for embeddings
+    
+    __table_args__ = (
+        Index('idx_learning_active', 'is_active'),
+        Index('idx_learning_updated', 'updated_at'),
+    )
+
 class APIKey(TableModel):
     """API key authentication"""
     __tablename__ = "api_keys"
@@ -440,6 +483,7 @@ __all__ = [
     "PerformanceMetrics",
     "ProcessingTask",
     "Settings",
+    "LearningMetrics",
     "TicketStatus",
     "Priority", 
     "ResolutionType",

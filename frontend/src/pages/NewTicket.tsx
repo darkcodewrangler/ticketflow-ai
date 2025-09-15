@@ -5,48 +5,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Save,
-  Bot,
-  Upload,
+import { 
+  ArrowLeft, 
+  Save, 
+  Bot, 
+  Upload, 
   X,
   Plus,
   AlertTriangle,
   Info,
-  CheckCircle,
+  CheckCircle
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { showSuccess, showError, showLoading } from "@/utils/toast";
 import { TicketCreateRequest } from "@/types";
-import { api } from "@/services/api";
 
 const categories = [
-  "Integration",
-  "Authentication",
-  "Performance",
-  "Security",
-  "Mobile",
+  "Integration", 
+  "Authentication", 
+  "Performance", 
+  "Security", 
+  "Mobile", 
   "Database",
   "API",
   "UI/UX",
-  "Other",
+  "Other"
 ];
 
 const priorities = [
   { value: "low", label: "Low", color: "bg-gray-100 text-gray-800" },
   { value: "medium", label: "Medium", color: "bg-blue-100 text-blue-800" },
   { value: "high", label: "High", color: "bg-orange-100 text-orange-800" },
-  { value: "urgent", label: "Urgent", color: "bg-red-100 text-red-800" },
+  { value: "urgent", label: "Urgent", color: "bg-red-100 text-red-800" }
 ];
 
 export default function NewTicket() {
@@ -61,49 +54,38 @@ export default function NewTicket() {
     priority: "medium",
     customer_email: "",
     metadata: {},
-    auto_process: true,
+    auto_process: true
   });
 
-  const [customFields, setCustomFields] = useState<
-    Array<{ key: string; value: string }>
-  >([]);
+  const [customFields, setCustomFields] = useState<Array<{ key: string; value: string }>>([]);
 
   const handleAddCustomField = () => {
-    setCustomFields((prev) => [...prev, { key: "", value: "" }]);
+    setCustomFields(prev => [...prev, { key: "", value: "" }]);
   };
 
   const handleRemoveCustomField = (index: number) => {
-    setCustomFields((prev) => prev.filter((_, i) => i !== index));
+    setCustomFields(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleCustomFieldChange = (
-    index: number,
-    field: "key" | "value",
-    value: string
-  ) => {
-    setCustomFields((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
-    );
+  const handleCustomFieldChange = (index: number, field: 'key' | 'value', value: string) => {
+    setCustomFields(prev => prev.map((item, i) => 
+      i === index ? { ...item, [field]: value } : item
+    ));
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    setAttachments((prev) => [...prev, ...files]);
+    setAttachments(prev => [...prev, ...files]);
   };
 
   const handleRemoveAttachment = (index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (
-      !ticketData.title ||
-      !ticketData.description ||
-      !ticketData.category ||
-      !ticketData.customer_email
-    ) {
+    
+    if (!ticketData.title || !ticketData.description || !ticketData.category || !ticketData.customer_email) {
       showError("Please fill in all required fields");
       return;
     }
@@ -117,28 +99,29 @@ export default function NewTicket() {
         ...ticketData.metadata,
         ...Object.fromEntries(
           customFields
-            .filter((field) => field.key && field.value)
-            .map((field) => [field.key, field.value])
+            .filter(field => field.key && field.value)
+            .map(field => [field.key, field.value])
         ),
-        attachments: attachments.map((file) => ({
+        attachments: attachments.map(file => ({
           name: file.name,
           size: file.size,
-          type: file.type,
-        })),
+          type: file.type
+        }))
       };
 
       const finalTicketData = {
         ...ticketData,
-        metadata,
+        metadata
       };
 
       // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      await api.createTicket(finalTicketData);
-      showSuccess("Ticket created successfully!");
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
+      showSuccess("Ticket created successfully!");
+      
       // Navigate to tickets list or the new ticket detail
       navigate("/tickets");
+      
     } catch (error) {
       showError("Failed to create ticket");
     } finally {
@@ -147,10 +130,7 @@ export default function NewTicket() {
   };
 
   const getPriorityColor = (priority: string) => {
-    return (
-      priorities.find((p) => p.value === priority)?.color ||
-      "bg-gray-100 text-gray-800"
-    );
+    return priorities.find(p => p.value === priority)?.color || "bg-gray-100 text-gray-800";
   };
 
   return (
@@ -163,11 +143,9 @@ export default function NewTicket() {
             Back to Tickets
           </Button>
         </Link>
-
+        
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Create New Ticket
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900">Create New Ticket</h1>
           <p className="text-gray-600 mt-1">
             Submit a new support ticket for AI processing
           </p>
@@ -190,12 +168,7 @@ export default function NewTicket() {
                     id="title"
                     placeholder="Brief description of the issue"
                     value={ticketData.title}
-                    onChange={(e) =>
-                      setTicketData((prev) => ({
-                        ...prev,
-                        title: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setTicketData(prev => ({ ...prev, title: e.target.value }))}
                     required
                   />
                 </div>
@@ -207,37 +180,24 @@ export default function NewTicket() {
                     placeholder="Detailed description of the issue, including steps to reproduce, expected behavior, and any error messages..."
                     rows={6}
                     value={ticketData.description}
-                    onChange={(e) =>
-                      setTicketData((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setTicketData(prev => ({ ...prev, description: e.target.value }))}
                     required
                   />
                   <p className="text-sm text-gray-500 mt-1">
-                    Provide as much detail as possible to help the AI agent
-                    understand and resolve the issue.
+                    Provide as much detail as possible to help the AI agent understand and resolve the issue.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="category">Category *</Label>
-                    <Select
-                      value={ticketData.category}
-                      onValueChange={(value) =>
-                        setTicketData((prev) => ({ ...prev, category: value }))
-                      }
-                    >
+                    <Select value={ticketData.category} onValueChange={(value) => setTicketData(prev => ({ ...prev, category: value }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
+                        {categories.map(category => (
+                          <SelectItem key={category} value={category}>{category}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -245,25 +205,15 @@ export default function NewTicket() {
 
                   <div>
                     <Label htmlFor="priority">Priority *</Label>
-                    <Select
-                      value={ticketData.priority}
-                      onValueChange={(value: any) =>
-                        setTicketData((prev) => ({ ...prev, priority: value }))
-                      }
-                    >
+                    <Select value={ticketData.priority} onValueChange={(value: any) => setTicketData(prev => ({ ...prev, priority: value }))}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {priorities.map((priority) => (
-                          <SelectItem
-                            key={priority.value}
-                            value={priority.value}
-                          >
+                        {priorities.map(priority => (
+                          <SelectItem key={priority.value} value={priority.value}>
                             <div className="flex items-center gap-2">
-                              <Badge className={priority.color}>
-                                {priority.label}
-                              </Badge>
+                              <Badge className={priority.color}>{priority.label}</Badge>
                             </div>
                           </SelectItem>
                         ))}
@@ -279,12 +229,7 @@ export default function NewTicket() {
                     type="email"
                     placeholder="customer@company.com"
                     value={ticketData.customer_email}
-                    onChange={(e) =>
-                      setTicketData((prev) => ({
-                        ...prev,
-                        customer_email: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setTicketData(prev => ({ ...prev, customer_email: e.target.value }))}
                     required
                   />
                 </div>
@@ -307,8 +252,7 @@ export default function NewTicket() {
                     className="cursor-pointer"
                   />
                   <p className="text-sm text-gray-500 mt-1">
-                    Upload screenshots, logs, or other relevant files (max 10MB
-                    per file)
+                    Upload screenshots, logs, or other relevant files (max 10MB per file)
                   </p>
                 </div>
 
@@ -316,10 +260,7 @@ export default function NewTicket() {
                   <div className="space-y-2">
                     <Label>Attached Files:</Label>
                     {attachments.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                      >
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                         <div className="flex items-center gap-2">
                           <Upload className="w-4 h-4 text-gray-500" />
                           <span className="text-sm">{file.name}</span>
@@ -347,12 +288,7 @@ export default function NewTicket() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Additional Information</CardTitle>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddCustomField}
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddCustomField}>
                     <Plus className="w-4 h-4 mr-2" />
                     Add Field
                   </Button>
@@ -361,8 +297,7 @@ export default function NewTicket() {
               <CardContent className="space-y-4">
                 {customFields.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-4">
-                    No additional fields added. Click "Add Field" to include
-                    custom information.
+                    No additional fields added. Click "Add Field" to include custom information.
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -371,24 +306,12 @@ export default function NewTicket() {
                         <Input
                           placeholder="Field name"
                           value={field.key}
-                          onChange={(e) =>
-                            handleCustomFieldChange(
-                              index,
-                              "key",
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => handleCustomFieldChange(index, 'key', e.target.value)}
                         />
                         <Input
                           placeholder="Field value"
                           value={field.value}
-                          onChange={(e) =>
-                            handleCustomFieldChange(
-                              index,
-                              "value",
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => handleCustomFieldChange(index, 'value', e.target.value)}
                         />
                         <Button
                           type="button"
@@ -426,12 +349,7 @@ export default function NewTicket() {
                   </div>
                   <Switch
                     checked={ticketData.auto_process}
-                    onCheckedChange={(checked) =>
-                      setTicketData((prev) => ({
-                        ...prev,
-                        auto_process: checked,
-                      }))
-                    }
+                    onCheckedChange={(checked) => setTicketData(prev => ({ ...prev, auto_process: checked }))}
                   />
                 </div>
 
@@ -441,10 +359,7 @@ export default function NewTicket() {
                       <Info className="w-4 h-4 text-blue-600 mt-0.5" />
                       <div className="text-sm text-blue-800">
                         <p className="font-medium">AI Processing Enabled</p>
-                        <p>
-                          The ticket will be automatically analyzed and
-                          processed by our AI agent upon creation.
-                        </p>
+                        <p>The ticket will be automatically analyzed and processed by our AI agent upon creation.</p>
                       </div>
                     </div>
                   </div>
@@ -475,10 +390,7 @@ export default function NewTicket() {
                 <div>
                   <Label className="text-xs text-gray-500">PRIORITY</Label>
                   <Badge className={getPriorityColor(ticketData.priority)}>
-                    {
-                      priorities.find((p) => p.value === ticketData.priority)
-                        ?.label
-                    }
+                    {priorities.find(p => p.value === ticketData.priority)?.label}
                   </Badge>
                 </div>
 
@@ -506,13 +418,8 @@ export default function NewTicket() {
                     <Save className="w-4 h-4 mr-2" />
                     {loading ? "Creating..." : "Create Ticket"}
                   </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    asChild
-                  >
+                  
+                  <Button type="button" variant="outline" className="w-full" asChild>
                     <Link to="/tickets">Cancel</Link>
                   </Button>
                 </div>
@@ -523,10 +430,7 @@ export default function NewTicket() {
                       <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
                       <div className="text-sm text-green-800">
                         <p className="font-medium">Ready for AI Processing</p>
-                        <p>
-                          This ticket will be automatically processed upon
-                          creation.
-                        </p>
+                        <p>This ticket will be automatically processed upon creation.</p>
                       </div>
                     </div>
                   </div>

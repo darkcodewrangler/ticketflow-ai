@@ -128,6 +128,71 @@ class WebSocketManager:
             "timestamp": asyncio.get_event_loop().time()
         }
         await self.broadcast(update)
+    
+    async def send_learning_update(self, learning_metrics: Dict[str, Any]):
+        """Send learning metrics update for live broadcast"""
+        update = {
+            "type": "learning_update",
+            "learning_metrics": learning_metrics,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+        await self.broadcast(update)
+    
+    async def send_workflow_status(self, workflow_id: int, status: str, progress: float = None):
+        """Send workflow status update for live broadcast"""
+        update = {
+            "type": "workflow_status",
+            "workflow_id": workflow_id,
+            "status": status,
+            "progress": progress,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+        await self.broadcast(update)
+    
+    async def send_agent_decision(self, ticket_id: int, decision: str, confidence: float, reasoning: str):
+        """Send agent decision update for live broadcast"""
+        update = {
+            "type": "agent_decision",
+            "ticket_id": ticket_id,
+            "decision": decision,
+            "confidence": confidence,
+            "reasoning": reasoning,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+        await self.broadcast(update)
+    
+    async def send_resolution_update(self, ticket_id: int, resolution_type: str, confidence: float, resolution_text: str = None):
+        """Send resolution update for live broadcast"""
+        update = {
+            "type": "resolution_update",
+            "ticket_id": ticket_id,
+            "resolution_type": resolution_type,
+            "confidence": confidence,
+            "resolution_text": resolution_text,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+        await self.broadcast(update)
+    
+    async def send_feedback_processed(self, workflow_id: int, feedback_summary: Dict[str, Any]):
+        """Send feedback processing update for live broadcast"""
+        update = {
+            "type": "feedback_processed",
+            "workflow_id": workflow_id,
+            "feedback_summary": feedback_summary,
+            "timestamp": asyncio.get_event_loop().time()
+        }
+        await self.broadcast(update)
+    
+    async def send_system_status(self, status: str, message: str, details: Dict[str, Any] = None):
+        """Send system status update for live broadcast"""
+        update = {
+            "type": "system_status",
+            "status": status,
+            "message": message,
+            "details": details or {},
+            "timestamp": asyncio.get_event_loop().time()
+        }
+        await self.broadcast(update)
 
 # Global WebSocket manager instance
 websocket_manager = WebSocketManager()

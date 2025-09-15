@@ -5,8 +5,6 @@ Core AI Agent for TicketFlow - Multi-step intelligent processing
 import asyncio
 import time
 import logging
-import json
-import os
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from dataclasses import dataclass, asdict
@@ -14,6 +12,7 @@ from enum import Enum
 
 from ticketflow.database.models import WorkflowStatus
 from ticketflow.database.schemas import TicketResponse
+from ticketflow.database.operations.learning import LearningMetricsManager
 
 from ticketflow.database import (
     db_manager, 
@@ -107,28 +106,8 @@ class TicketFlowAgent:
         self.config = config or AgentConfig()
         self.llm_client = LLMClient()
         self.external_tools = ExternalToolsManager()
-        self.learning_metrics = self._load_learning_data()
-        
-    def _load_learning_data(self) -> LearningMetrics:
-        """Load learning metrics from persistent storage"""
-        try:
-            learning_file = os.path.join(os.path.dirname(__file__), "learning_data.json")
-            if os.path.exists(learning_file):
-                with open(learning_file, 'r') as f:
-                    data = json.load(f)
-                    return LearningMetrics(**data)
-        except Exception as e:
-            logger.warning(f"Could not load learning data: {e}")
-        return LearningMetrics()
-    
-    def _save_learning_data(self):
-        """Save learning metrics to persistent storage"""
-        try:
-            learning_file = os.path.join(os.path.dirname(__file__), "learning_data.json")
-            with open(learning_file, 'w') as f:
-                json.dump(asdict(self.learning_metrics), f, indent=2)
-        except Exception as e:
-            logger.error(f"Could not save learning data: {e}")
+        # Learning metrics now managed by database operations
+        # No need to load/store JSON files anymore
         
     def process_ticket(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -200,6 +179,13 @@ class TicketFlowAgent:
                         "actions_count": len(decisions.get("actions", [])),
                         "confidence": decisions.get("confidence")
                     }
+                ))
+                # Send detailed decision update for live broadcast
+                asyncio.run(websocket_manager.send_agent_decision(
+                    get_value(ticket, 'id'),
+                    decisions.get('primary_decision'),
+                    decisions.get('confidence'),
+                    decisions.get('reasoning')
                 ))
             except Exception:
                 pass
@@ -339,7 +325,7 @@ class TicketFlowAgent:
                 "workflow_id": workflow_id
             }
     
-    def process_feedback(self, feedback_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_feedback(self, feedback_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process user feedback to improve agent performance"""
         try:
             workflow_id = feedback_data.get("workflow_id")
@@ -347,26 +333,23 @@ class TicketFlowAgent:
             resolution_rating = feedback_data.get("resolution_rating", 3)
             feedback_text = feedback_data.get("feedback_text", "")
             
-            # Update learning metrics
-            self.learning_metrics.feedback_count += 1
-            if resolution_effective and resolution_rating >= 4:
-                self.learning_metrics.positive_feedback += 1
+            # Process feedback using database operations
+            is_positive = resolution_effective and resolution_rating >= 4
+            LearningMetricsManager.process_feedback(is_positive)
             
-            # Extract patterns from feedback
-            if feedback_text:
-                # Simple pattern extraction - in production, use more sophisticated NLP
-                if "slow" in feedback_text.lower():
-                    self.learning_metrics.common_failures["slow_response"] = \
-                        self.learning_metrics.common_failures.get("slow_response", 0) + 1
-                elif "wrong" in feedback_text.lower() or "incorrect" in feedback_text.lower():
-                    self.learning_metrics.common_failures["incorrect_solution"] = \
-                        self.learning_metrics.common_failures.get("incorrect_solution", 0) + 1
-                elif "helpful" in feedback_text.lower() or "good" in feedback_text.lower():
-                    self.learning_metrics.resolution_patterns["positive_resolution"] = \
-                        self.learning_metrics.resolution_patterns.get("positive_resolution", 0) + 1
+            # Get current metrics for response
+            current_metrics = LearningMetricsManager.get_current_metrics()
             
-            # Save updated metrics
-            self._save_learning_data()
+            # Send live broadcast update for feedback processing
+            try:
+                feedback_summary = {
+                    "total_feedback": current_metrics.feedback_count if current_metrics else 0,
+                    "positive_feedback": current_metrics.positive_feedback if current_metrics else 0,
+                    "feedback_ratio": (current_metrics.positive_feedback / max(1, current_metrics.feedback_count)) if current_metrics else 0
+                }
+                asyncio.run(websocket_manager.send_feedback_processed(workflow_id, feedback_summary))
+            except Exception:
+                pass
             
             logger.info(f"Processed feedback for workflow {workflow_id}: effective={resolution_effective}, rating={resolution_rating}")
             
@@ -374,9 +357,9 @@ class TicketFlowAgent:
                 "success": True,
                 "learning_updated": True,
                 "metrics": {
-                    "total_feedback": self.learning_metrics.feedback_count,
-                    "positive_feedback": self.learning_metrics.positive_feedback,
-                    "feedback_ratio": self.learning_metrics.positive_feedback / max(1, self.learning_metrics.feedback_count)
+                    "total_feedback": current_metrics.feedback_count if current_metrics else 0,
+                    "positive_feedback": current_metrics.positive_feedback if current_metrics else 0,
+                    "feedback_ratio": (current_metrics.positive_feedback / max(1, current_metrics.feedback_count)) if current_metrics else 0
                 }
             }
             
@@ -714,23 +697,44 @@ class TicketFlowAgent:
         # Use verification confidence if available, otherwise use analysis confidence
         final_confidence = verification_result.get("confidence", analysis["overall_confidence"]) if verification_result else analysis["overall_confidence"]
         
-        # Update learning metrics
-        self.learning_metrics.total_tickets_processed += 1
+        # Update learning metrics using database operations
+        LearningMetricsManager.increment_ticket_processed()
+        LearningMetricsManager.update_confidence(final_confidence)
+        
         if final_status == TicketStatus.RESOLVED.value:
-            self.learning_metrics.successful_resolutions += 1
+            LearningMetricsManager.increment_successful_resolution()
         elif final_status == TicketStatus.ESCALATED.value:
-            self.learning_metrics.escalations += 1
-        if verification_result and verification_result.get("outcome") == ResolutionOutcome.FAILED.value:
-            self.learning_metrics.verification_failures += 1
+            LearningMetricsManager.increment_escalation()
         
-        # Update average confidence (running average)
-        total_processed = self.learning_metrics.total_tickets_processed
-        self.learning_metrics.average_confidence = (
-            (self.learning_metrics.average_confidence * (total_processed - 1) + final_confidence) / total_processed
-        )
+        # Send live broadcast update for learning metrics
+        try:
+            current_metrics = LearningMetricsManager.get_current_metrics()
+            if current_metrics:
+                learning_data = {
+                    "total_tickets_processed": current_metrics.total_tickets_processed,
+                    "successful_resolutions": current_metrics.successful_resolutions,
+                    "escalations": current_metrics.escalations,
+                    "average_confidence": current_metrics.average_confidence,
+                    "feedback_count": current_metrics.feedback_count,
+                    "positive_feedback": current_metrics.positive_feedback
+                }
+                asyncio.run(websocket_manager.send_learning_update(learning_data))
+        except Exception:
+            pass
         
-        # Save learning data
-        self._save_learning_data()
+        # Send resolution update for live broadcast
+        try:
+            resolution_type = "automated" if final_status == TicketStatus.RESOLVED.value else "escalated"
+            asyncio.run(websocket_manager.send_resolution_update(
+                get_value(ticket, 'id'),
+                resolution_type,
+                final_confidence,
+                resolution_text if final_status == TicketStatus.RESOLVED.value else None
+            ))
+        except Exception:
+            pass
+        
+        # Save learning data - now handled by database operations automatically
         
         # Update workflow completion
         WorkflowOperations.complete_workflow(
