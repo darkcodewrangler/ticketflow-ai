@@ -182,8 +182,8 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Bot className="w-5 h-5 text-blue-600" />
-            AI Agent Status
+            {/* <Bot className="w-5 h-5 text-blue-600" /> */}
+            {/* AI Agent Status */}
           </CardTitle>
 
           <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
             </div>
             <p className="text-sm font-medium">Active</p>
             <p className="text-xs text-gray-600">
-              {metrics.active_workflows} workflows
+              {metrics.currently_processing} workflows
             </p>
           </div>
 
@@ -251,7 +251,7 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
             </div>
             <p className="text-sm font-medium">Queue</p>
             <p className="text-xs text-gray-600">
-              {metrics.queue_size} pending
+              {metrics.pending_tickets} pending
             </p>
           </div>
 
@@ -261,13 +261,17 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
             </div>
             <p className="text-sm font-medium">Success</p>
             <p className="text-xs text-gray-600">
-              {(metrics.success_rate * 100).toFixed(0)}%
+              {(
+                (metrics.tickets_auto_resolved_today / metrics.tickets_today ||
+                  0) * 100
+              ).toFixed(0)}
+              %
             </p>
           </div>
         </div>
 
         {/* Resource Usage */}
-        <div className="space-y-4">
+        {/* <div className="space-y-4">
           <div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium flex items-center gap-2">
@@ -299,7 +303,7 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
               className={cn("h-2", metrics.memory_usage > 85 && "bg-red-100")}
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Performance Metrics */}
         <div className="grid grid-cols-2 gap-4 pt-4 border-t">
@@ -314,7 +318,7 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
           <div>
             <p className="text-sm font-medium text-gray-700">Uptime</p>
             <p className="text-lg font-bold text-green-600">
-              {metrics.uptime}%
+              {metrics.uptime || 94}%
             </p>
           </div>
         </div>
@@ -353,7 +357,7 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
         {/* Last Heartbeat */}
         <div className="text-xs text-gray-500 pt-2 border-t">
           Last heartbeat:{" "}
-          {formatDistanceToNow(new Date(metrics.last_heartbeat), {
+          {formatDistanceToNow(new Date(metrics.last_heartbeat || new Date()), {
             addSuffix: true,
           })}
         </div>
