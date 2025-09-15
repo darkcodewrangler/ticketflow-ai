@@ -13,7 +13,7 @@ class WorkflowOperations:
     """
 
     @staticmethod
-    async def create_workflow(ticket_id: int, initial_steps: List[Dict] = None) -> AgentWorkflow:
+    def create_workflow(ticket_id: int, initial_steps: List[Dict] = None) -> AgentWorkflow:
 
         """Create new agent workflow"""
         try:
@@ -35,7 +35,7 @@ class WorkflowOperations:
             raise
 
     @staticmethod
-    async def update_workflow_step(workflow_id: int, step_data: Dict[str, Any]) -> bool:
+    def update_workflow_step(workflow_id: int, step_data: Dict[str, Any]) -> bool:
 
         """Add step to workflow"""
         try:
@@ -70,7 +70,7 @@ class WorkflowOperations:
             return False
 
     @staticmethod
-    async def complete_workflow(workflow_id: int, final_confidence: float = 0.0, total_duration_ms: int = 0) -> bool:
+    def complete_workflow(workflow_id: int, final_confidence: float = 0.0, total_duration_ms: int = 0) -> bool:
         """Mark workflow as completed"""
         try:
             updates = {

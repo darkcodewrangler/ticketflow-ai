@@ -66,7 +66,7 @@ class TicketFlowAgent:
         self.llm_client = LLMClient()
         self.external_tools = ExternalToolsManager()
         
-    async def process_ticket(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process_ticket(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Main agent workflow - processes a ticket from start to finish
         
@@ -81,11 +81,11 @@ class TicketFlowAgent:
         
         try:
             # Step 1: Ingest ticket
-            step_result = await self._step_ingest(ticket_data)
+            step_result = self._step_ingest(ticket_data)
             ticket = step_result["ticket"]
             workflow_id = step_result["workflow_id"]
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     get_value(ticket, 'id'), AgentStep.INGEST.value, "Ticket ingested", {
                         "title": get_value(ticket, 'title'),
                         "category": get_value(ticket, 'category'),
@@ -96,9 +96,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 2: Search for similar resolved tickets
-            similar_cases = await self._step_search_similar(workflow_id, ticket)
+            similar_cases = self._step_search_similar(workflow_id, ticket)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     get_value(ticket, 'id'), AgentStep.SEARCH_SIMILAR.value, f"Found {len(similar_cases)} similar tickets", {
                         "count": len(similar_cases)
                     }
@@ -107,9 +107,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 3: Search knowledge base
-            kb_articles = await self._step_search_kb(workflow_id, ticket)
+            kb_articles = self._step_search_kb(workflow_id, ticket)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     get_value(ticket, 'id'), AgentStep.SEARCH_KB.value, f"Found {len(kb_articles)} KB articles", {
                         "count": len(kb_articles)
                     }
@@ -118,9 +118,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 4: LLM analysis
-            analysis = await self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
+            analysis = self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     get_value(ticket, 'id'), AgentStep.ANALYZE.value, "Analysis complete", {
                         "confidence": analysis.get("overall_confidence")
                     }
@@ -129,9 +129,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 5: Decision making
-            decisions = await self._step_decide(workflow_id, ticket, analysis)
+            decisions = self._step_decide(workflow_id, ticket, analysis)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     get_value(ticket, 'id'), AgentStep.DECIDE.value, f"Decision: {decisions.get('primary_decision')}", {
                         "actions_count": len(decisions.get("actions", [])),
                         "confidence": decisions.get("confidence")
@@ -141,9 +141,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 6: Execute actions
-            execution_results = await self._step_execute(workflow_id, ticket, decisions)
+            execution_results = self._step_execute(workflow_id, ticket, decisions)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     get_value(ticket, 'id'), AgentStep.EXECUTE.value, f"Executed {len(execution_results)} actions", {
                         "actions": [r.get("action") for r in execution_results]
                     }
@@ -152,11 +152,11 @@ class TicketFlowAgent:
                 pass
             
             # Step 7: Finalize workflow
-            final_result = await self._step_finalize(
+            final_result = self._step_finalize(
                 workflow_id, ticket, analysis, execution_results, workflow_start
             )
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     ticket.get('id'), AgentStep.FINALIZE.value, "Workflow completed", {
                         "status": final_result.get("status"),
                         "confidence": final_result.get("confidence"),
@@ -182,9 +182,9 @@ class TicketFlowAgent:
             
             if workflow_id:
                 # Log error in workflow
-                await self._log_workflow_error(workflow_id, str(e))
+                self._log_workflow_error(workflow_id, str(e))
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     get_value(ticket, "id"), "error", "Agent processing failed", {"error": str(e)}
                 )
             except Exception:
@@ -197,7 +197,7 @@ class TicketFlowAgent:
                 "workflow_id": workflow_id
             }
     
-    async def process_existing_ticket(self, ticket_id: int, workflow_id: int) -> Dict[str, Any]:
+    def process_existing_ticket(self, ticket_id: int, workflow_id: int) -> Dict[str, Any]:
         """
         Process an existing ticket that's already in the database
         
@@ -213,13 +213,10 @@ class TicketFlowAgent:
         try:
             
             # Get the existing ticket from database
-            # tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
-            tickets = await asyncio.to_thread(
-            db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_pydantic()
-        )
-            tickets2 = await asyncio.to_thread(
-            db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_list()
-        )
+            tickets = db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_pydantic()
+        
+            tickets2 =  db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_list()
+        
             print("""all tickets from raw pydantic: {}""".format(tickets))
             print("""all tickets 2 from raw list: {}""".format(tickets2))
             if not tickets:
@@ -241,12 +238,12 @@ class TicketFlowAgent:
                 },
                 "duration_ms": 0
             }
-            await WorkflowOperations.update_workflow_step(workflow_id, step_data)
+            WorkflowOperations.update_workflow_step(workflow_id, step_data)
             
             # Step 2: Search for similar resolved tickets
-            similar_cases = await self._step_search_similar(workflow_id, ticket)
+            similar_cases = self._step_search_similar(workflow_id, ticket)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     ticket.get('id'), AgentStep.SEARCH_SIMILAR.value, f"Found {len(similar_cases)} similar tickets", {
                         "count": len(similar_cases)
                     }
@@ -255,9 +252,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 3: Search knowledge base
-            kb_articles = await self._step_search_kb(workflow_id, ticket)
+            kb_articles = self._step_search_kb(workflow_id, ticket)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     ticket.get('id'), AgentStep.SEARCH_KB.value, f"Found {len(kb_articles)} KB articles", {
                         "count": len(kb_articles)
                     }
@@ -266,9 +263,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 4: LLM analysis
-            analysis = await self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
+            analysis = self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     ticket.get('id'), AgentStep.ANALYZE.value, "Analysis complete", {
                         "confidence": analysis.get("overall_confidence")
                     }
@@ -277,9 +274,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 5: Decision making
-            decisions = await self._step_decide(workflow_id, ticket, analysis)
+            decisions = self._step_decide(workflow_id, ticket, analysis)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     ticket.get('id'), AgentStep.DECIDE.value, f"Decision: {decisions.get('primary_decision')}", {
                         "actions_count": len(decisions.get("actions", [])),
                         "confidence": decisions.get("confidence")
@@ -289,9 +286,9 @@ class TicketFlowAgent:
                 pass
             
             # Step 6: Execute actions
-            execution_results = await self._step_execute(workflow_id, ticket, decisions)
+            execution_results = self._step_execute(workflow_id, ticket, decisions)
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     ticket.get('id'), AgentStep.EXECUTE.value, f"Executed {len(execution_results)} actions", {
                         "actions": [r.get("action") for r in execution_results]
                     }
@@ -300,11 +297,11 @@ class TicketFlowAgent:
                 pass
             
             # Step 7: Finalize workflow
-            final_result = await self._step_finalize(
+            final_result = self._step_finalize(
                 workflow_id, ticket, analysis, execution_results, workflow_start
             )
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     ticket.get('id'), AgentStep.FINALIZE.value, "Workflow completed", {
                         "status": final_result.get("status"),
                         "confidence": final_result.get("confidence"),
@@ -330,9 +327,9 @@ class TicketFlowAgent:
             
             if workflow_id:
                 # Log error in workflow
-                await self._log_workflow_error(workflow_id, str(e))
+                self._log_workflow_error(workflow_id, str(e))
             try:
-                await websocket_manager.send_agent_update(
+                websocket_manager.send_agent_update(
                     ticket_id, "error", "Agent processing failed", {"error": str(e)}
                 )
             except Exception:
@@ -345,7 +342,7 @@ class TicketFlowAgent:
                 "workflow_id": workflow_id
             }
     
-    async def _step_ingest(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _step_ingest(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
         """Step 1: Ingest and index the ticket"""
         step_start = time.time()
         
@@ -366,7 +363,7 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        workflow = await WorkflowOperations.create_workflow(ticket.id, [initial_step])
+        workflow =  WorkflowOperations.create_workflow(ticket.id, [initial_step])
         
         logger.info(f"Agent ingested ticket {ticket.id}")
         
@@ -378,11 +375,11 @@ class TicketFlowAgent:
             "workflow_id": workflow.id
         }
     
-    async def _step_search_similar(self, workflow_id: int, ticket: dict) -> List[Dict]:
+    def _step_search_similar(self, workflow_id: int, ticket: dict) -> List[Dict]:
         """Step 2: Search for similar resolved tickets"""
         step_start = time.time()
         
-        # Use PyTiDB's intelligent search
+        # Use intelligent search
         search_query = f"{get_value(ticket,"title",'')} {get_value(ticket,"description",'')}"
         similar_tickets = TicketOperations.find_similar_tickets(
             search_query, 
@@ -403,20 +400,20 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent found {len(similar_tickets)} similar tickets for {ticket.get("id")}")
         return similar_tickets
     
-    async def _step_search_kb(self, workflow_id: int, ticket: dict) -> List[Dict]:
+    def _step_search_kb(self, workflow_id: int, ticket: dict) -> List[Dict]:
         """Step 3: Search knowledge base articles"""
         step_start = time.time()
         
         # Search KB articles using PyTiDB's hybrid search
-        search_query = f"{ticket.get("title")} {ticket.get("description")}"
-        kb_articles = await KnowledgeBaseOperations.search_articles(
+        search_query = f"{get_value(ticket,"title",'')} {get_value(ticket,"description",'')}"
+        kb_articles = KnowledgeBaseOperations.search_articles(
             search_query,
-            category=ticket.get("category"),  # Category-specific search
+            category=get_value(ticket,"category",None),  # Category-specific search
             limit=self.config.max_kb_articles
         )
         
@@ -433,12 +430,12 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent found {len(kb_articles)} KB articles for {ticket.get('id')}")
         return kb_articles
     
-    async def _step_analyze(self, workflow_id: int, ticket: dict, 
+    def _step_analyze(self, workflow_id: int, ticket: dict, 
                            similar_cases: List[Dict], kb_articles: List[Dict]) -> Dict[str, Any]:
         """Step 4: LLM analysis of ticket context"""
         step_start = time.time()
@@ -455,7 +452,7 @@ class TicketFlowAgent:
         ]
         
         # Execute analysis chain
-        pattern_analysis, root_cause, solutions, confidence = await asyncio.gather(*analysis_tasks)
+        pattern_analysis, root_cause, solutions, confidence = asyncio.gather(*analysis_tasks)
         
         # Combine analysis results
         combined_analysis = {
@@ -480,12 +477,12 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent analyzed ticket {ticket.get('id')} (confidence: {combined_analysis['overall_confidence']:.2f})")
         return combined_analysis
     
-    async def _step_decide(self, workflow_id: int, ticket: dict, analysis: Dict[str, Any]) -> Dict[str, Any]:
+    def _step_decide(self, workflow_id: int, ticket: dict, analysis: Dict[str, Any]) -> Dict[str, Any]:
         """Step 5: Decision making based on analysis"""
         step_start = time.time()
         
@@ -526,12 +523,12 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent decided '{decision}' for ticket {ticket.get('id')}")
         return decisions
     
-    async def _step_execute(self, workflow_id: int, ticket: Dict, decisions: Dict[str, Any]) -> List[Dict]:
+    def _step_execute(self, workflow_id: int, ticket: Dict, decisions: Dict[str, Any]) -> List[Dict]:
         """Step 6: Execute decided actions"""
         step_start = time.time()
         
@@ -539,7 +536,7 @@ class TicketFlowAgent:
         
         for action in decisions["actions"]:
             try:
-                result = await self._execute_single_action(action, ticket, decisions)
+                result = self._execute_single_action(action, ticket, decisions)
                 execution_results.append({
                     "action": action["type"],
                     "status": "success",
@@ -568,12 +565,12 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent executed {len(execution_results)} actions for ticket {ticket.get('id')}")
         return execution_results
     
-    async def _step_finalize(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any],execution_results: List[Dict], workflow_start: float) -> Dict[str, Any]:
+    def _step_finalize(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any],execution_results: List[Dict], workflow_start: float) -> Dict[str, Any]:
         """Step 7: Finalize workflow and update metrics"""
         step_start = time.time()
         
@@ -590,7 +587,7 @@ class TicketFlowAgent:
             final_status = TicketStatus.PROCESSING.value
         
         # Update workflow completion
-        await WorkflowOperations.complete_workflow(
+        WorkflowOperations.complete_workflow(
             workflow_id,
             final_confidence=analysis["overall_confidence"],
             total_duration_ms=total_duration
@@ -610,7 +607,7 @@ class TicketFlowAgent:
             "duration_ms": int((time.time() - step_start) * 1000)
         }
         
-        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        WorkflowOperations.update_workflow_step(workflow_id, step_data)
         
         logger.info(f"Agent finalized ticket {ticket.get('id')} - status: {final_status}")
         
@@ -713,25 +710,25 @@ class TicketFlowAgent:
         
         return actions
     
-    async def _execute_single_action(self, action: Dict, ticket: Dict, context: Dict) -> Dict:
+    def _execute_single_action(self, action: Dict, ticket: Dict, context: Dict) -> Dict:
         """Execute a single action"""
         action_type = action["type"]
         params = action["parameters"]
         
         if action_type == "resolve_ticket":
-            return await self._resolve_ticket_action(ticket.get("id"), params)
+            return self._resolve_ticket_action(ticket.get("id"), params)
         elif action_type == "escalate_ticket":
-            return await self._escalate_ticket_action(ticket.get("id"), params)
+            return self._escalate_ticket_action(ticket.get("id"), params)
         elif action_type == "notify_user":
-            return await self._notify_user_action(ticket, params)
+            return self._notify_user_action(ticket, params)
         elif action_type == "notify_team":
-            return await self._notify_team_action(ticket, params)
+            return self._notify_team_action(ticket, params)
         elif action_type == "update_kb_usage":
-            return await self._update_kb_usage_action(params)
+            return self._update_kb_usage_action(params)
         else:
             raise ValueError(f"Unknown action type: {action_type}")
     
-    async def _resolve_ticket_action(self, ticket_id: int, params: Dict) -> Dict:
+    def _resolve_ticket_action(self, ticket_id: int, params: Dict) -> Dict:
         """Resolve ticket action"""
         resolved_ticket = TicketOperations.resolve_ticket(
             ticket_id,
@@ -746,7 +743,7 @@ class TicketFlowAgent:
             "resolution": params["resolution"]
         }
     
-    async def _escalate_ticket_action(self, ticket_id: int, params: Dict) -> Dict:
+    def _escalate_ticket_action(self, ticket_id: int, params: Dict) -> Dict:
         """Escalate ticket action"""
         updates = {
             "status": TicketStatus.ESCALATED.value,
@@ -767,7 +764,7 @@ class TicketFlowAgent:
             "reason": params["reason"]
         }
     
-    async def _notify_user_action(self, ticket: Dict, params: Dict) -> Dict:
+    def _notify_user_action(self, ticket: Dict, params: Dict) -> Dict:
         """Notify user action using Resend"""
         try:
             # Create HTML email template
@@ -792,7 +789,7 @@ class TicketFlowAgent:
             user_email="luckyvictory54@gmail.com"
 
             # Send email using external tools manager
-            result = await self.external_tools.send_email_notification(
+            result = self.external_tools.send_email_notification(
                 recipient=user_email,
 
                 subject=f"Ticket #{ticket.get("id")} Update - {ticket.get("title")}",
@@ -819,18 +816,18 @@ class TicketFlowAgent:
                 "error": str(e)
             }
     
-    async def _notify_team_action(self, ticket: Dict, params: Dict) -> Dict:
+    def _notify_team_action(self, ticket: Dict, params: Dict) -> Dict:
         """Notify team action using Slack and email"""
         try:
             # Send Slack notification
-            slack_result = await self.external_tools.send_slack_notification(
+            slack_result = self.external_tools.send_slack_notification(
                 channel=f"#{params['team']}",
                 message=f"🚨 {params['message']}\nTicket: #{ticket.get("id")} - {ticket.get("title")}",
                 ticket_id=ticket.get('id')
             )
             
             # Send email to team (using a team email address)
-            email_result = await self.external_tools.send_email_notification(
+            email_result = self.external_tools.send_email_notification(
               
                 subject=f"Ticket #{ticket.get("id")} Escalated - {ticket.get("title")   }",
                 content=f"""
@@ -869,7 +866,7 @@ class TicketFlowAgent:
                 "error": str(e)
             }
     
-    async def _update_kb_usage_action(self, params: Dict) -> Dict:
+    def _update_kb_usage_action(self, params: Dict) -> Dict:
         """Update KB article usage statistics"""
         updated_articles = []
         for article_id in params.get("articles_used", []):
@@ -882,10 +879,10 @@ class TicketFlowAgent:
         }
     
     # LLM Analysis Methods - Real implementations
-    async def _analyze_patterns(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_patterns(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze patterns in similar cases using LLM"""
         try:
-            return await self.llm_client.analyze_ticket_patterns(context)
+            return self.llm_client.analyze_ticket_patterns(context)
         except Exception as e:
             logger.error(f"Pattern analysis failed: {e}")
             # Fallback to basic analysis
@@ -895,10 +892,10 @@ class TicketFlowAgent:
                 "success_patterns": ["manual_review"]
             }
     
-    async def _analyze_root_cause(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_root_cause(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze root cause using LLM"""
         try:
-            return await self.llm_client.analyze_root_cause(context)
+            return self.llm_client.analyze_root_cause(context)
         except Exception as e:
             logger.error(f"Root cause analysis failed: {e}")
             # Fallback to basic analysis
@@ -908,10 +905,10 @@ class TicketFlowAgent:
                 "supporting_evidence": ["limited_context"]
             }
     
-    async def _analyze_solution_options(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_solution_options(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze solution options using LLM"""
         try:
-            return await self.llm_client.generate_solution(context)
+            return self.llm_client.generate_solution(context)
         except Exception as e:
             logger.error(f"Solution analysis failed: {e}")
             # Fallback to basic analysis
@@ -921,7 +918,7 @@ class TicketFlowAgent:
                 "confidence": 0.5
             }
     
-    async def _assess_confidence(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _assess_confidence(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Assess overall confidence using LLM"""
         try:
             # Combine all analysis results for confidence assessment
@@ -932,7 +929,7 @@ class TicketFlowAgent:
                 "similar_cases_count": len(context.get("similar_cases", [])),
                 "kb_articles_count": len(context.get("kb_articles", []))
             }
-            return await self.llm_client.assess_confidence(analysis_results)
+            return self.llm_client.assess_confidence(analysis_results)
         except Exception as e:
             logger.error(f"Confidence assessment failed: {e}")
             # Fallback to basic confidence calculation
@@ -951,7 +948,7 @@ class TicketFlowAgent:
                 }
             }
     
-    async def _log_workflow_error(self, workflow_id: int, error_message: str):
+    def _log_workflow_error(self, workflow_id: int, error_message: str):
         """Log workflow error"""
         step_data = {
             "step": "error",
@@ -960,4 +957,4 @@ class TicketFlowAgent:
             "error": error_message
         }
         
-        await WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        WorkflowOperations.update_workflow_step(workflow_id, step_data)
