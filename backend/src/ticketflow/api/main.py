@@ -155,14 +155,7 @@ async def root():
         }
     }
 
-# Demo data endpoint for quick setup
-@app.post("/api/demo/setup")
-async def setup_demo_data(background_tasks: BackgroundTasks):
-    """Set up demo data for presentations"""
-    background_tasks.add_task(create_demo_data)
-    return {"message": "Demo data creation started", "status": "processing"}
 
-async def create_demo_data():
     """Create comprehensive demo data"""
     try:
         # Demo tickets

@@ -82,7 +82,7 @@ async def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
         result = agent.process_ticket(ticket_data)
         
         if result.get("success"):
-            logger.info(f"✅ Auto-processing completed for ticket {ticket_id}")
+            logger.info(f"Auto-processing completed for ticket {ticket_id}")
             try:
                 await websocket_manager.send_agent_update(ticket_id, "completed", "Auto-processing completed", {
                     "workflow_id": result.get("workflow_id"),
@@ -92,14 +92,14 @@ async def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
             except Exception:
                 pass
         else:
-            logger.warning(f"⚠️ Auto-processing failed for ticket {ticket_id}: {result.get('error')}")
+            logger.warning(f"Auto-processing failed for ticket {ticket_id}: {result.get('error')}")
             try:
                 await websocket_manager.send_agent_update(ticket_id, "error", "Auto-processing failed", {"error": result.get('error')})
             except Exception:
                 pass
             
     except Exception as e:
-        logger.error(f"❌ Auto-processing error for ticket {ticket_id}: {e}")
+        logger.error(f"Auto-processing error for ticket {ticket_id}: {e}")
         try:
             await websocket_manager.send_agent_update(ticket_id, "error", "Auto-processing error", {"error": str(e)})
         except Exception:
@@ -139,7 +139,7 @@ async def create_ticket(
                 ticket.id, 
                 ticket_dict
             )
-            logger.info(f"🎯 Auto-processing enabled for ticket {ticket.id}")
+            logger.info(f"Auto-processing enabled for ticket {ticket.id}")
         
         # Return standardized response with processing info
         ticket_data["auto_processing"] = should_process

@@ -53,12 +53,12 @@ class VectorManager:
             
             # Ensure we have the right number of dimensions
             if len(embedding) != self.embedding_dimensions:
-                print(f"⚠️ Warning: Expected {self.embedding_dimensions} dimensions, got {len(embedding)}")
+                print(f"Warning: Expected {self.embedding_dimensions} dimensions, got {len(embedding)}")
             
             return embedding
             
         except Exception as e:
-            print(f"❌ Error generating Jina embedding: {e}")
+            print(f"Error generating Jina embedding: {e}")
             # Return zero vector as fallback
             return [0.0] * self.embedding_dimensions
     
@@ -89,7 +89,7 @@ class VectorManager:
             return result["data"][0]["embedding"]
             
         except Exception as e:
-            print(f"❌ Error generating Jina embedding (sync): {e}")
+            print(f"Error generating Jina embedding (sync): {e}")
             return [0.0] * self.embedding_dimensions
     def embedding_to_string(self, embedding: List[float]) -> str:
         """

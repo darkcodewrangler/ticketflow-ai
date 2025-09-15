@@ -33,22 +33,22 @@ class Config:
     def validate(self) -> bool:
         """Check if all required config is present"""
         if not self.TIDB_HOST:
-            print("❌ TIDB_HOST not set in .env")
+            print("TIDB_HOST not set in .env")
             return False
         if not self.TIDB_USER:
-            print("❌ TIDB_USER not set in .env")
+            print("TIDB_USER not set in .env")
             return False
         if not self.TIDB_PASSWORD:
-            print("❌ TIDB_PASSWORD not set in .env")
+            print("TIDB_PASSWORD not set in .env")
             return False
         if not self.OPENAI_API_KEY and not self.OPENROUTER_API_KEY:
-            print("⚠️ OPENAI_API_KEY or OPENROUTER_API_KEY not set in .env (needed for chats)")
+            print("OPENAI_API_KEY or OPENROUTER_API_KEY not set in .env (needed for chats)")
             return False
         if not self.JINA_API_KEY:
-            print("⚠️  JINA_API_KEY not set in .env (needed for embeddings)")
+            print("JINA_API_KEY not set in .env (needed for embeddings)")
             return False
         if not self.RESEND_API_KEY:
-            print("⚠️  RESEND_API_KEY not set in .env (needed for email sending)")
+            print("RESEND_API_KEY not set in .env (needed for email sending)")
             return False
         return True
     @property

@@ -17,18 +17,18 @@ def init_database():
     try:
         print("Connecting to database...")
         if not db_manager.connect():
-            print("❌ Failed to connect to database")
+            print("Failed to connect to database")
             return False
         
         print("Initializing database tables...")
         if not db_manager.initialize_tables():
-            print("❌ Failed to initialize tables")
+            print("Failed to initialize tables")
             return False
         
-        print("✅ Database tables initialized successfully!")
+        print("Database tables initialized successfully!")
         
     except Exception as e:
-        print(f"❌ Error initializing database: {e}")
+        print(f"Error initializing database: {e}")
         return False
     finally:
         db_manager.close()

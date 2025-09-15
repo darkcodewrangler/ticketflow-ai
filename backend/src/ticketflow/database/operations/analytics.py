@@ -125,7 +125,7 @@ class AnalyticsOperations:
             }
             
         except Exception as e:
-            logger.error(f"❌ Failed to get dashboard metrics: {e}")
+            logger.error(f"Failed to get dashboard metrics: {e}")
             # Return a default structure matching the schema on error
             return {
                 "tickets_today": 0,
@@ -212,11 +212,11 @@ class AnalyticsOperations:
             
             # Store in database (assuming there's a daily_metrics collection)
             # For now, we'll just return the metrics
-            logger.info(f"✅ Created daily metrics for {today}: {metrics_data}")
+            logger.info(f"Created daily metrics for {today}: {metrics_data}")
             return metrics_data
             
         except Exception as e:
-            logger.error(f"❌ Failed to create daily metrics: {e}")
+            logger.error(f"Failed to create daily metrics: {e}")
             return {}
 
 

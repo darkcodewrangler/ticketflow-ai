@@ -6,12 +6,11 @@ Handles operations for agent learning metrics using PyTiDB pattern
 """
 
 from typing import Dict, Optional
-from datetime import datetime
 import logging
 
-from ..models import LearningMetrics
-from ..connection import db_manager
-from ...utils.helpers import utcnow
+from ticketflow.database.models import LearningMetrics
+from ticketflow.database.connection import db_manager
+from ticketflow.utils.helpers import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class LearningMetricsManager:
                 return LearningMetrics(**data)
             return None
         except Exception as e:
-            logger.error(f"❌ Failed to get current metrics: {e}")
+            logger.error(f"Failed to get current metrics: {e}")
             return None
     
     @staticmethod
@@ -82,10 +81,10 @@ class LearningMetricsManager:
                 if updated_count and updated_count > 0:
                     # Return the updated record
                     updated_metrics = LearningMetricsManager.get_current_metrics()
-                    logger.info(f"📊 Updated learning metrics record {current.id}")
+                    logger.info(f"Updated learning metrics record {current.id}")
                     return updated_metrics
                 else:
-                    logger.error("❌ Failed to update learning metrics - no rows affected")
+                    logger.error("Failed to update learning metrics - no rows affected")
                     return current
             else:
                 # Create new metrics
@@ -105,11 +104,11 @@ class LearningMetricsManager:
                 
                 result = db_manager.learning_metrics.insert(new_metrics)
                 created_metrics = result[0] if isinstance(result, list) else result
-                logger.info(f"📊 Created new learning metrics record {created_metrics.id}")
+                logger.info(f"Created new learning metrics record {created_metrics.id}")
                 return created_metrics
                 
         except Exception as e:
-            logger.error(f"❌ Failed to create/update learning metrics: {e}")
+            logger.error(f"Failed to create/update learning metrics: {e}")
             raise
     
     @staticmethod
@@ -129,14 +128,14 @@ class LearningMetricsManager:
                     filters={"id": current.id},
                     values=updated_data
                 )
-                logger.info(f"📈 Incremented tickets processed to {current.total_tickets_processed + 1}")
+                logger.info(f"Incremented tickets processed to {current.total_tickets_processed + 1}")
                 return result[0] if isinstance(result, list) else result
             else:
                 # Create new metrics with 1 ticket processed
                 return LearningMetricsManager.create_or_update_metrics(total_tickets_processed=1)
                 
         except Exception as e:
-            logger.error(f"❌ Failed to increment ticket processed: {e}")
+            logger.error(f"Failed to increment ticket processed: {e}")
             raise
     
     @staticmethod
@@ -156,14 +155,14 @@ class LearningMetricsManager:
                     filters={"id": current.id},
                     values=updated_data
                 )
-                logger.info(f"✅ Incremented successful resolutions to {current.successful_resolutions + 1}")
+                logger.info(f"Incremented successful resolutions to {current.successful_resolutions + 1}")
                 return result[0] if isinstance(result, list) else result
             else:
                 # Create new metrics with 1 successful resolution
                 return LearningMetricsManager.create_or_update_metrics(successful_resolutions=1)
                 
         except Exception as e:
-            logger.error(f"❌ Failed to increment successful resolution: {e}")
+            logger.error(f"Failed to increment successful resolution: {e}")
             raise
     
     @staticmethod
@@ -183,14 +182,14 @@ class LearningMetricsManager:
                     filters={"id": current.id},
                     values=updated_data
                 )
-                logger.info(f"⬆️ Incremented escalations to {current.escalations + 1}")
+                logger.info(f"Incremented escalations to {current.escalations + 1}")
                 return result[0] if isinstance(result, list) else result
             else:
                 # Create new metrics with 1 escalation
                 return LearningMetricsManager.create_or_update_metrics(escalations=1)
                 
         except Exception as e:
-            logger.error(f"❌ Failed to increment escalation: {e}")
+            logger.error(f"Failed to increment escalation: {e}")
             raise
     
     @staticmethod
@@ -212,7 +211,7 @@ class LearningMetricsManager:
                     values=updated_data
                 )
                 feedback_type = "positive" if is_positive else "negative"
-                logger.info(f"📝 Processed {feedback_type} feedback - Total: {current.feedback_count + 1}")
+                logger.info(f"Processed {feedback_type} feedback - Total: {current.feedback_count + 1}")
                 return result[0] if isinstance(result, list) else result
             else:
                 # Create new metrics with feedback
@@ -222,7 +221,7 @@ class LearningMetricsManager:
                 )
                 
         except Exception as e:
-            logger.error(f"❌ Failed to process feedback: {e}")
+            logger.error(f"Failed to process feedback: {e}")
             raise
     
     @staticmethod
@@ -251,7 +250,7 @@ class LearningMetricsManager:
                     filters={"id": current.id},
                     values=updated_data
                 )
-                logger.info(f"🎯 Updated confidence score to {new_average:.3f}")
+                logger.info(f"Updated confidence score to {new_average:.3f}")
                 return result[0] if isinstance(result, list) else result
             else:
                 # Create new metrics with confidence
@@ -260,7 +259,7 @@ class LearningMetricsManager:
                 )
                 
         except Exception as e:
-            logger.error(f"❌ Failed to update confidence: {e}")
+            logger.error(f"Failed to update confidence: {e}")
             raise
     
     @staticmethod
@@ -293,7 +292,7 @@ class LearningMetricsManager:
                     filters={"id": current.id},
                     values=updated_data
                 )
-                    logger.info("🔄 Updated learning patterns and failures")
+                    logger.info("Updated learning patterns and failures")
                     return result[0] if isinstance(result, list) else result
                 else:
                     return current
@@ -305,5 +304,5 @@ class LearningMetricsManager:
                 )
                 
         except Exception as e:
-            logger.error(f"❌ Failed to update patterns: {e}")
+            logger.error(f"Failed to update patterns: {e}")
             raise

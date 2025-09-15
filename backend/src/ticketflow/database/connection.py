@@ -38,14 +38,14 @@ class PyTiDBManager:
             )
             # Test connection
             self.client.execute("SELECT 1")
-            logger.info("✅ PyTiDB connection successful!")
+            logger.info("PyTiDB connection successful!")
             self.client.configure_embedding_provider(provider='jina_ai', api_key=config.JINA_API_KEY)
             self._connected = True
         
             return True
             
         except Exception as e:
-            logger.error(f"❌ PyTiDB connection failed: {e}")
+            logger.error(f"PyTiDB connection failed: {e}")
             self._connected = False
             return False
     def drop_db(self) -> bool:
@@ -58,11 +58,11 @@ class PyTiDBManager:
         try:
             if self.client.has_database(f"{config.TIDB_DATABASE}"):
                self.client.drop_database(f"{config.TIDB_DATABASE}")
-            logger.info(f"✅ Database '{config.TIDB_DATABASE}' dropped successfully!")
+            logger.info(f"Database '{config.TIDB_DATABASE}' dropped successfully!")
          
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to drop database: {e}")
+            logger.error(f"Failed to drop database: {e}")
             return False
     def create_db(self) -> bool:
         """
@@ -75,10 +75,10 @@ class PyTiDBManager:
             if not self.client.has_database(f"{config.TIDB_DATABASE}"):
                self.client.create_database(f"{config.TIDB_DATABASE}")
                self.client.use_database (f"{config.TIDB_DATABASE}")
-            logger.info(f"✅ Database '{config.TIDB_DATABASE}' created successfully!")
+            logger.info(f"Database '{config.TIDB_DATABASE}' created successfully!")
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to create database: {e}")
+            logger.error(f"Failed to create database: {e}")
             return False
     def initialize_tables(self, drop_existing: bool = False) -> bool:
         """
@@ -95,66 +95,66 @@ class PyTiDBManager:
             if_exists_mode = "overwrite" if drop_existing else "skip"
             
             # Create tables - PyTiDB handles schema creation automatically!
-            print("📋 Creating Tickets table with auto-embeddings...")
+            print("Creating Tickets table with auto-embeddings...")
             self.tables['tickets'] = self.client.create_table(
                 schema=Ticket, 
                 if_exists=if_exists_mode
             )
             
-            print("📚 Creating Knowledge Base table with auto-embeddings...")
+            print("Creating Knowledge Base table with auto-embeddings...")
             self.tables['kb_articles'] = self.client.create_table(
                 schema=KnowledgeBaseArticle,
                 if_exists=if_exists_mode
             )
             
-            print("⚙️ Creating Agent Workflows table...")
+            print("Creating Agent Workflows table...")
             self.tables['agent_workflows'] = self.client.create_table(
                 schema=AgentWorkflow,
                 if_exists=if_exists_mode
             )
             
-            print("📊 Creating Performance Metrics table...")
+            print("Creating Performance Metrics table...")
             self.tables['performance_metrics'] = self.client.create_table(
                 schema=PerformanceMetrics,
                 if_exists=if_exists_mode
             )
             
-            print("⚡ Creating Processing Tasks table...")
+            print("Creating Processing Tasks table...")
             self.tables['processing_tasks'] = self.client.create_table(
                 schema=ProcessingTask,
                 if_exists=if_exists_mode
             )
-            print("⚡ Creating Settings table...")
+            print("Creating Settings table...")
             self.tables['settings'] = self.client.create_table(
                 schema=Settings,
                 if_exists=if_exists_mode
             )
-            print("🔑 Creating API Keys table...")
+            print("Creating API Keys table...")
             self.tables['api_keys'] = self.client.create_table(
                 schema=APIKey,
                 if_exists=if_exists_mode
             )
             
-            print("🧠 Creating Learning Metrics table...")
+            print("Creating Learning Metrics table...")
             self.tables['learning_metrics'] = self.client.create_table(
                 schema=LearningMetrics,
                 if_exists=if_exists_mode
             )
             
-            logger.info("✅ All tables initialized successfully!")
+            logger.info("All tables initialized successfully!")
             
             # Log the amazing features we just got for free
             print("\n🤖 PyTiDB AI Features Enabled:")
-            print("✅ Automatic embedding generation for text fields")
-            print("✅ Built-in vector similarity search") 
-            print("✅ Hybrid search (vector + full-text)")
-            print("✅ Automatic result reranking")
-            print("✅ Optimized vector indexing")
+            print("Automatic embedding generation for text fields")
+            print("Built-in vector similarity search")
+            print("Hybrid search (vector + full-text)")
+            print("Automatic result reranking")
+            print("Optimized vector indexing")
             
             return True
             
         except Exception as e:
-            logger.error(f"❌ Table initialization failed: {e}")
+            logger.error(f"Table initialization failed: {e}")
             return False
 
     def get_table(self, table_name: str) -> Table:

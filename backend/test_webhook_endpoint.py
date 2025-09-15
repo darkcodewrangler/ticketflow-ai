@@ -79,43 +79,43 @@ def test_webhook_endpoint():
             
             if response.status_code == 200:
                 ticket = response.json()
-                print(f"   ✅ Success! Created ticket ID: {ticket['id']}")
+                print(f"   Success! Created ticket ID: {ticket['id']}")
                 print(f"   Title: {ticket['title']}")
                 print(f"   Category: {ticket['category']}")
                 print(f"   Priority: {ticket['priority']}")
                 print(f"   Platform: {ticket['ticket_metadata'].get('platform', 'unknown')}")
             else:
-                print(f"   ❌ Failed! Status: {response.status_code}")
+                print(f"   Failed! Status: {response.status_code}")
                 print(f"   Error: {response.text}")
                 
         except requests.exceptions.ConnectionError:
-            print(f"   ❌ Connection failed! Make sure the API server is running on {base_url}")
+            print(f"   Connection failed! Make sure the API server is running on {base_url}")
             break
         except Exception as e:
-            print(f"   ❌ Error: {e}")
+            print(f"   Error: {e}")
     
     print("\n" + "=" * 50)
-    print("🏁 Webhook testing completed!")
+    print("Webhook testing completed!")
 
 def test_health_check():
     """Test the webhook health check endpoint"""
     base_url = "http://localhost:8000"
     health_url = f"{base_url}/api/integrations/webhook/health"
     
-    print("\n🏥 Testing webhook health check...")
+    print("\nTesting webhook health check...")
     print(f"URL: {health_url}")
     
     try:
         response = requests.get(health_url)
         if response.status_code == 200:
             health_data = response.json()
-            print("✅ Health check passed!")
+            print("Health check passed!")
             print(f"Status: {health_data['status']}")
             print(f"Supported platforms: {', '.join(health_data['supported_platforms'])}")
         else:
-            print(f"❌ Health check failed! Status: {response.status_code}")
+            print(f"Health check failed! Status: {response.status_code}")
     except Exception as e:
-        print(f"❌ Health check error: {e}")
+        print(f"Health check error: {e}")
 
 if __name__ == "__main__":
     test_webhook_endpoint()

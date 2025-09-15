@@ -82,9 +82,9 @@ async def verify_settings_initialization() -> bool:
         for setting_key in critical_settings:
             setting = await settings_manager.get_setting(setting_key)
             if setting:
-                logger.info(f"✓ {setting_key}: {setting['value']} (enabled: {setting['is_enabled']})")
+                logger.info(f"{setting_key}: {setting['value']} (enabled: {setting['is_enabled']})")
             else:
-                logger.error(f"✗ {setting_key}: NOT FOUND")
+                logger.error(f"{setting_key}: NOT FOUND")
                 return False
         
         # Check settings by category

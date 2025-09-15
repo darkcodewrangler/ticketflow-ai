@@ -31,11 +31,11 @@ class KnowledgeBaseOperations:
             # Handle case where insert returns a list
             created_article = result[0] if isinstance(result, list) else result
             
-            logger.info(f"📚 Created KB article {created_article.id} with auto-embeddings")
+            logger.info(f"Created KB article {created_article.id} with auto-embeddings")
             return created_article
             
         except Exception as e:
-            logger.error(f"❌ Failed to create KB article: {e}")
+            logger.error(f"Failed to create KB article: {e}")
             raise
 
     @staticmethod
@@ -94,11 +94,11 @@ class KnowledgeBaseOperations:
                     "usage_count": get_value(result, 'usage_in_resolutions', 0)
                 })
             
-            logger.info(f"📖 Found {len(articles)} relevant articles for: '{query[:50]}...'")
+            logger.info(f"Found {len(articles)} relevant articles for: '{query[:50]}...'")
             return articles
             
         except Exception as e:
-            logger.error(f"❌ Failed to search articles: {e}")
+            logger.error(f"Failed to search articles: {e}")
             return []
 
 
@@ -113,7 +113,7 @@ class KnowledgeBaseOperations:
                 order_by={"created_at":"desc"}
             ).to_list()
         except Exception as e:
-            logger.error(f"❌ Failed to get articles by category: {e}")
+            logger.error(f"Failed to get articles by category: {e}")
             return []
 
     @staticmethod
@@ -150,10 +150,10 @@ class KnowledgeBaseOperations:
                 values=updates
             )
             
-            logger.info(f"📊 Updated usage stats for article {article_id}")
+            logger.info(f"Updated usage stats for article {article_id}")
             
         except Exception as e:
-            logger.error(f"❌ Failed to update article usage: {e}")
+            logger.error(f"Failed to update article usage: {e}")
 
 
 __all__ = [

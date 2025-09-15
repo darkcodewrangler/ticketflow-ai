@@ -243,13 +243,13 @@ async def _process_uploaded_file(
             result_data={"article_id": article.id, "title": article.title}
         )
         
-        logger.info(f"✅ Successfully processed file: {filename} -> Article ID: {article.id}")
+        logger.info(f"Successfully processed file: {filename} -> Article ID: {article.id}")
         
     except Exception as e:
         ProcessingTaskOperations.update_task_status(
             task_id, "failed", 0, error_message=str(e)
         )
-        logger.error(f"❌ Failed to process file {filename}: {e}")
+        logger.error(f"Failed to process file {filename}: {e}")
 
 def _process_url_source(
     task_id: str,
@@ -327,16 +327,16 @@ def _process_url_source(
             }
         )
         
-        logger.info(f"✅ Successfully processed URL: {url} -> {len(articles_created)} articles created")
+        logger.info(f"Successfully processed URL: {url} -> {len(articles_created)} articles created")
         
     except Exception as e:
         ProcessingTaskOperations.update_task_status(
             task_id, "failed", 0, error_message=str(e)
         )
-        logger.error(f"❌ Failed to process URL {url}: {e}")
+        logger.error(f"Failed to process URL {url}: {e}")
     except Exception as e:
         return error_response(
-            message="Failed to create knowledge base article",
+            message=f"Knowledge base article created: {article.id}",
             error=str(e),
             error_code=ErrorCodes.INTERNAL_ERROR
         )

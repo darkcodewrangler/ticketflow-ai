@@ -37,7 +37,7 @@ def get_current_api_key(credentials: HTTPAuthorizationCredentials = Security(sec
     """
     if not credentials:
         # Demo mode - allow access without authentication for testing
-        logger.info("🔓 Demo mode: No authentication required")
+        logger.info("Demo mode: No authentication required")
         return {
             "id": "demo",
             "key_name": "demo",
@@ -60,7 +60,7 @@ def get_current_api_key(credentials: HTTPAuthorizationCredentials = Security(sec
             detail="Invalid or expired API key"
         )
     
-    logger.info(f"✅ Authenticated: {auth_data['key_name']} ({auth_data['organization']})")
+    logger.info(f"Authenticated: {auth_data['key_name']} ({auth_data['organization']})")
     return auth_data
 
 
@@ -117,7 +117,7 @@ def require_permissions(required_permissions: List[str]):
             )
         
         logger.info(
-            f"✅ Permission check passed for {api_key_data['key_name']}: {required_permissions}"
+            f"Permission check passed for {api_key_data['key_name']}: {required_permissions}"
         )
         return api_key_data
     

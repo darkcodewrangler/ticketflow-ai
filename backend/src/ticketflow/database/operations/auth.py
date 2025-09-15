@@ -44,11 +44,11 @@ class AuthOperations:
             result = db_manager.api_keys.insert(key_record)
             created_key = result[0] if isinstance(result, list) else result
             
-            logger.info(f"🔑 Created API key {created_key.key_name} for {created_key.organization}")
+            logger.info(f"Created API key {created_key.key_name} for {created_key.organization}")
             return created_key, api_key
             
         except Exception as e:
-            logger.error(f"❌ Failed to create API key: {e}")
+            logger.error(f"Failed to create API key: {e}")
             raise
     
     @staticmethod
@@ -87,11 +87,11 @@ class AuthOperations:
                     # Already an APIKey object
                     keys.append(result)
             
-            logger.info(f"📋 Retrieved {len(keys)} API keys")
+            logger.info(f"Retrieved {len(keys)} API keys")
             return keys
             
         except Exception as e:
-            logger.error(f"❌ Failed to get API keys: {e}")
+            logger.error(f"Failed to get API keys: {e}")
             raise
     
     @staticmethod
@@ -104,7 +104,7 @@ class AuthOperations:
             ).to_list()
             
             if not results:
-                logger.warning(f"⚠️ API key {key_id} not found")
+                logger.warning(f"API key {key_id} not found")
                 return None
             
             result = results[0]
@@ -116,7 +116,7 @@ class AuthOperations:
                 return result
             
         except Exception as e:
-            logger.error(f"❌ Failed to get API key {key_id}: {e}")
+            logger.error(f"Failed to get API key {key_id}: {e}")
             raise
     
     @staticmethod
@@ -137,7 +137,7 @@ class AuthOperations:
                 filtered_data.pop("name", None)
             
             if not filtered_data:
-                logger.warning("⚠️ No valid fields to update (only name and organization allowed)")
+                logger.warning("No valid fields to update (only name and organization allowed)")
                 return None
             
             # Update the key
@@ -147,16 +147,16 @@ class AuthOperations:
             )
             
             if updated_count == 0:
-                logger.warning(f"⚠️ API key {key_id} not found for update")
+                logger.warning(f"API key {key_id} not found for update")
                 return None
             
             # Return updated key
             updated_key = AuthOperations.get_api_key_by_id(key_id)
-            logger.info(f"🔄 Updated API key {key_id} (name/org only)")
+            logger.info(f"Updated API key {key_id} (name/org only)")
             return updated_key
             
         except Exception as e:
-            logger.error(f"❌ Failed to update API key {key_id}: {e}")
+            logger.error(f"Failed to update API key {key_id}: {e}")
             raise
     
     @staticmethod
@@ -169,14 +169,14 @@ class AuthOperations:
             )
             
             if updated_count == 0:
-                logger.warning(f"⚠️ API key {key_id} not found for deletion")
+                logger.warning(f"API key {key_id} not found for deletion")
                 return False
             
-            logger.info(f"🗑️ Deleted API key {key_id}")
+            logger.info(f"Deleted API key {key_id}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to delete API key {key_id}: {e}")
+            logger.error(f"Failed to delete API key {key_id}: {e}")
             raise
     
     @staticmethod
@@ -192,7 +192,7 @@ class AuthOperations:
             ).to_list()
             
             if not keys:
-                logger.warning("⚠️ Invalid API key attempted")
+                logger.warning("Invalid API key attempted")
                 return None
             
             key_data = keys[0]
@@ -203,7 +203,7 @@ class AuthOperations:
                 values={"last_used": get_isoformat()}
             )
             
-            logger.info(f"✅ API key verified for {key_data.key_name}")
+            logger.info(f"API key verified for {key_data.key_name}")
             return {
                 "id": key_data.id,
                 "key_name": key_data.key_name,
@@ -217,7 +217,7 @@ class AuthOperations:
             }
             
         except Exception as e:
-            logger.error(f"❌ Failed to verify API key: {e}")
+            logger.error(f"Failed to verify API key: {e}")
             return None
 
 def get_current_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Security(security)):

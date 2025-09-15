@@ -1,22 +1,22 @@
-import { 
-  Ticket, 
-  TicketCreateRequest, 
-  TicketFilters, 
-  WorkflowResponse, 
-  DashboardMetrics, 
+import {
+  Ticket,
+  TicketCreateRequest,
+  TicketFilters,
+  WorkflowResponse,
+  DashboardMetrics,
   APIResponse,
   AgentConfig,
   KBArticle,
   SlackSettings,
   ResendSettings,
   AppSettings,
-  EmailTemplate
-} from '@/types';
+  EmailTemplate,
+} from "@/types";
 
 export class APIError extends Error {
   constructor(message: string, public status: number) {
     super(message);
-    this.name = 'APIError';
+    this.name = "APIError";
   }
 }
 
@@ -24,10 +24,10 @@ class TicketFlowAPI {
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
 
-  constructor(baseURL: string = 'http://localhost:8000') {
-    this.baseURL = baseURL;
+  constructor(baseURL: string = "http://localhost:8000") {
+    this.baseURL = import.meta.env.VITE_API_BASE_URL || baseURL;
     this.defaultHeaders = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
   }
 
@@ -49,13 +49,13 @@ class TicketFlowAPI {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new APIError(data.message || 'Request failed', response.status);
+        throw new APIError(data.message || "Request failed", response.status);
       }
 
       return data;
     } catch (error) {
       if (error instanceof APIError) throw error;
-      throw new APIError('Network error', 0);
+      throw new APIError("Network error", 0);
     }
   }
 
@@ -64,9 +64,9 @@ class TicketFlowAPI {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value && key !== 'dateRange') {
+        if (value && key !== "dateRange") {
           if (Array.isArray(value)) {
-            value.forEach(v => params.append(key, String(v)));
+            value.forEach((v) => params.append(key, String(v)));
           } else {
             params.append(key, String(value));
           }
@@ -81,48 +81,60 @@ class TicketFlowAPI {
   }
 
   async createTicket(data: TicketCreateRequest): Promise<APIResponse<Ticket>> {
-    return this.request('/api/tickets', {
-      method: 'POST',
+    return this.request("/api/tickets", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async updateTicket(id: number, data: Partial<Ticket>): Promise<APIResponse<Ticket>> {
+  async updateTicket(
+    id: number,
+    data: Partial<Ticket>
+  ): Promise<APIResponse<Ticket>> {
     return this.request(`/api/tickets/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     });
   }
 
   async deleteTicket(id: number): Promise<APIResponse<void>> {
     return this.request(`/api/tickets/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   }
 
   // Agent operations
-  async processTicket(ticketId: number, config?: AgentConfig): Promise<APIResponse<WorkflowResponse>> {
-    return this.request('/api/agent/process', {
-      method: 'POST',
+  async processTicket(
+    ticketId: number,
+    config?: AgentConfig
+  ): Promise<APIResponse<WorkflowResponse>> {
+    return this.request("/api/agent/process", {
+      method: "POST",
       body: JSON.stringify({ ticket_id: ticketId, config }),
     });
   }
 
-  async getWorkflowStatus(workflowId: string): Promise<APIResponse<WorkflowResponse>> {
-    return this.request(`/api/agent/status/${workflowId}`);
+  async getWorkflowStatus(
+    workflowId: string
+  ): Promise<APIResponse<WorkflowResponse>> {
+    return this.request(`/api/agent/status`);
   }
 
-  async getWorkflow(workflowId: string): Promise<APIResponse<WorkflowResponse>> {
+  async getWorkflow(
+    workflowId: string
+  ): Promise<APIResponse<WorkflowResponse>> {
     return this.request(`/api/workflows/${workflowId}`);
   }
 
-  async getTicketWorkflows(ticketId: number): Promise<APIResponse<WorkflowResponse[]>> {
+  async getTicketWorkflows(
+    ticketId: number
+  ): Promise<APIResponse<WorkflowResponse[]>> {
     return this.request(`/api/workflows/ticket/${ticketId}`);
   }
 
   // Analytics operations
   async getDashboardMetrics(): Promise<APIResponse<DashboardMetrics>> {
-    return this.request('/api/analytics/metrics');
+    return this.request("/api/analytics/metrics");
   }
 
   async getPerformanceTrends(days: number): Promise<APIResponse<any[]>> {
@@ -130,132 +142,172 @@ class TicketFlowAPI {
   }
 
   async getPerformanceSummary(): Promise<APIResponse<any>> {
-    return this.request('/api/analytics/performance-summary');
+    return this.request("/api/analytics/performance-summary");
   }
 
   async getCategoryBreakdown(): Promise<APIResponse<any[]>> {
-    return this.request('/api/analytics/category-breakdown');
+    return this.request("/api/analytics/category-breakdown");
   }
 
   // Knowledge Base operations
   async getKBArticles(): Promise<APIResponse<KBArticle[]>> {
-    return this.request('/api/kb/articles');
+    return this.request("/api/kb/articles");
   }
 
-  async createKBArticle(data: Omit<KBArticle, 'id'>): Promise<APIResponse<KBArticle>> {
-    return this.request('/api/kb/articles', {
-      method: 'POST',
+  async createKBArticle(
+    data: Omit<KBArticle, "id">
+  ): Promise<APIResponse<KBArticle>> {
+    return this.request("/api/kb/articles", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async uploadKBFile(file: File, category: string, metadata?: Record<string, any>): Promise<APIResponse<any>> {
+  async uploadKBFile(
+    file: File,
+    category: string,
+    metadata?: Record<string, any>
+  ): Promise<APIResponse<any>> {
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('category', category);
+    formData.append("file", file);
+    formData.append("category", category);
     if (metadata) {
-      formData.append('metadata', JSON.stringify(metadata));
+      formData.append("metadata", JSON.stringify(metadata));
     }
 
-    return this.request('/api/kb/upload', {
-      method: 'POST',
+    return this.request("/api/kb/upload", {
+      method: "POST",
       body: formData,
       headers: {}, // Remove Content-Type to let browser set it for FormData
     });
   }
 
-  async crawlURL(url: string, category: string, maxDepth: number = 1, metadata?: Record<string, any>): Promise<APIResponse<any>> {
-    return this.request('/api/kb/crawl-url', {
-      method: 'POST',
+  async crawlURL(
+    url: string,
+    category: string,
+    maxDepth: number = 1,
+    metadata?: Record<string, any>
+  ): Promise<APIResponse<any>> {
+    return this.request("/api/kb/crawl-url", {
+      method: "POST",
       body: JSON.stringify({ url, category, max_depth: maxDepth, metadata }),
     });
   }
 
   // Search operations
-  async searchTickets(query: string, limit: number = 10, category?: string): Promise<APIResponse<Ticket[]>> {
+  async searchTickets(
+    query: string,
+    limit: number = 10,
+    category?: string
+  ): Promise<APIResponse<Ticket[]>> {
     const params = new URLSearchParams({ query, limit: limit.toString() });
-    if (category) params.append('category', category);
+    if (category) params.append("category", category);
     return this.request(`/api/search/tickets?${params}`);
   }
 
-  async searchKB(query: string, limit: number = 10, category?: string): Promise<APIResponse<KBArticle[]>> {
+  async searchKB(
+    query: string,
+    limit: number = 10,
+    category?: string
+  ): Promise<APIResponse<KBArticle[]>> {
     const params = new URLSearchParams({ query, limit: limit.toString() });
-    if (category) params.append('category', category);
+    if (category) params.append("category", category);
     return this.request(`/api/search/kb?${params}`);
   }
 
-  async searchUnified(query: string, limit: number = 10): Promise<APIResponse<any>> {
+  async searchUnified(
+    query: string,
+    limit: number = 10
+  ): Promise<APIResponse<any>> {
     const params = new URLSearchParams({ query, limit: limit.toString() });
     return this.request(`/api/search/unified?${params}`);
   }
 
   // Settings operations
   async getSettings(): Promise<APIResponse<AppSettings>> {
-    return this.request('/api/settings');
+    return this.request("/api/settings");
   }
 
-  async updateSettings(settings: Partial<AppSettings>): Promise<APIResponse<void>> {
-    return this.request('/api/settings', {
-      method: 'PUT',
+  async updateSettings(
+    settings: Partial<AppSettings>
+  ): Promise<APIResponse<void>> {
+    return this.request("/api/settings", {
+      method: "PUT",
       body: JSON.stringify(settings),
     });
   }
 
   // Slack settings
   async getSlackSettings(): Promise<APIResponse<SlackSettings>> {
-    return this.request('/api/settings/slack');
+    return this.request("/api/settings/slack");
   }
 
-  async updateSlackSettings(settings: SlackSettings): Promise<APIResponse<void>> {
-    return this.request('/api/settings/slack', {
-      method: 'PUT',
+  async updateSlackSettings(
+    settings: SlackSettings
+  ): Promise<APIResponse<void>> {
+    return this.request("/api/settings/slack", {
+      method: "PUT",
       body: JSON.stringify(settings),
     });
   }
 
-  async testSlackConnection(channelId: string): Promise<APIResponse<{ success: boolean; message: string }>> {
-    return this.request('/api/settings/slack/test', {
-      method: 'POST',
+  async testSlackConnection(
+    channelId: string
+  ): Promise<APIResponse<{ success: boolean; message: string }>> {
+    return this.request("/api/settings/slack/test", {
+      method: "POST",
       body: JSON.stringify({ channelId }),
     });
   }
 
-  async getSlackChannels(): Promise<APIResponse<Array<{ id: string; name: string }>>> {
-    return this.request('/api/settings/slack/channels');
+  async getSlackChannels(): Promise<
+    APIResponse<Array<{ id: string; name: string }>>
+  > {
+    return this.request("/api/settings/slack/channels");
   }
 
   // Resend email settings
   async getResendSettings(): Promise<APIResponse<ResendSettings>> {
-    return this.request('/api/settings/resend');
+    return this.request("/api/settings/resend");
   }
 
-  async updateResendSettings(settings: ResendSettings): Promise<APIResponse<void>> {
-    return this.request('/api/settings/resend', {
-      method: 'PUT',
+  async updateResendSettings(
+    settings: ResendSettings
+  ): Promise<APIResponse<void>> {
+    return this.request("/api/settings/resend", {
+      method: "PUT",
       body: JSON.stringify(settings),
     });
   }
 
-  async testResendConfiguration(): Promise<APIResponse<{ success: boolean; message: string }>> {
-    return this.request('/api/settings/resend/test', {
-      method: 'POST',
+  async testResendConfiguration(): Promise<
+    APIResponse<{ success: boolean; message: string }>
+  > {
+    return this.request("/api/settings/resend/test", {
+      method: "POST",
     });
   }
 
   async getEmailTemplates(): Promise<APIResponse<EmailTemplate[]>> {
-    return this.request('/api/settings/resend/templates');
+    return this.request("/api/settings/resend/templates");
   }
 
-  async updateEmailTemplate(templateId: string, template: EmailTemplate): Promise<APIResponse<void>> {
+  async updateEmailTemplate(
+    templateId: string,
+    template: EmailTemplate
+  ): Promise<APIResponse<void>> {
     return this.request(`/api/settings/resend/templates/${templateId}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(template),
     });
   }
 
-  async sendTestEmail(templateId: string, recipientEmail: string): Promise<APIResponse<{ success: boolean; message: string }>> {
-    return this.request('/api/settings/resend/test-template', {
-      method: 'POST',
+  async sendTestEmail(
+    templateId: string,
+    recipientEmail: string
+  ): Promise<APIResponse<{ success: boolean; message: string }>> {
+    return this.request("/api/settings/resend/test-template", {
+      method: "POST",
       body: JSON.stringify({ templateId, recipientEmail }),
     });
   }

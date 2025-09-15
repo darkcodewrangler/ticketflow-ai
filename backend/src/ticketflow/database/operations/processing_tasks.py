@@ -38,7 +38,7 @@ class ProcessingTaskOperations:
             result = db_manager.processing_tasks.insert(task)
             # Handle case where insert returns a list
             created_task = result[0] if isinstance(result, list) else result
-            logger.info(f"✅ Created processing task {task_id} for {source_name}")
+            logger.info(f"Created processing task {task_id} for {source_name}")
             
             return {
                 "task_id": task_id,
@@ -47,7 +47,7 @@ class ProcessingTaskOperations:
             }
             
         except Exception as e:
-            logger.error(f"❌ Failed to create processing task: {e}")
+            logger.error(f"Failed to create processing task: {e}")
             raise
     
     @staticmethod
@@ -84,11 +84,11 @@ class ProcessingTaskOperations:
                 values=updates
             )
             
-            logger.info(f"✅ Updated task {task_id} status to {status}")
+            logger.info(f"Updated task {task_id} status to {status}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to update task {task_id}: {e}")
+            logger.error(f"Failed to update task {task_id}: {e}")
             return False
     
     @staticmethod
@@ -118,7 +118,7 @@ class ProcessingTaskOperations:
             }
             
         except Exception as e:
-            logger.error(f"❌ Failed to get task status {task_id}: {e}")
+            logger.error(f"Failed to get task status {task_id}: {e}")
             return None
     
     @staticmethod
@@ -144,7 +144,7 @@ class ProcessingTaskOperations:
             ]
             
         except Exception as e:
-            logger.error(f"❌ Failed to get recent tasks: {e}")
+            logger.error(f"Failed to get recent tasks: {e}")
             return []
     
     @staticmethod
@@ -157,7 +157,7 @@ class ProcessingTaskOperations:
             return 0
             
         except Exception as e:
-            logger.error(f"❌ Failed to cleanup old tasks: {e}")
+            logger.error(f"Failed to cleanup old tasks: {e}")
             return 0
 
 __all__ = ["ProcessingTaskOperations"]

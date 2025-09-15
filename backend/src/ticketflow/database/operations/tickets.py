@@ -59,11 +59,11 @@ class TicketOperations:
             # Handle case where insert returns a list
             created_ticket = result[0] if isinstance(result, list) else result
             
-            logger.info(f"✅ Created ticket {created_ticket.id} with auto-embeddings")
+            logger.info(f"Created ticket {created_ticket.id} with auto-embeddings")
             return created_ticket
             
         except Exception as e:
-            logger.error(f"❌ Failed to create ticket: {e}")
+            logger.error(f"Failed to create ticket: {e}")
             raise
 
     @staticmethod
@@ -76,7 +76,7 @@ class TicketOperations:
                 order_by={"created_at": "desc"}
             ).to_list()
         except Exception as e:
-            logger.error(f"❌ Failed to get tickets by status: {e}")
+            logger.error(f"Failed to get tickets by status: {e}")
             return []
 
     @staticmethod
@@ -100,7 +100,7 @@ class TicketOperations:
                 ).to_list()
         
         except Exception as e:
-            logger.error(f"❌ Failed to get recent tickets: {e}")
+            logger.error(f"Failed to get recent tickets: {e}")
             return []
 
     @staticmethod
@@ -132,7 +132,7 @@ class TicketOperations:
                 
                 results = search_query.limit(limit).to_list()
                 
-                logger.info(f"🔍 Hybrid search found {len(results)} similar tickets")
+                logger.info(f"Hybrid search found {len(results)} similar tickets")
                 
             except Exception as vector_error:
                 # Fallback to full-text search with better configuration
@@ -142,7 +142,7 @@ class TicketOperations:
                     search_type="fulltext"
                 ).text_column('description').filter(filters).limit(limit).to_list()
                 
-                logger.info(f"🔍 Text search found {len(results)} similar tickets")
+                logger.info(f"Text search found {len(results)} similar tickets")
 
             # Convert to expected format
             similar_tickets = []
@@ -164,11 +164,11 @@ class TicketOperations:
                     "distance": get_value(result, '_distance', 1.0)
                 })
         
-            logger.info(f"🔍 Returning {len(similar_tickets)} similar tickets for query: '{query_text[:50]}...'")
+            logger.info(f"Returning {len(similar_tickets)} similar tickets for query: '{query_text[:50]}...'")
             return similar_tickets
         
         except Exception as e:
-            logger.error(f"❌ Failed to find similar tickets: {e}")
+            logger.error(f"Failed to find similar tickets: {e}")
             return []
 
     @staticmethod
@@ -205,14 +205,14 @@ class TicketOperations:
             # Fetch updated ticket to verify the update worked
             updated_tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_list()
             if updated_tickets and len(updated_tickets) > 0:
-                logger.info(f"✅ Updated ticket {ticket_id}")
+                logger.info(f"Updated ticket {ticket_id}")
                 return updated_tickets[0]
             
-            logger.warning(f"⚠️ No ticket found with ID {ticket_id}")
+            logger.warning(f"No ticket found with ID {ticket_id}")
             return None
             
         except Exception as e:
-            logger.error(f"❌ Failed to update ticket {ticket_id}: {e}")
+            logger.error(f"Failed to update ticket {ticket_id}: {e}")
             return None
 
     @staticmethod

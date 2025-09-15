@@ -27,11 +27,11 @@ class WorkflowOperations:
             result = db_manager.agent_workflows.insert(workflow)
             # Handle case where insert returns a list
             created_workflow = result[0] if isinstance(result, list) else result
-            logger.info(f"🔄 Created workflow {created_workflow.id} for ticket {ticket_id}")
+            logger.info(f"Created workflow {created_workflow.id} for ticket {ticket_id}")
             return created_workflow
             
         except Exception as e:
-            logger.error(f"❌ Failed to create workflow: {e}")
+            logger.error(f"Failed to create workflow: {e}")
             raise
 
     @staticmethod
@@ -42,7 +42,7 @@ class WorkflowOperations:
             # Get current workflow
             workflows = db_manager.agent_workflows.query(filters={"id": workflow_id}, limit=1).to_list()
             if not workflows:
-                logger.warning(f"⚠️ Workflow {workflow_id} not found")
+                logger.warning(f"Workflow {workflow_id} not found")
                 return False
             
             workflow = workflows[0]
@@ -61,11 +61,11 @@ class WorkflowOperations:
                 values={"workflow_steps": current_steps}
             )
             
-            logger.info(f"🔄 Added step to workflow {workflow_id}: {step_data.get('step', 'unknown')}")
+            logger.info(f"Added step to workflow {workflow_id}: {step_data.get('step', 'unknown')}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to update workflow step: {e}")
+            logger.error(f"Failed to update workflow step: {e}")
 
             return False
 
@@ -85,12 +85,12 @@ class WorkflowOperations:
                 values=updates
             )
             
-            logger.info(f"✅ Completed workflow {workflow_id} with confidence {final_confidence} and duration {total_duration_ms}ms")
+            logger.info(f"Completed workflow {workflow_id} with confidence {final_confidence} and duration {total_duration_ms}ms")
 
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to complete workflow: {e}")
+            logger.error(f"Failed to complete workflow: {e}")
             
             return False
 

@@ -67,11 +67,11 @@ async def receive_external_ticket(
                 ticket.id, 
                 normalized_data
             )
-            logger.info(f"🎯 Auto-processing enabled for webhook ticket {ticket.id}")
+            logger.info(f"Auto-processing enabled for webhook ticket {ticket.id}")
         
         # Log webhook receipt
         logger.info(
-            f"✅ Webhook ticket created: {ticket.id} from {normalized_data['ticket_metadata'].get('platform', 'unknown')} platform"
+            f"Webhook ticket created: {ticket.id} from {normalized_data['ticket_metadata'].get('platform', 'unknown')} platform"
         )
         
         # Return created ticket with processing info
@@ -84,7 +84,7 @@ async def receive_external_ticket(
         )
         
     except Exception as e:
-        logger.error(f"❌ Webhook ticket creation failed: {e}")
+        logger.error(f"Webhook ticket creation failed: {e}")
         return error_response(
             message=f"Failed to process webhook ticket: {str(e)}",
             status_code=500
@@ -161,7 +161,7 @@ async def receive_external_tickets_batch(
                 })
         
         logger.info(
-            f"✅ Batch webhook processed: {len(created_tickets)} created, {len(failed_tickets)} failed"
+            f"Webhook ticket created: {ticket.id} from {normalized_data['ticket_metadata'].get('platform', 'unknown')} platform"
         )
         
         return success_response(
@@ -177,7 +177,7 @@ async def receive_external_tickets_batch(
         )
         
     except Exception as e:
-        logger.error(f"❌ Batch webhook processing failed: {e}")
+        logger.error(f"Batch webhook processing failed: {e}")
         return error_response(
             message=f"Failed to process batch webhook: {str(e)}",
             status_code=500

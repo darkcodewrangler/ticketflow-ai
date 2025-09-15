@@ -85,28 +85,28 @@ SAMPLE_KB_ARTICLES = [
 ]
 
 async def create_sample_data():
-    print("🎫 Creating Sample Data for TicketFlow AI")
+    print("Creating Sample Data for TicketFlow AI")
     print("=" * 50)
     
     # Connect to database
     if not db_manager.connect():
-        print("❌ Database connection failed!")
+        print("Database connection failed!")
         return
     
     if db_manager.drop_db():
-        print("  🗑️ Dropped existing database (if any)")
+        print("  Dropped existing database (if any)")
     
     if db_manager.create_db():
-        print("  🆕 Created new database")
+        print("  Created new database")
         
     if not db_manager.initialize_tables(drop_existing=True):
-        print("❌ Failed to initialize tables")
+        print("Failed to initialize tables")
         return False
     
     
     try:
         # Create sample tickets
-        print("📝 Creating sample tickets...")
+        print("Creating sample tickets...")
         created_tickets = []
         
         for i, ticket_data in enumerate(SAMPLE_TICKETS, 1):
@@ -116,12 +116,12 @@ async def create_sample_data():
             ticket = await TicketOperations.create_ticket(ticket_request)
             created_tickets.append(ticket)
             
-            print(f"✅ Created ticket ID {ticket.id}")
+            print(f"Created ticket ID {ticket.id}")
         
-        print(f"\n✅ Created {len(created_tickets)} sample tickets!")
+        print(f"\nCreated {len(created_tickets)} sample tickets!")
         
         # Create sample KB articles
-        print("\n📚 Creating knowledge base articles...")
+        print("\nCreating knowledge base articles...")
         created_articles = []
         
         for i, article_data in enumerate(SAMPLE_KB_ARTICLES, 1):
@@ -131,12 +131,12 @@ async def create_sample_data():
             article = await KnowledgeBaseOperations.create_article(article_request)
             created_articles.append(article)
             
-            print(f"✅ Created article ID {article.id}")
+            print(f"Created article ID {article.id}")
         
-        print(f"\n✅ Created {len(created_articles)} knowledge base articles!")
+        print(f"\nCreated {len(created_articles)} knowledge base articles!")
         
         # Test vector search
-        print("\n🔍 Testing vector search...")
+        print("\nTesting vector search...")
         test_ticket = created_tickets[0]  # Use first ticket
         similar_tickets = await TicketOperations.find_similar_tickets(test_ticket.title)
 
@@ -155,14 +155,14 @@ async def create_sample_data():
         for result in kb_results[:3]:
             print(f"  - {result['title']} (similarity: {result['similarity_score']:.3f})")
         
-        print("\n🎉 Sample data created successfully!")
+        print("\nSample data created successfully!")
         print("\nYou can now:")
         print("- Test your vector search functionality")
         print("- Build agent workflows with real data")
         print("- Create your demo interface")
         
     except Exception as e:
-        print(f"❌ Error creating sample data: {e}")
+        print(f"Error creating sample data: {e}")
         db_manager.close()
     finally:
         db_manager.close()
@@ -170,7 +170,7 @@ async def create_sample_data():
 if __name__ == "__main__":
     # Check if OpenAI API key is set
     if not config.OPENROUTER_API_KEY:
-        print("❌ OPENROUTER_API_KEY not set in .env file")
+        print("OPENROUTER_API_KEY not set in .env file")
         print("Get your API key from: https://platform.openai.com/api-keys")
         sys.exit(1)
     
