@@ -37,8 +37,8 @@ class ExternalToolsManager:
         """
         try:
             # Check Slack settings
-            slack_enabled = await self.settings_manager.get_setting_value('slack_notifications_enabled', False)
-            slack_token = await self.settings_manager.get_setting_value('slack_bot_token', '')
+            slack_enabled =  self.settings_manager.get_setting_value('slack_notifications_enabled', False)
+            slack_token =  self.settings_manager.get_setting_value('slack_bot_token', '')
             
             if slack_enabled and slack_token:
                 self.slack_client = AsyncWebClient(token=slack_token)
@@ -54,8 +54,8 @@ class ExternalToolsManager:
                     logger.warning("Slack integration disabled - no token found")
             
             # Check Email settings
-            email_enabled = await self.settings_manager.get_setting_value('resend_notifications_enabled', False)
-            resend_api_key = await self.settings_manager.get_setting_value('resend_api_key', '')
+            email_enabled = self.settings_manager.get_setting_value('resend_notifications_enabled', False)
+            resend_api_key = self.settings_manager.get_setting_value('resend_api_key', '')
             
             if email_enabled and resend_api_key:
                 resend.api_key = resend_api_key
@@ -97,15 +97,15 @@ class ExternalToolsManager:
             target_channel = channel
             if not target_channel:
                 if notification_type == "new_ticket":
-                    target_channel = await self.settings_manager.get_setting_value('slack_new_ticket_channel', '#tickets')
+                    target_channel =  self.settings_manager.get_setting_value('slack_new_ticket_channel', '#tickets')
                 elif notification_type == "escalated_ticket":
-                    target_channel = await self.settings_manager.get_setting_value('slack_escalation_channel', '#escalations')
+                    target_channel =  self.settings_manager.get_setting_value('slack_escalation_channel', '#escalations')
                 elif notification_type == "resolved_ticket":
-                    target_channel = await self.settings_manager.get_setting_value('slack_resolution_channel', '#resolutions')
+                    target_channel =  self.settings_manager.get_setting_value('slack_resolution_channel', '#resolutions')
                 elif notification_type == "agent_assignment":
-                    target_channel = await self.settings_manager.get_setting_value('slack_agent_assignment_channel', '#assignments')
+                    target_channel =  self.settings_manager.get_setting_value('slack_agent_assignment_channel', '#assignments')
                 else:
-                    target_channel = await self.settings_manager.get_setting_value('slack_new_ticket_channel', '#tickets')
+                    target_channel =  self.settings_manager.get_setting_value('slack_new_ticket_channel', '#tickets')
             
             # Format the message with rich blocks if ticket_id is provided
             if ticket_id:
@@ -270,7 +270,7 @@ class ExternalToolsManager:
                 "notification_type": notification_type
             }
     
-    async def send_email_notification(self, to_email: str = None, subject: str = "", content: str = "", ticket_id: int = None, notification_type: str = "general") -> Dict[str, Any]:
+    def send_email_notification(self, to_email: str = None, subject: str = "", content: str = "", ticket_id: int = None, notification_type: str = "general") -> Dict[str, Any]:
         """
         Send an email notification
         
@@ -286,7 +286,7 @@ class ExternalToolsManager:
         """
         # Initialize integrations if not done yet
         if not hasattr(self, '_initialized'):
-            await self._initialize_integrations()
+            self._initialize_integrations()
             self._initialized = True
             
         if not self.email_enabled:
@@ -297,24 +297,24 @@ class ExternalToolsManager:
             # Determine recipient from settings if not provided
             if not to_email:
                 if notification_type == "new_ticket":
-                    to_email = await self.settings_manager.get_setting_value('resend_new_ticket_recipient', '')
+                    to_email = self.settings_manager.get_setting_value('resend_new_ticket_recipient', '')
                 elif notification_type == "escalated_ticket":
-                    to_email = await self.settings_manager.get_setting_value('resend_escalation_recipient', '')
+                    to_email = self.settings_manager.get_setting_value('resend_escalation_recipient', '')
                 elif notification_type == "resolved_ticket":
-                    to_email = await self.settings_manager.get_setting_value('resend_resolution_recipient', '')
+                    to_email = self.settings_manager.get_setting_value('resend_resolution_recipient', '')
                 elif notification_type == "agent_assignment":
-                    to_email = await self.settings_manager.get_setting_value('resend_agent_assignment_recipient', '')
+                    to_email = self.settings_manager.get_setting_value('resend_agent_assignment_recipient', '')
                 else:
-                    to_email = await self.settings_manager.get_setting_value('resend_new_ticket_recipient', '')
+                    to_email = self.settings_manager.get_setting_value('resend_new_ticket_recipient', '')
                 
                 if not to_email:
                     logger.warning(f"No email recipient configured for notification type: {notification_type}")
                     return {"success": False, "error": "No recipient configured"}
             
             # Get sender email from settings
-            from_email = await self.settings_manager.get_setting_value('resend_from_email', 'noreply@ticketflow.ai')
-            from_name = await self.settings_manager.get_setting_value('resend_from_name', 'TicketFlow Support')
-            reply_to = await self.settings_manager.get_setting_value('resend_reply_to_email', from_email)
+            from_email =  self.settings_manager.get_setting_value('resend_from_email', 'noreply@ticketflow.ai')
+            from_name =  self.settings_manager.get_setting_value('resend_from_name', 'TicketFlow Support')
+            reply_to =  self.settings_manager.get_setting_value('resend_reply_to_email', from_email)
             
             # Add ticket context to subject if provided
             if ticket_id:
@@ -330,8 +330,8 @@ class ExternalToolsManager:
                 formatted_subject = subject
             
             # Get tracking settings
-            track_opens = await self.settings_manager.get_setting_value('resend_track_opens', True)
-            track_clicks = await self.settings_manager.get_setting_value('resend_track_clicks', True)
+            track_opens = self.settings_manager.get_setting_value('resend_track_opens', True)
+            track_clicks = self.settings_manager.get_setting_value('resend_track_clicks', True)
             
             # Prepare email data
             email_data = {
@@ -372,7 +372,7 @@ class ExternalToolsManager:
     async def create_calendar_event(self, title: str, description: str, duration_hours: int = 1) -> Dict[str, Any]:
         """Create calendar event for follow-up"""
         try:
-            # In a real implementation, this would integrate with Google Calendar, Outlook, etc.
+            #TODO: this would integrate with Google Calendar, Outlook, etc.
             event_data = {
                 "title": title,
                 "description": description,
@@ -397,7 +397,7 @@ class ExternalToolsManager:
     async def update_external_ticket_system(self, external_id: str, status: str, resolution: str = None) -> Dict[str, Any]:
         """Update external ticketing system"""
         try:
-            # In a real implementation, this would integrate with Zendesk, ServiceNow, etc.
+            #TODO: this would integrate with Zendesk, ServiceNow, etc.
             update_data = {
                 "external_id": external_id,
                 "status": status,
@@ -422,7 +422,7 @@ class ExternalToolsManager:
     async def log_to_monitoring(self, event_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Log events to monitoring system"""
         try:
-            # In a real implementation, this would send to DataDog, New Relic, etc.
+            #TODO: this would send to DataDog, New Relic, etc.
             log_entry = {
                 "event_type": event_type,
                 "data": data,

@@ -32,7 +32,7 @@ class LLMClient:
         prompt = self._build_pattern_analysis_prompt(ticket_context)
         
         try:
-            response = await self._make_llm_request(prompt, max_tokens=500)
+            response = self._make_llm_request(prompt, max_tokens=500)
             return self._parse_json_response(response, "pattern_analysis")
         except Exception as e:
             logger.error(f"Pattern analysis failed: {e}")
@@ -58,7 +58,7 @@ class LLMClient:
         prompt = self._build_solution_prompt(ticket_context)
         
         try:
-            response = await self._make_llm_request(prompt, max_tokens=600)
+            response = self._make_llm_request(prompt, max_tokens=600)
             return self._parse_json_response(response, "solution")
         except Exception as e:
             logger.error(f"Solution generation failed: {e}")
@@ -71,7 +71,7 @@ class LLMClient:
         prompt = self._build_confidence_prompt(analysis_results)
         
         try:
-            response = await self._make_llm_request(prompt, max_tokens=200)
+            response = self._make_llm_request(prompt, max_tokens=200)
             return self._parse_json_response(response, "confidence")
         except Exception as e:
             logger.error(f"Confidence assessment failed: {e}")
@@ -200,7 +200,7 @@ class LLMClient:
         }}
         """
     
-    async def _make_llm_request(self, prompt: str, max_tokens: int = 500) -> str:
+    def _make_llm_request(self, prompt: str, max_tokens: int = 500) -> str:
         """Make request to LLM API"""
         if not self.chat_client:
             raise Exception("No LLM API key configured")

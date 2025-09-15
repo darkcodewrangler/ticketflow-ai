@@ -214,17 +214,11 @@ class TicketFlowAgent:
             
             # Get the existing ticket from database
             tickets = db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_pydantic()
-        
-            tickets2 =  db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_list()
-        
-            print("""all tickets from raw pydantic: {}""".format(tickets))
-            print("""all tickets 2 from raw list: {}""".format(tickets2))
+            
             if not tickets:
                 raise ValueError(f"Ticket {ticket_id} not found")
-            
-            print(f"""ticket from raw: {tickets[0]}""")
+
             ticket = TicketResponse.model_validate(tickets[0]).model_dump()
-            print(f"""ticket from TicketResponse model_dump: {ticket}""")
             # Step 1: Log that we're processing existing ticket
             step_data = {
                 "step": AgentStep.INGEST.value,
@@ -380,11 +374,8 @@ class TicketFlowAgent:
         step_start = time.time()
         
         # Use intelligent search
-        search_query = f"{get_value(ticket,"title",'')} {get_value(ticket,"description",'')}"
-        similar_tickets = TicketOperations.find_similar_tickets(
-            search_query, 
+        similar_tickets = TicketOperations.find_similar_to_ticket(ticket=ticket,
             limit=self.config.max_similar_tickets,
-            include_filters={"status": TicketStatus.RESOLVED.value}
         )
         
         # Log workflow step
@@ -444,15 +435,10 @@ class TicketFlowAgent:
         context = self._prepare_analysis_context(ticket, similar_cases, kb_articles)
         
         # LLM analysis chain
-        analysis_tasks = [
-            self._analyze_patterns(context),
-            self._analyze_root_cause(context),
-            self._analyze_solution_options(context),
-            self._assess_confidence(context)
-        ]
-        
-        # Execute analysis chain
-        pattern_analysis, root_cause, solutions, confidence = asyncio.gather(*analysis_tasks)
+        pattern_analysis = self._analyze_patterns(context)
+        root_cause = self._analyze_root_cause(context)
+        solutions = self._analyze_solution_options(context)
+        confidence = self._assess_confidence(context)
         
         # Combine analysis results
         combined_analysis = {
@@ -786,12 +772,12 @@ class TicketFlowAgent:
             </html>
             """
             # user_email=ticket.get("user_email")
+            # TODO: Replace this email with actual user email
             user_email="luckyvictory54@gmail.com"
 
             # Send email using external tools manager
             result = self.external_tools.send_email_notification(
                 recipient=user_email,
-
                 subject=f"Ticket #{ticket.get("id")} Update - {ticket.get("title")}",
                 body=params["message"],
                 html_body=html_body
@@ -820,11 +806,11 @@ class TicketFlowAgent:
         """Notify team action using Slack and email"""
         try:
             # Send Slack notification
-            slack_result = self.external_tools.send_slack_notification(
+            slack_result =asyncio.run(self.external_tools.send_slack_notification(
                 channel=f"#{params['team']}",
                 message=f"🚨 {params['message']}\nTicket: #{ticket.get("id")} - {ticket.get("title")}",
                 ticket_id=ticket.get('id')
-            )
+            ))
             
             # Send email to team (using a team email address)
             email_result = self.external_tools.send_email_notification(
@@ -878,7 +864,7 @@ class TicketFlowAgent:
             "status": "completed"
         }
     
-    # LLM Analysis Methods - Real implementations
+    # LLM Analysis Methods implementations
     def _analyze_patterns(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze patterns in similar cases using LLM"""
         try:

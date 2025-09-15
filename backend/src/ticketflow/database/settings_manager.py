@@ -28,21 +28,21 @@ class SettingsManager:
         self.encryption = EncryptionManager(encryption_key or config.ENCRYPTION_KEY)
         self._default_settings = self._get_default_settings()
     
-    async def initialize_default_settings(self) -> None:
+    def initialize_default_settings(self) -> None:
         """
         Initialize default settings in the database if they don't exist.
         """
         try:
             for setting_data in self._default_settings:
-                existing = await self.get_setting(setting_data['key'])
+                existing = self.get_setting(setting_data['key'])
                 if not existing:
-                    await self.create_setting(**setting_data)
+                    self.create_setting(**setting_data)
             logger.info("Default settings initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize default settings: {e}")
             raise
     
-    async def get_setting(self, key: str, decrypt: bool = True) -> Optional[Dict[str, Any]]:
+    def get_setting(self, key: str, decrypt: bool = True) -> Optional[Dict[str, Any]]:
         """
         Get a setting by key.
         
@@ -96,7 +96,7 @@ class SettingsManager:
             logger.error(f"Failed to get setting {key}: {e}")
             return None
     
-    async def get_setting_value(self, key: str, default: Any = None) -> Any:
+    def get_setting_value(self, key: str, default: Any = None) -> Any:
         """
         Get a setting value with type conversion.
         
@@ -107,14 +107,14 @@ class SettingsManager:
         Returns:
             Converted setting value or default
         """
-        setting = await self.get_setting(key)
+        setting = self.get_setting(key)
         
         if not setting or not setting['is_enabled']:
             return default
         
         return self._convert_value(setting['value'], setting['setting_type'])
     
-    async def get_settings_by_category(self, category: str, decrypt: bool = True) -> List[Dict[str, Any]]:
+    def get_settings_by_category(self, category: str, decrypt: bool = True) -> List[Dict[str, Any]]:
         """
         Get all settings in a category.
         
@@ -169,7 +169,7 @@ class SettingsManager:
             logger.error(f"Failed to get settings for category {category}: {e}")
             return []
     
-    async def create_setting(
+    def create_setting(
         self,
         key: str,
         category: str,
@@ -242,7 +242,7 @@ class SettingsManager:
             result = self.db.settings.insert(setting_data)
             
             logger.info(f"Created setting: {key}")
-            return await self.get_setting(key)
+            return  self.get_setting(key)
             
         except Exception as integrity_error:
             if "Duplicate entry" in str(integrity_error) or "UNIQUE constraint" in str(integrity_error):
@@ -253,7 +253,7 @@ class SettingsManager:
             logger.error(f"Failed to create setting {key}: {e}")
             return None
     
-    async def update_setting(
+    def update_setting(
         self,
         key: str,
         value: Optional[str] = None,
@@ -273,7 +273,7 @@ class SettingsManager:
             Updated setting data or None if failed
         """
         try:
-            setting = await self.get_setting(key, decrypt=False)
+            setting = self.get_setting(key, decrypt=False)
             if not setting:
                 logger.error(f"Setting {key} not found")
                 return None
@@ -307,13 +307,13 @@ class SettingsManager:
             )
             
             logger.info(f"Updated setting: {key}")
-            return await self.get_setting(key)
+            return self.get_setting(key)
             
         except Exception as e:
             logger.error(f"Failed to update setting {key}: {e}")
             return None
     
-    async def delete_setting(self, key: str) -> bool:
+    def delete_setting(self, key: str) -> bool:
         """
         Delete a setting.
         
@@ -448,7 +448,7 @@ class SettingsManager:
             logger.error(f"Validation error for setting '{setting.get('key', 'unknown')}': {e}")
             return False, f"Validation failed: {str(e)}"
     
-    async def validate_setting(self, key: str, value: Any) -> tuple[bool, str]:
+    def validate_setting(self, key: str, value: Any) -> tuple[bool, str]:
         """
         Validate a setting value.
         
@@ -459,13 +459,13 @@ class SettingsManager:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        setting = await self.get_setting(key, decrypt=False)
+        setting = self.get_setting(key, decrypt=False)
         if not setting:
             return False, f"Setting '{key}' not found"
         
         return self._validate_setting_value(value, setting)
     
-    async def validate_all_required_settings(self) -> Dict[str, str]:
+    def validate_all_required_settings(self) -> Dict[str, str]:
         """
         Validate all required settings have values.
         
@@ -509,7 +509,7 @@ class SettingsManager:
         
         return errors
     
-    async def get_setting_with_fallback(self, key: str, fallback_value: Any = None) -> Any:
+    def get_setting_with_fallback(self, key: str, fallback_value: Any = None) -> Any:
         """
         Get setting value with fallback to default value or provided fallback.
         
@@ -521,7 +521,7 @@ class SettingsManager:
             Setting value, default value, or fallback value
         """
         try:
-            setting = await self.get_setting(key)
+            setting = self.get_setting(key)
             if not setting:
                 logger.warning(f"Setting '{key}' not found, using fallback")
                 return fallback_value
