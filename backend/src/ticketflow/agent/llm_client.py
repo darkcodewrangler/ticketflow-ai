@@ -25,7 +25,7 @@ class LLMClient:
         self.model ='openai/gpt-4o' if self.ai_client.can_use_openrouter else 'gpt-4o'
         self.response_format = {"type": "json_object"}
         
-    async def analyze_ticket_patterns(self, ticket_context: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_ticket_patterns(self, ticket_context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze patterns in ticket and similar cases
         """
@@ -38,20 +38,20 @@ class LLMClient:
             logger.error(f"Pattern analysis failed: {e}")
             return self._fallback_pattern_analysis(ticket_context)
     
-    async def analyze_root_cause(self, ticket_context: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_root_cause(self, ticket_context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Determine root cause of the issue
         """
         prompt = self._build_root_cause_prompt(ticket_context)
         
         try:
-            response = await self._make_llm_request(prompt, max_tokens=300)
+            response = self._make_llm_request(prompt, max_tokens=300)
             return self._parse_json_response(response, "root_cause")
         except Exception as e:
             logger.error(f"Root cause analysis failed: {e}")
             return self._fallback_root_cause_analysis(ticket_context)
     
-    async def generate_solution(self, ticket_context: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_solution(self, ticket_context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate solution recommendations
         """
@@ -64,7 +64,7 @@ class LLMClient:
             logger.error(f"Solution generation failed: {e}")
             return self._fallback_solution(ticket_context)
     
-    async def assess_confidence(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+    def assess_confidence(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
         """
         Assess confidence in the analysis and solution
         """

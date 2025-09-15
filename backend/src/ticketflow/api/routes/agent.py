@@ -38,14 +38,12 @@ async def process_ticket(
     request: ProcessTicketRequest,
     background_tasks: BackgroundTasks,
     _: bool = Depends(verify_db_connection),
-    # api_key_data: dict = Depends(require_permissions(["process_tickets"]))
+    api_key_data: dict = Depends(require_permissions(["process_tickets"]))
 ):
     """Start processing a ticket with the AI agent"""
     try:
         # Verify ticket exists
         tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_list()
-        # tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
-        print(""" tickets list: {} """.format(tickets))
         if not tickets:
             return error_response(
                 message="Ticket not found",
@@ -58,9 +56,7 @@ async def process_ticket(
         # # Create workflow
         workflow = WorkflowOperations.create_workflow(int(request.ticket_id))
         
-        # Convert ticket to dict for processing
-        # ticket=tickets[0]
-        print(""" ticket response: {} """.format(ticket))
+        # Convert ticket to a minimal dict for processing
         ticket_dict = {
             "id": get_value(ticket, "id"),
             "title": get_value(ticket, "title"),
@@ -71,9 +67,7 @@ async def process_ticket(
             "user_type": get_value(ticket, "user_type"),
             "status": get_value(ticket, "status")
         }
-        print(""" ticket dict: {} """.format(ticket_dict))
         # Trigger AI processing in background
-        
         background_tasks.add_task(
             _trigger_agent_processing,
             get_value(ticket_dict, "id"),

@@ -60,7 +60,10 @@ class KnowledgeBaseOperations:
             search_query = search_query.filter(filters).limit(limit)
             
             # (balance vector vs text results)
-            search_query = search_query.fusion(method='weighted', vs_weight=0.6, fts_weight=0.4).rerank(reranker, 'content')
+            search_query = search_query.fusion(method='weighted', vs_weight=0.6, fts_weight=0.4)
+
+            if reranker is not None:
+                    search_query = search_query.rerank(reranker, 'content')
 
             results = search_query.to_list()
 
