@@ -13,7 +13,7 @@ from ticketflow.api.response_models import success_response, error_response
 router = APIRouter()
 
 @router.get("/tickets")
-async def search_tickets(
+def search_tickets(
     query: str = Query(..., description="Search query"),
     limit: int = Query(10, ge=1, le=50, description="Number of results"),
     _: bool = Depends(verify_db_connection)

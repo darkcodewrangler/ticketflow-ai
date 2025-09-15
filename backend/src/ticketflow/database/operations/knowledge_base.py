@@ -41,39 +41,41 @@ class KnowledgeBaseOperations:
     @staticmethod
     def search_articles(query: str, category: str = None, limit: int = 5) -> List[Dict]:
         """
-        Search knowledge base using PyTiDB's intelligent search
+        Search knowledge base using PyTiDB's intelligent search with optimized parameters
         """
         try:
             filters = {}
             if category:
                 filters["category"] = category
             
-            # PyTiDB's built-in hybrid search on KB articles
-            searchQuery = db_manager.kb_articles.search(
+            # Optimized hybrid search configuration
+            search_query = db_manager.kb_articles.search(
                 query,
                 search_type='hybrid'      
-            ).vector_column('content_vector').text_column('title').limit(limit).filter(filters)
-            if reranker is not None:
-                searchQuery = searchQuery.rerank(reranker,'title').distance_range(0.7)
+            ).vector_column('content_vector').text_column('content')
+            
+            # Apply reasonable distance thresholds (0.0 = identical, 1.0 = completely different)
+            search_query = search_query.distance_threshold(0.8)  # Allow fairly similar results
+            
+            search_query = search_query.filter(filters).limit(limit)
+            
+            # (balance vector vs text results)
+            search_query = search_query.fusion(method='weighted', vs_weight=0.6, fts_weight=0.4).rerank(reranker, 'content')
 
+            results = search_query.to_list()
 
-            results=searchQuery.to_list()
-
-            # Convert to our format - handle both objects and dicts
             articles = []
             for result in results:
-                # Handle both object attributes and dictionary keys
-                
                 content = get_value(result, 'content', '')
-                if len(content) > 300:
-                    content = content[:300] + "..."
+                if len(content) > 1000:
+                    content = content[:1000] + "..."
                 
-                # Calculate helpfulness score if it's not available
                 helpful_votes = get_value(result, 'helpful_votes', 0)
                 unhelpful_votes = get_value(result, 'unhelpful_votes', 0)
                 total_votes = helpful_votes + unhelpful_votes
                 helpfulness_score = (helpful_votes / total_votes) if total_votes > 0 else 0.0
                 
+
                 articles.append({
                     "article_id": get_value(result, 'id'),
                     "title": get_value(result, 'title', ''),
@@ -84,7 +86,7 @@ class KnowledgeBaseOperations:
                     "source_url": get_value(result, 'source_url', ''),
                     "author": get_value(result, 'author', ''),
                     "helpfulness_score": helpfulness_score,
-                    "distance": get_value(result, '_distance', 0.0),
+                    "distance": get_value(result, '_distance', 1.0),
                     "similarity_score": get_value(result, '_score', 0.0),
                     "usage_count": get_value(result, 'usage_in_resolutions', 0)
                 })
@@ -95,6 +97,7 @@ class KnowledgeBaseOperations:
         except Exception as e:
             logger.error(f"❌ Failed to search articles: {e}")
             return []
+
 
     @staticmethod
     def get_articles_by_category(category: str, limit: int = 20) -> List[KnowledgeBaseArticle]:

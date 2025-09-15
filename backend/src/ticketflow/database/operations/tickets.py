@@ -105,46 +105,52 @@ class TicketOperations:
 
     @staticmethod
     def find_similar_tickets(query_text: str, limit: int = 10, include_filters: Dict = None) -> List[Dict]:
-
         """
-        Find similar tickets using PyTiDB's built-in hybrid search
-        
-        This is the magic of PyTiDB - one line for intelligent search!
+        Find similar tickets using PyTiDB's hybrid search
         """
         try:
             # Build filters for resolved tickets
             filters = {"status": TicketStatus.RESOLVED.value}
             if include_filters:
                 filters.update(include_filters)
-            
-            # First try with hybrid search (vector + full-text)
+        
             try:
-                # PyTiDB's built-in hybrid search (vector + full-text + reranking)
-                results=db_manager.tickets.search(
+                search_query = db_manager.tickets.search(
                     query=query_text,
-                    search_type='hybrid', 
-                ).vector_column('description_vector').text_column('title').distance_range(lower_bound=0.5).filter(filters).rerank(reranker,'title').fusion(method='weighted').limit(limit).to_list()
-
-                print(f"""results from hybrid search: {results}""")
-                logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
-
+                    search_type='hybrid',
+                ).vector_column('description_vector').text_column('description')  
+                
+                # Set reasonable similarity thresholds
+                search_query = search_query.distance_threshold(0.75)  # Allow moderately similar results
+                
+                search_query = search_query.filter(filters).fusion(method='rrf', k=60) 
+                
+                # Apply reranker on the description field (where the main content is)
+                if reranker is not None:
+                    search_query = search_query.rerank(reranker, 'description')
+                
+                
+                results = search_query.limit(limit).to_list()
+                
+                logger.info(f"🔍 Hybrid search found {len(results)} similar tickets")
+                
             except Exception as vector_error:
-                # If vector search fails, fall back to text-only search
-                logger.warning(f"Vector search failed, falling back to text search: {vector_error}")
+                # Fallback to full-text search with better configuration
+                logger.warning(f"Hybrid search failed, falling back to text search: {vector_error}")
                 results = db_manager.tickets.search(
-                   search_type="fulltext",
-                   query=query_text
-                ).limit(limit).text_column('description').to_list()
-            print(f"""results from text search: {results}""")
-            # Convert to our expected format - handle both objects and dicts
+                    query_text,
+                    search_type="fulltext"
+                ).text_column('description').filter(filters).limit(limit).to_list()
+                
+                logger.info(f"🔍 Text search found {len(results)} similar tickets")
+
+            # Convert to expected format
             similar_tickets = []
             for result in results:
-                print(result)
-
                 description = get_value(result, 'description', '')
                 if len(description) > 200:
                     description = description[:200] + "..."
-                
+           
                 similar_tickets.append({
                     "ticket_id": get_value(result, 'id'),
                     "title": get_value(result, 'title', ''),
@@ -157,10 +163,10 @@ class TicketOperations:
                     "similarity_score": get_value(result, '_score', 0.0),
                     "distance": get_value(result, '_distance', 1.0)
                 })
-            
-            logger.info(f"🔍 Found {len(similar_tickets)} similar tickets for query: '{query_text[:50]}...'")
+        
+            logger.info(f"🔍 Returning {len(similar_tickets)} similar tickets for query: '{query_text[:50]}...'")
             return similar_tickets
-            
+        
         except Exception as e:
             logger.error(f"❌ Failed to find similar tickets: {e}")
             return []
@@ -173,7 +179,7 @@ class TicketOperations:
         """
      
         # Use the ticket's title and description for search
-        search_query = f"{get_value(ticket, 'description', '')}"
+        search_query = f"{get_value(ticket, 'title', '')} {get_value(ticket, 'description', '')}"
         
         # Exclude the source ticket from results
         filters = {"id": {NE: get_value(ticket, 'id', '')}}

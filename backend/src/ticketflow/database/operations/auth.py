@@ -21,7 +21,7 @@ class AuthOperations:
     """
     
     @staticmethod
-    async def create_api_key(key_data: Dict[str, Any]) -> tuple[APIKey, str]:
+    def create_api_key(key_data: Dict[str, Any]) -> tuple[APIKey, str]:
         """Create new API key with standardized pattern"""
         try:
             # Generate secure API key, hash, and preview
@@ -66,7 +66,7 @@ class AuthOperations:
         return api_key, key_hash, key_preview
     
     @staticmethod
-    async def get_api_keys(filters: Dict[str, Any] = None, limit: int = 50) -> List[APIKey]:
+    def get_api_keys(filters: Dict[str, Any] = None, limit: int = 50) -> List[APIKey]:
         """Get API keys with optional filters"""
         try:
             query_filters = filters or {"is_active": True}
@@ -95,7 +95,7 @@ class AuthOperations:
             raise
     
     @staticmethod
-    async def get_api_key_by_id(key_id: int) -> Optional[APIKey]:
+    def get_api_key_by_id(key_id: int) -> Optional[APIKey]:
         """Get API key by ID"""
         try:
             results = db_manager.api_keys.query(
@@ -120,7 +120,7 @@ class AuthOperations:
             raise
     
     @staticmethod
-    async def update_api_key(key_id: int, update_data: Dict[str, Any]) -> Optional[APIKey]:
+    def update_api_key(key_id: int, update_data: Dict[str, Any]) -> Optional[APIKey]:
         """Update API key with standardized pattern - only name and organization allowed"""
         try:
             # Only allow updating name and organization for security
@@ -151,7 +151,7 @@ class AuthOperations:
                 return None
             
             # Return updated key
-            updated_key = await AuthOperations.get_api_key_by_id(key_id)
+            updated_key = AuthOperations.get_api_key_by_id(key_id)
             logger.info(f"🔄 Updated API key {key_id} (name/org only)")
             return updated_key
             
@@ -160,7 +160,7 @@ class AuthOperations:
             raise
     
     @staticmethod
-    async def delete_api_key(key_id: int) -> bool:
+    def delete_api_key(key_id: int) -> bool:
         """Soft delete API key (mark as inactive)"""
         try:
             updated_count = db_manager.api_keys.update(
