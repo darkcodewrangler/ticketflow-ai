@@ -11,7 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List, Dict, Any
 from pydantic import BaseModel
 import logging
-from ticketflow.utils.helpers import get_value
+from datetime import datetime
+from ticketflow.utils.helpers import get_isoformat, get_value
 from ticketflow.database.operations import WorkflowOperations, TicketOperations
 from ticketflow.database.schemas import AgentWorkflowResponse, TicketResponse
 from ticketflow.api.dependencies import verify_db_connection, get_current_user, require_permissions
@@ -31,6 +32,15 @@ class ProcessTicketRequest(BaseModel):
     """Request schema for processing tickets"""
     ticket_id: int
     force_reprocess: bool = False
+
+
+class FeedbackRequest(BaseModel):
+    """Request schema for collecting feedback on agent performance"""
+    workflow_id: int
+    resolution_effective: bool
+    resolution_rating: int  # 1-5 scale
+    feedback_text: str = ""
+    user_id: str = ""
 
 
 @router.post("/process")
@@ -249,6 +259,58 @@ async def complete_workflow(
             message="Failed to complete workflow",
             error=str(e),
             error_code=ErrorCodes.WORKFLOW_EXECUTION_FAILED
+        )
+
+
+@router.post("/feedback")
+async def collect_feedback(
+    request: FeedbackRequest,
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["process_tickets"]))
+):
+    """Collect feedback on agent performance for learning and improvement"""
+    try:
+        # Verify workflow exists
+        workflow = WorkflowOperations.get_workflow(request.workflow_id)
+        if not workflow:
+            return error_response(
+                message="Workflow not found",
+                error="Workflow with the specified ID does not exist",
+                error_code=ErrorCodes.RESOURCE_NOT_FOUND
+            )
+        
+        # Initialize agent to process feedback
+        agent = TicketFlowAgent()
+        
+        # Process the feedback
+        feedback_result = agent.process_feedback({
+            "workflow_id": request.workflow_id,
+            "resolution_effective": request.resolution_effective,
+            "resolution_rating": request.resolution_rating,
+            "feedback_text": request.feedback_text,
+            "user_id": request.user_id,
+            "timestamp": get_isoformat()
+        })
+        
+        if feedback_result.get("success"):
+            return success_response(
+                data={"feedback_processed": True, "learning_updated": feedback_result.get("learning_updated", False)},
+                message="Feedback collected successfully",
+                metadata={"workflow_id": request.workflow_id}
+            )
+        else:
+            return error_response(
+                message="Failed to process feedback",
+                error=feedback_result.get("error", "Unknown error"),
+                error_code=ErrorCodes.PROCESSING_FAILED
+            )
+            
+    except Exception as e:
+        logger.error(f"Error collecting feedback: {e}")
+        return error_response(
+            message="Failed to collect feedback",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_SERVER_ERROR
         )
 
 

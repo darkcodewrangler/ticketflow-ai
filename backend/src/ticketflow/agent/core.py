@@ -5,9 +5,11 @@ Core AI Agent for TicketFlow - Multi-step intelligent processing
 import asyncio
 import time
 import logging
+import json
+import os
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from enum import Enum
 
 from ticketflow.database.models import WorkflowStatus
@@ -35,7 +37,41 @@ class AgentStep(str, Enum):
     ANALYZE = "analyze"
     DECIDE = "decide"
     EXECUTE = "execute"
+    VERIFY = "verify"
     FINALIZE = "finalize"
+
+class ResolutionType(str, Enum):
+    AUTOMATED = "automated"
+    ESCALATED = "escalated"
+    MANUAL = "manual"
+    PARTIAL = "partial"
+
+class ResolutionOutcome(str, Enum):
+    SUCCESS = "success"
+    FAILED = "failed"
+    NEEDS_VERIFICATION = "needs_verification"
+    ESCALATED = "escalated"
+
+
+@dataclass
+class LearningMetrics:
+    """Metrics for tracking agent learning and performance"""
+    total_tickets_processed: int = 0
+    successful_resolutions: int = 0
+    escalations: int = 0
+    verification_failures: int = 0
+    average_confidence: float = 0.0
+    feedback_count: int = 0
+    positive_feedback: int = 0
+    resolution_patterns: Dict[str, int] = None
+    common_failures: Dict[str, int] = None
+    
+    def __post_init__(self):
+        if self.resolution_patterns is None:
+            self.resolution_patterns = {}
+        if self.common_failures is None:
+            self.common_failures = {}
+
 
 @dataclass
 class AgentConfig:
@@ -46,6 +82,11 @@ class AgentConfig:
     enable_auto_resolution: bool = True
     enable_escalation: bool = True
     max_processing_time_ms: int = 30000
+    # Verification settings
+    enable_verification: bool = True
+    verification_threshold: float = 0.9  # Higher threshold for verification
+    max_verification_attempts: int = 3
+    require_human_verification: bool = False
 
 class TicketFlowAgent:
     """
@@ -58,13 +99,36 @@ class TicketFlowAgent:
     4. Analyze - LLM analysis of context and patterns
     5. Decide - Choose appropriate actions
     6. Execute - Perform selected actions
-    7. Finalize - Complete workflow and update metrics
+    7. Verify - Verify resolution effectiveness
+    8. Finalize - Complete workflow and update metrics
     """
     
     def __init__(self, config: AgentConfig = None):
         self.config = config or AgentConfig()
         self.llm_client = LLMClient()
         self.external_tools = ExternalToolsManager()
+        self.learning_metrics = self._load_learning_data()
+        
+    def _load_learning_data(self) -> LearningMetrics:
+        """Load learning metrics from persistent storage"""
+        try:
+            learning_file = os.path.join(os.path.dirname(__file__), "learning_data.json")
+            if os.path.exists(learning_file):
+                with open(learning_file, 'r') as f:
+                    data = json.load(f)
+                    return LearningMetrics(**data)
+        except Exception as e:
+            logger.warning(f"Could not load learning data: {e}")
+        return LearningMetrics()
+    
+    def _save_learning_data(self):
+        """Save learning metrics to persistent storage"""
+        try:
+            learning_file = os.path.join(os.path.dirname(__file__), "learning_data.json")
+            with open(learning_file, 'w') as f:
+                json.dump(asdict(self.learning_metrics), f, indent=2)
+        except Exception as e:
+            logger.error(f"Could not save learning data: {e}")
         
     def process_ticket(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -211,7 +275,6 @@ class TicketFlowAgent:
         workflow_start = time.time()
         
         try:
-            
             # Get the existing ticket from database
             tickets = db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_pydantic()
             
@@ -219,6 +282,7 @@ class TicketFlowAgent:
                 raise ValueError(f"Ticket {ticket_id} not found")
 
             ticket = TicketResponse.model_validate(tickets[0]).model_dump()
+            
             # Step 1: Log that we're processing existing ticket
             step_data = {
                 "step": AgentStep.INGEST.value,
@@ -234,76 +298,22 @@ class TicketFlowAgent:
             }
             WorkflowOperations.update_workflow_step(workflow_id, step_data)
             
-            # Step 2: Search for similar resolved tickets
+            # Continue with normal processing steps
             similar_cases = self._step_search_similar(workflow_id, ticket)
-            try:
-              asyncio.run(websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.SEARCH_SIMILAR.value, f"Found {len(similar_cases)} similar tickets", {
-                        "count": len(similar_cases)
-                    }
-                ))
-            except Exception:
-                pass
-            
-            # Step 3: Search knowledge base
             kb_articles = self._step_search_kb(workflow_id, ticket)
-            try:
-                asyncio.run(websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.SEARCH_KB.value, f"Found {len(kb_articles)} KB articles", {
-                        "count": len(kb_articles)
-                    }
-                ))
-            except Exception:
-                pass
-            
-            # Step 4: LLM analysis
             analysis = self._step_analyze(workflow_id, ticket, similar_cases, kb_articles)
-            try:
-                asyncio.run(websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.ANALYZE.value, "Analysis complete", {
-                        "confidence": analysis.get("overall_confidence")
-                    }
-                ))
-            except Exception:
-                pass
-            
-            # Step 5: Decision making
             decisions = self._step_decide(workflow_id, ticket, analysis)
-            try:
-                asyncio.run(websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.DECIDE.value, f"Decision: {decisions.get('primary_decision')}", {
-                        "actions_count": len(decisions.get("actions", [])),
-                        "confidence": decisions.get("confidence")
-                    }
-                ))
-            except Exception:
-                pass
-            
-            # Step 6: Execute actions
             execution_results = self._step_execute(workflow_id, ticket, decisions)
-            try:
-                asyncio.run(websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.EXECUTE.value, f"Executed {len(execution_results)} actions", {
-                        "actions": [r.get("action") for r in execution_results]
-                    }
-                ))
-            except Exception:
-                pass
             
-            # Step 7: Finalize workflow
+            # Verification step
+            verification_result = None
+            if self.config.enable_verification:
+                verification_result = self._step_verify(workflow_id, ticket, analysis, execution_results)
+            
+            # Finalize
             final_result = self._step_finalize(
-                workflow_id, ticket, analysis, execution_results, workflow_start
+                workflow_id, ticket, analysis, execution_results, workflow_start, verification_result
             )
-            try:
-                asyncio.run(websocket_manager.send_agent_update(
-                    ticket.get('id'), AgentStep.FINALIZE.value, "Workflow completed", {
-                        "status": final_result.get("status"),
-                        "confidence": final_result.get("confidence"),
-                        "duration_ms": final_result.get("total_duration_ms")
-                    }
-                ))
-            except Exception:
-                pass
             
             return {
                 "success": True,
@@ -317,17 +327,10 @@ class TicketFlowAgent:
             }
             
         except Exception as e:
-            logger.error(f"Agent processing failed: {e}")
+            logger.error(f"Processing existing ticket failed: {e}")
             
             if workflow_id:
-                # Log error in workflow
                 self._log_workflow_error(workflow_id, str(e))
-            try:
-                asyncio.run(websocket_manager.send_agent_update(
-                    ticket_id, "error", "Agent processing failed", {"error": str(e)}
-                ))
-            except Exception:
-                pass
             
             return {
                 "success": False,
@@ -336,6 +339,55 @@ class TicketFlowAgent:
                 "workflow_id": workflow_id
             }
     
+    def process_feedback(self, feedback_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process user feedback to improve agent performance"""
+        try:
+            workflow_id = feedback_data.get("workflow_id")
+            resolution_effective = feedback_data.get("resolution_effective", False)
+            resolution_rating = feedback_data.get("resolution_rating", 3)
+            feedback_text = feedback_data.get("feedback_text", "")
+            
+            # Update learning metrics
+            self.learning_metrics.feedback_count += 1
+            if resolution_effective and resolution_rating >= 4:
+                self.learning_metrics.positive_feedback += 1
+            
+            # Extract patterns from feedback
+            if feedback_text:
+                # Simple pattern extraction - in production, use more sophisticated NLP
+                if "slow" in feedback_text.lower():
+                    self.learning_metrics.common_failures["slow_response"] = \
+                        self.learning_metrics.common_failures.get("slow_response", 0) + 1
+                elif "wrong" in feedback_text.lower() or "incorrect" in feedback_text.lower():
+                    self.learning_metrics.common_failures["incorrect_solution"] = \
+                        self.learning_metrics.common_failures.get("incorrect_solution", 0) + 1
+                elif "helpful" in feedback_text.lower() or "good" in feedback_text.lower():
+                    self.learning_metrics.resolution_patterns["positive_resolution"] = \
+                        self.learning_metrics.resolution_patterns.get("positive_resolution", 0) + 1
+            
+            # Save updated metrics
+            self._save_learning_data()
+            
+            logger.info(f"Processed feedback for workflow {workflow_id}: effective={resolution_effective}, rating={resolution_rating}")
+            
+            return {
+                "success": True,
+                "learning_updated": True,
+                "metrics": {
+                    "total_feedback": self.learning_metrics.feedback_count,
+                    "positive_feedback": self.learning_metrics.positive_feedback,
+                    "feedback_ratio": self.learning_metrics.positive_feedback / max(1, self.learning_metrics.feedback_count)
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing feedback: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "learning_updated": False
+            }
+
     def _step_ingest(self, ticket_data: Dict[str, Any]) -> Dict[str, Any]:
         """Step 1: Ingest and index the ticket"""
         step_start = time.time()
@@ -556,26 +608,134 @@ class TicketFlowAgent:
         logger.info(f"Agent executed {len(execution_results)} actions for ticket {ticket.get('id')}")
         return execution_results
     
-    def _step_finalize(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any],execution_results: List[Dict], workflow_start: float) -> Dict[str, Any]:
-        """Step 7: Finalize workflow and update metrics"""
+    def _step_verify(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any], execution_results: List[Dict]) -> Dict[str, Any]:
+        """Step 7: Verify resolution effectiveness and determine if escalation is needed"""
+        step_start = time.time()
+        
+        # Check if any resolution actions were taken
+        resolution_actions = [r for r in execution_results if r["action"] == "resolve_ticket" and r["status"] == "success"]
+        
+        if not resolution_actions:
+            # No resolution to verify
+            verification_result = {
+                "outcome": ResolutionOutcome.SUCCESS.value,
+                "confidence": analysis["overall_confidence"],
+                "needs_escalation": False,
+                "verification_notes": "No resolution actions to verify"
+            }
+        else:
+            # Perform verification checks
+            confidence = analysis["overall_confidence"]
+            needs_escalation = self._should_escalate(ticket, analysis, execution_results)
+            
+            # Determine verification outcome
+            if needs_escalation:
+                outcome = ResolutionOutcome.ESCALATED.value
+            elif confidence >= self.config.verification_threshold:
+                outcome = ResolutionOutcome.SUCCESS.value
+            elif confidence >= self.config.confidence_threshold:
+                outcome = ResolutionOutcome.NEEDS_VERIFICATION.value
+            else:
+                outcome = ResolutionOutcome.FAILED.value
+                needs_escalation = True
+            
+            verification_result = {
+                "outcome": outcome,
+                "confidence": confidence,
+                "needs_escalation": needs_escalation,
+                "verification_notes": f"Confidence: {confidence:.2f}, Threshold: {self.config.verification_threshold}"
+            }
+        
+        # Log verification step
+        step_data = {
+            "step": AgentStep.VERIFY.value,
+            "status": "completed",
+            "message": f"Verification complete: {verification_result['outcome']}",
+            "data": {
+                "outcome": verification_result["outcome"],
+                "confidence": verification_result["confidence"],
+                "needs_escalation": verification_result["needs_escalation"],
+                "resolution_actions_count": len(resolution_actions)
+            },
+            "duration_ms": int((time.time() - step_start) * 1000)
+        }
+        
+        WorkflowOperations.update_workflow_step(workflow_id, step_data)
+        
+        logger.info(f"Agent verification for ticket {ticket.get('id')}: {verification_result['outcome']}")
+        return verification_result
+    
+    def _should_escalate(self, ticket: Dict, analysis: Dict[str, Any], execution_results: List[Dict]) -> bool:
+        """Determine if ticket should be escalated based on various factors"""
+        
+        # Check confidence threshold
+        if analysis["overall_confidence"] < self.config.confidence_threshold:
+            return True
+        
+        # Check for high priority tickets with low confidence
+        if ticket.get("priority") == Priority.HIGH.value and analysis["overall_confidence"] < 0.9:
+            return True
+        
+        # Check for failed execution results
+        failed_actions = [r for r in execution_results if r["status"] == "failed"]
+        if len(failed_actions) > len(execution_results) / 2:  # More than half failed
+            return True
+        
+        # Check for complex issues (multiple similar tickets with different solutions)
+        similar_solutions = analysis.get("solution_analysis", {}).get("similar_solutions", [])
+        if len(similar_solutions) > 3:  # Too many different approaches found
+            return True
+        
+        return False
+    
+    def _step_finalize(self, workflow_id: int, ticket: Dict, analysis: Dict[str, Any], execution_results: List[Dict], workflow_start: float, verification_result: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Step 8: Finalize workflow and update metrics"""
         step_start = time.time()
         
         total_duration = int((time.time() - workflow_start) * 1000)
         
-        # Determine final status based on execution results
+        # Determine final status based on execution results and verification
         successful_actions = [r for r in execution_results if r["status"] == "success"]
         
-        if any(r["action"] == "resolve_ticket" for r in successful_actions):
-            final_status = TicketStatus.RESOLVED.value
+        # Consider verification result in final status determination
+        if verification_result and verification_result.get("needs_escalation"):
+            final_status = TicketStatus.ESCALATED.value
+        elif any(r["action"] == "resolve_ticket" for r in successful_actions):
+            # Check if verification passed for resolution
+            if verification_result and verification_result.get("outcome") == ResolutionOutcome.FAILED.value:
+                final_status = TicketStatus.PROCESSING.value  # Keep processing if verification failed
+            else:
+                final_status = TicketStatus.RESOLVED.value
         elif any(r["action"] == "escalate_ticket" for r in successful_actions):
             final_status = TicketStatus.ESCALATED.value
         else:
             final_status = TicketStatus.PROCESSING.value
         
+        # Use verification confidence if available, otherwise use analysis confidence
+        final_confidence = verification_result.get("confidence", analysis["overall_confidence"]) if verification_result else analysis["overall_confidence"]
+        
+        # Update learning metrics
+        self.learning_metrics.total_tickets_processed += 1
+        if final_status == TicketStatus.RESOLVED.value:
+            self.learning_metrics.successful_resolutions += 1
+        elif final_status == TicketStatus.ESCALATED.value:
+            self.learning_metrics.escalations += 1
+        if verification_result and verification_result.get("outcome") == ResolutionOutcome.FAILED.value:
+            self.learning_metrics.verification_failures += 1
+        
+        # Update average confidence (running average)
+        total_processed = self.learning_metrics.total_tickets_processed
+        self.learning_metrics.average_confidence = (
+            (self.learning_metrics.average_confidence * (total_processed - 1) + final_confidence) / total_processed
+        )
+        
+        # Save learning data
+        self._save_learning_data()
+        
         # Update workflow completion
         WorkflowOperations.complete_workflow(
             workflow_id,
-            final_confidence=analysis["overall_confidence"],
+            final_confidence=final_confidence,
             total_duration_ms=total_duration
         )
         
@@ -587,8 +747,9 @@ class TicketFlowAgent:
             "data": {
                 "final_status": final_status,
                 "total_duration_ms": total_duration,
-                "confidence": analysis["overall_confidence"],
-                "successful_actions": len(successful_actions)
+                "confidence": final_confidence,
+                "successful_actions": len(successful_actions),
+                "verification_outcome": verification_result.get("outcome") if verification_result else None
             },
             "duration_ms": int((time.time() - step_start) * 1000)
         }
