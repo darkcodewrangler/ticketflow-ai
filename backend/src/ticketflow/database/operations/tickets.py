@@ -120,10 +120,10 @@ class TicketOperations:
             # First try with hybrid search (vector + full-text)
             try:
                 # PyTiDB's built-in hybrid search (vector + full-text + reranking)
-                results=await asyncio.to_thread(db_manager.tickets.search(
+                results=db_manager.tickets.search(
                     query=query_text,
                     search_type='hybrid', 
-                ).vector_column('description_vector').text_column('description').distance_range(lower_bound=0.4).filter(filters).rerank(reranker,'title').limit(limit).to_list())
+                ).vector_column('description_vector').text_column('description').distance_range(lower_bound=0.4).filter(filters).rerank(reranker,'title').limit(limit).to_list()
 
                 print(f"""results from hybrid search: {results}""")
                 logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
@@ -131,10 +131,10 @@ class TicketOperations:
             except Exception as vector_error:
                 # If vector search fails, fall back to text-only search
                 logger.warning(f"Vector search failed, falling back to text search: {vector_error}")
-                results = await asyncio.to_thread(db_manager.tickets.search(
+                results = db_manager.tickets.search(
                    search_type="fulltext",
                    query=query_text
-                ).limit(limit).text_column('description').to_list())
+                ).limit(limit).text_column('description').to_list()
             print(f"""results from text search: {results}""")
             # Convert to our expected format - handle both objects and dicts
             similar_tickets = []

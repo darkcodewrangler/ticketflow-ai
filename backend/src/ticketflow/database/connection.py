@@ -153,7 +153,7 @@ class PyTiDBManager:
 
     def get_table(self, table_name: str) -> Table:
         """Get a table instance for operations"""
-        if self.client.has_table(table_name):
+        if self.client.has_table(table_name) or not table_name in self.tables:
            self.tables[table_name] = self.client.open_table(table_name)
         # elif table_name not in self.tables:
         #     raise ValueError(f"Table '{table_name}' not initialized")
