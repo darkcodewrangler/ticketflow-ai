@@ -79,7 +79,7 @@ async def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
         agent = TicketFlowAgent()
         
         # Process the ticket
-        result = await agent.process_ticket(ticket_data)
+        result = agent.process_ticket(ticket_data)
         
         if result.get("success"):
             logger.info(f"✅ Auto-processing completed for ticket {ticket_id}")
