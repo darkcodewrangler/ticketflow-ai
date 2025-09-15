@@ -125,7 +125,7 @@ async def create_ticket(
         should_process = auto_process_bool and should_auto_process(ticket_dict)
         
         # Create the ticket
-        ticket = await TicketOperations.create_ticket(ticket_dict)
+        ticket = TicketOperations.create_ticket(ticket_dict)
         ticket_data = TicketResponse.model_validate(ticket).model_dump()
         try:
             await websocket_manager.send_ticket_created(ticket_data)
@@ -169,9 +169,9 @@ async def get_tickets(
     """Get tickets, optionally filtered by status"""
     try:
         if status:
-            tickets = await TicketOperations.get_tickets_by_status(status, int(limit))
+            tickets = TicketOperations.get_tickets_by_status(status, int(limit))
         else:
-            tickets = await TicketOperations.get_recent_tickets(limit=int(limit),days= int(days) if days else None)
+            tickets = TicketOperations.get_recent_tickets(limit=int(limit),days= int(days) if days else None)
         
         ticket_list = [TicketResponse.model_validate(ticket).model_dump() for ticket in tickets]
         return success_response(
@@ -197,7 +197,7 @@ async def get_recent_tickets(
 ):
     """Get recent tickets"""
     try:
-        tickets = await TicketOperations.get_recent_tickets(int(days), int(limit))
+        tickets = TicketOperations.get_recent_tickets(int(days), int(limit))
 
         ticket_list = [TicketResponse.model_validate(ticket).model_dump() for ticket in tickets]
         return success_response(
@@ -267,7 +267,7 @@ async def get_similar_tickets(
         
         ticket = TicketResponse.model_dump(tickets[0])
       
-        similar_tickets = await TicketOperations.find_similar_to_ticket(ticket, int(limit))
+        similar_tickets = TicketOperations.find_similar_to_ticket(ticket, int(limit))
         
         return success_response(
             data=similar_tickets,

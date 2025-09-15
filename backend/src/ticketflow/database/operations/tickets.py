@@ -30,7 +30,7 @@ class TicketOperations:
     Automatic embeddings, vector search, and hybrid search built-in!
     """
     @staticmethod
-    async def create_ticket(ticket_data: Dict[str, Any]) -> Ticket:
+    def create_ticket(ticket_data: Dict[str, Any]) -> Ticket:
         """
         Create a new ticket - PyTiDB automatically generates embeddings!
         
@@ -67,7 +67,7 @@ class TicketOperations:
             raise
 
     @staticmethod
-    async def get_tickets_by_status(status: str, limit: int = 50) -> List[Ticket]:
+    def get_tickets_by_status(status: str, limit: int = 50) -> List[Ticket]:
         """Get tickets by status using PyTiDB query"""
         try:
             return db_manager.tickets.query(
@@ -80,7 +80,7 @@ class TicketOperations:
             return []
 
     @staticmethod
-    async def get_recent_tickets(days: int = None, limit: int = 20) -> List[Ticket]:
+    def get_recent_tickets(days: int = None, limit: int = 20) -> List[Ticket]:
         """Get recent tickets"""
         try:
             if days is not None:
@@ -104,7 +104,7 @@ class TicketOperations:
             return []
 
     @staticmethod
-    async def find_similar_tickets(query_text: str, limit: int = 10, include_filters: Dict = None) -> List[Dict]:
+    def find_similar_tickets(query_text: str, limit: int = 10, include_filters: Dict = None) -> List[Dict]:
 
         """
         Find similar tickets using PyTiDB's built-in hybrid search
@@ -123,7 +123,7 @@ class TicketOperations:
                 results=db_manager.tickets.search(
                     query=query_text,
                     search_type='hybrid', 
-                ).vector_column('description_vector').text_column('description').distance_range(lower_bound=0.4).filter(filters).rerank(reranker,'title').limit(limit).to_list()
+                ).vector_column('description_vector').text_column('title').distance_range(lower_bound=0.5).filter(filters).rerank(reranker,'title').fusion(method='weighted').limit(limit).to_list()
 
                 print(f"""results from hybrid search: {results}""")
                 logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
@@ -166,7 +166,7 @@ class TicketOperations:
             return []
 
     @staticmethod
-    async def find_similar_to_ticket(ticket: Ticket, limit: int = 10) -> List[Dict]:
+    def find_similar_to_ticket(ticket: Ticket, limit: int = 10) -> List[Dict]:
 
         """
         Find tickets similar to a given ticket using its content
@@ -177,13 +177,13 @@ class TicketOperations:
         
         # Exclude the source ticket from results
         filters = {"id": {NE: get_value(ticket, 'id', '')}}
-        return await TicketOperations.find_similar_tickets(query_text=search_query, 
+        return TicketOperations.find_similar_tickets(query_text=search_query, 
             limit=limit, 
             include_filters=filters
         )
 
     @staticmethod
-    async def update_ticket(ticket_id: int, updates: Dict[str, Any]) -> Optional[Ticket]:
+    def update_ticket(ticket_id: int, updates: Dict[str, Any]) -> Optional[Ticket]:
 
         """Update ticket with new data"""
         try:
@@ -210,7 +210,7 @@ class TicketOperations:
             return None
 
     @staticmethod
-    async def resolve_ticket(ticket_id: int, resolution: str, resolved_by: str = "ai_agent", confidence: float = 0.0) -> Optional[Ticket]:
+    def resolve_ticket(ticket_id: int, resolution: str, resolved_by: str = "ai_agent", confidence: float = 0.0) -> Optional[Ticket]:
         """Mark ticket as resolved"""
         updates = {
             "status": TicketStatus.RESOLVED.value,

@@ -27,7 +27,7 @@ async def search_tickets(
             )
         
         # Use the existing similar tickets search
-        similar_tickets = await TicketOperations.find_similar_tickets(query, int(limit))
+        similar_tickets = TicketOperations.find_similar_tickets(query, int(limit))
         
         return success_response(
             message="Ticket search completed successfully",
@@ -42,7 +42,7 @@ async def search_tickets(
         )
 
 @router.get("/knowledge")
-async def search_knowledge(
+def search_knowledge(
     query: str = Query(..., description="Search query"),
     limit: int = Query(5, ge=1, le=20, description="Number of results"),
     category: str = Query(None, description="Filter by category"),
@@ -56,7 +56,7 @@ async def search_knowledge(
                 status_code=400
             )
         
-        results = await KnowledgeBaseOperations.search_articles(query, category, int(limit))
+        results =  KnowledgeBaseOperations.search_articles(query, category, int(limit))
         
         return success_response(
             message="Knowledge base search completed successfully",
@@ -71,7 +71,7 @@ async def search_knowledge(
         )
 
 @router.get("/unified")
-async def unified_search(
+def unified_search(
     query: str = Query(..., description="Search query"),
     ticket_limit: int = Query(5, ge=1, le=20, description="Max ticket results"),
     kb_limit: int = Query(3, ge=1, le=10, description="Max knowledge base results"),
@@ -86,10 +86,10 @@ async def unified_search(
             )
         
         # Search tickets
-        similar_tickets = await TicketOperations.find_similar_tickets(query, int(ticket_limit))
+        similar_tickets = TicketOperations.find_similar_tickets(query, int(ticket_limit))
         
         # Search knowledge base
-        kb_results = await KnowledgeBaseOperations.search_articles(query, None, int(kb_limit))
+        kb_results =  KnowledgeBaseOperations.search_articles(query, None, int(kb_limit))
         
         return success_response(
             message="Unified search completed successfully",

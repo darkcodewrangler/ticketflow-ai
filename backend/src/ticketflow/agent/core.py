@@ -350,7 +350,7 @@ class TicketFlowAgent:
         step_start = time.time()
         
         # Create ticket (PyTiDB auto-generates embeddings)
-        ticket = await TicketOperations.create_ticket(ticket_data)
+        ticket = TicketOperations.create_ticket(ticket_data)
         
         # Create workflow tracking
         initial_step = {
@@ -384,7 +384,7 @@ class TicketFlowAgent:
         
         # Use PyTiDB's intelligent search
         search_query = f"{get_value(ticket,"title",'')} {get_value(ticket,"description",'')}"
-        similar_tickets = await TicketOperations.find_similar_tickets(
+        similar_tickets = TicketOperations.find_similar_tickets(
             search_query, 
             limit=self.config.max_similar_tickets,
             include_filters={"status": TicketStatus.RESOLVED.value}
@@ -733,7 +733,7 @@ class TicketFlowAgent:
     
     async def _resolve_ticket_action(self, ticket_id: int, params: Dict) -> Dict:
         """Resolve ticket action"""
-        resolved_ticket =await TicketOperations.resolve_ticket(
+        resolved_ticket = TicketOperations.resolve_ticket(
             ticket_id,
             resolution=params["resolution"],
             resolved_by="ticketflow_agent",
@@ -758,7 +758,7 @@ class TicketFlowAgent:
             }
         }
         
-        await TicketOperations.update_ticket(ticket_id, updates)
+        TicketOperations.update_ticket(ticket_id, updates)
 
         
         return {

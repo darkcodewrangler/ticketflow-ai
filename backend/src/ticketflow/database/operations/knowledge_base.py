@@ -12,7 +12,7 @@ class KnowledgeBaseOperations:
     """
 
     @staticmethod
-    async def create_article(article_data: Dict[str, Any]) -> KnowledgeBaseArticle:
+    def create_article(article_data: Dict[str, Any]) -> KnowledgeBaseArticle:
         """Create KB article - PyTiDB auto-generates embeddings!"""
         try:
             article = KnowledgeBaseArticle(
@@ -39,7 +39,7 @@ class KnowledgeBaseOperations:
             raise
 
     @staticmethod
-    async def search_articles(query: str, category: str = None, limit: int = 5) -> List[Dict]:
+    def search_articles(query: str, category: str = None, limit: int = 5) -> List[Dict]:
         """
         Search knowledge base using PyTiDB's intelligent search
         """
@@ -54,7 +54,7 @@ class KnowledgeBaseOperations:
                 search_type='hybrid'      
             ).vector_column('content_vector').text_column('title').limit(limit).filter(filters)
             if reranker is not None:
-                searchQuery = searchQuery.rerank(reranker,'title').distance_range(0.4)
+                searchQuery = searchQuery.rerank(reranker,'title').distance_range(0.7)
 
 
             results=searchQuery.to_list()
@@ -84,6 +84,7 @@ class KnowledgeBaseOperations:
                     "source_url": get_value(result, 'source_url', ''),
                     "author": get_value(result, 'author', ''),
                     "helpfulness_score": helpfulness_score,
+                    "distance": get_value(result, '_distance', 0.0),
                     "similarity_score": get_value(result, '_score', 0.0),
                     "usage_count": get_value(result, 'usage_in_resolutions', 0)
                 })
@@ -96,7 +97,7 @@ class KnowledgeBaseOperations:
             return []
 
     @staticmethod
-    async def get_articles_by_category(category: str, limit: int = 20) -> List[KnowledgeBaseArticle]:
+    def get_articles_by_category(category: str, limit: int = 20) -> List[KnowledgeBaseArticle]:
 
         """Get articles by category"""
         try:
@@ -110,7 +111,7 @@ class KnowledgeBaseOperations:
             return []
 
     @staticmethod
-    async def update_article_usage(article_id: int, was_helpful: bool = True):
+    def update_article_usage(article_id: int, was_helpful: bool = True):
 
         """Track article usage and helpfulness"""
         try:

@@ -58,7 +58,7 @@ async def receive_external_ticket(
         should_process = auto_process_bool and should_auto_process(normalized_data)
         
         # Create ticket using existing operations
-        ticket =await TicketOperations.create_ticket(normalized_data)
+        ticket = TicketOperations.create_ticket(normalized_data)
         
         # Trigger agent processing if enabled
         if should_process:
@@ -136,7 +136,7 @@ async def receive_external_tickets_batch(
                 should_process = auto_process_bool and should_auto_process(normalized_data)
                 
                 # Create ticket
-                ticket = await TicketOperations.create_ticket(normalized_data)
+                ticket = TicketOperations.create_ticket(normalized_data)
                 
                 # Trigger agent processing if enabled
                 if should_process:

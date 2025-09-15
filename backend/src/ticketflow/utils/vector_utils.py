@@ -19,7 +19,7 @@ class VectorManager:
         self.jina_api_key = config.JINA_API_KEY
         self.jina_api_url = "https://api.jina.ai/v1/embeddings"
         self.embedding_type = "float"
-    async def generate_embedding(self, text: str) -> List[float]:
+    def generate_embedding(self, text: str) -> List[float]:
         """
         Generate Jina embedding for text
         
@@ -45,7 +45,7 @@ class VectorManager:
                 "embedding_type": self.embedding_type
             }
             
-            response = requests.post(self.jina_api_url, headers=headers, json=payload)
+            response = requests.post(self.jina_api_url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
             
             result = response.json()
@@ -130,7 +130,7 @@ class VectorManager:
             
         return dot_product / (norm_a * norm_b)
     
-    async def generate_ticket_embeddings(self, title: str, description: str) -> dict:
+    def generate_ticket_embeddings(self, title: str, description: str) -> dict:
         """
         Generate all embeddings for a ticket
         
@@ -138,12 +138,12 @@ class VectorManager:
             Dict with title_vector, description_vector, and combined_vector
         """
         # Generate individual embeddings
-        title_embedding = await self.generate_embedding(title)
-        description_embedding = await self.generate_embedding(description)
+        title_embedding = self.generate_embedding(title)
+        description_embedding = self.generate_embedding(description)
         
         # Combined text for better search results
         combined_text = f"{title}\n\n{description}"
-        combined_embedding = await self.generate_embedding(combined_text)
+        combined_embedding = self.generate_embedding(combined_text)
         
         return {
             "title_vector": title_embedding,

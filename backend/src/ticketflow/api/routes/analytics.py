@@ -25,7 +25,7 @@ async def get_dashboard_metrics(
 ):
     """Get current dashboard metrics and KPIs"""
     try:
-        metrics = await AnalyticsOperations.get_dashboard_metrics()
+        metrics = AnalyticsOperations.get_dashboard_metrics()
         dashboard_data = DashboardMetricsResponse(**metrics).model_dump()
         
         return success_response(
@@ -52,7 +52,7 @@ async def get_daily_performance(
         target_date = date or get_isoformat(utcnow().date())
         
         # Use the existing create_daily_metrics method
-        metrics = await AnalyticsOperations.create_daily_metrics(target_date)
+        metrics = AnalyticsOperations.create_daily_metrics(target_date)
         
         performance_data = {
             "date": target_date,
@@ -86,7 +86,7 @@ async def get_performance_summary(
 ):
     """Get performance summary - simplified version"""
     try:
-        dashboard_metrics = await AnalyticsOperations.get_dashboard_metrics()
+        dashboard_metrics = AnalyticsOperations.get_dashboard_metrics()
         
         summary_data = {
             "summary": "Performance overview",
