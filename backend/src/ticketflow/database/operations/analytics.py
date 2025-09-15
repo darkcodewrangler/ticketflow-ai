@@ -9,6 +9,8 @@ from pytidb.filters import GTE, NE
 from ticketflow.database.connection import db_manager
 from ticketflow.database.models import PerformanceMetrics, ResolutionType, TicketStatus
 from ticketflow.utils.helpers import get_isoformat, get_value, utcnow
+import psutil
+import time
 logger = logging.getLogger(__name__)
 class AnalyticsOperations:
     """
@@ -19,7 +21,19 @@ class AnalyticsOperations:
     def get_dashboard_metrics() -> Dict[str, Any]:
         """Get real-time dashboard metrics"""
         try:
-            # Get today's tickets
+            
+            # Get CPU usage percentage
+            cpu_usage = psutil.cpu_percent(interval=1)
+            
+            # Get memory usage percentage
+            memory = psutil.virtual_memory()
+            memory_usage = memory.percent
+            
+            # Get system uptime in seconds
+            uptime = time.time() - psutil.boot_time()
+            
+            # Get current time as last heartbeat
+            last_heartbeat = time.time()
             today = get_isoformat(utcnow().date())
             today_tickets = db_manager.tickets.query(
                 filters={"created_at": {GTE: today}},
@@ -108,6 +122,10 @@ class AnalyticsOperations:
             estimated_cost_saved = auto_resolved_today * 12.5 # $50/hr * 0.25
 
             return {
+                "cpu_usage": cpu_usage,
+                "memory_usage": memory_usage,
+                "uptime": uptime,
+                "last_heartbeat": last_heartbeat,
                 "tickets_today": total_today,
                 "tickets_auto_resolved_today": auto_resolved_today,
                 "currently_processing": processing,

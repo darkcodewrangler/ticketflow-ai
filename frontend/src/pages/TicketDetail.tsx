@@ -9,12 +9,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
 import { TicketTimeline } from "@/components/TicketTimeline";
 import { WorkflowVisualizer } from "@/components/WorkflowVisualizer";
-import { 
-  ArrowLeft, 
-  Bot, 
-  Clock, 
-  User, 
-  Mail, 
+import {
+  ArrowLeft,
+  Bot,
+  Clock,
+  User,
+  Mail,
   Calendar,
   Edit,
   Save,
@@ -24,7 +24,7 @@ import {
   FileText,
   ExternalLink,
   Activity,
-  MessageSquare
+  MessageSquare,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import type { Ticket, WorkflowResponse, SimilarCase, KBArticle } from "@/types";
@@ -34,23 +34,24 @@ import { showSuccess, showError } from "@/utils/toast";
 const mockTicket: Ticket = {
   id: 1,
   title: "Email integration not working properly",
-  description: "Users are unable to receive email notifications from the system. The SMTP configuration seems to be failing intermittently. This started happening after the recent server update on January 10th. Multiple users have reported the issue across different departments.",
+  description:
+    "Users are unable to receive email notifications from the system. The SMTP configuration seems to be failing intermittently. This started happening after the recent server update on January 10th. Multiple users have reported the issue across different departments.",
   status: "processing",
   priority: "high",
   category: "Integration",
-  customer_email: "user@company.com",
+  user_email: "user@company.com",
   created_at: "2024-01-15T10:30:00Z",
   updated_at: "2024-01-15T11:45:00Z",
   resolved_at: null,
   resolution: null,
   agent_confidence: 0.85,
-  metadata: { 
-    source: "web", 
+  metadata: {
+    source: "web",
     department: "IT",
     affected_users: 25,
     server_version: "2.1.3",
-    error_code: "SMTP_TIMEOUT"
-  }
+    error_code: "SMTP_TIMEOUT",
+  },
 };
 
 const mockWorkflow: WorkflowResponse = {
@@ -64,7 +65,7 @@ const mockWorkflow: WorkflowResponse = {
       message: "Analyzed ticket content and extracted key information",
       timestamp: "2024-01-15T10:30:00Z",
       duration_ms: 1200,
-      data: { confidence: 0.95, category: "Integration", priority: "high" }
+      data: { confidence: 0.95, category: "Integration", priority: "high" },
     },
     {
       step: "knowledge_search",
@@ -72,28 +73,28 @@ const mockWorkflow: WorkflowResponse = {
       message: "Found 3 relevant knowledge base articles",
       timestamp: "2024-01-15T10:30:05Z",
       duration_ms: 2800,
-      data: { articles_found: 3, relevance_score: 0.87 }
+      data: { articles_found: 3, relevance_score: 0.87 },
     },
     {
       step: "similar_cases",
       status: "processing",
       message: "Searching for similar resolved cases...",
       timestamp: "2024-01-15T10:30:08Z",
-      data: { cases_analyzed: 15, similarity_threshold: 0.8 }
+      data: { cases_analyzed: 15, similarity_threshold: 0.8 },
     },
     {
       step: "solution_generation",
       status: "pending",
       message: "Waiting to generate solution",
-      timestamp: "2024-01-15T10:30:08Z"
+      timestamp: "2024-01-15T10:30:08Z",
     },
     {
       step: "confidence_check",
       status: "pending",
       message: "Waiting for confidence validation",
-      timestamp: "2024-01-15T10:30:08Z"
-    }
-  ]
+      timestamp: "2024-01-15T10:30:08Z",
+    },
+  ],
 };
 
 const mockSimilarCases: SimilarCase[] = [
@@ -101,14 +102,16 @@ const mockSimilarCases: SimilarCase[] = [
     id: 156,
     title: "SMTP timeout errors after server update",
     similarity_score: 0.92,
-    resolution: "Updated SMTP configuration timeout values from 30s to 60s in server.config. Restarted email service."
+    resolution:
+      "Updated SMTP configuration timeout values from 30s to 60s in server.config. Restarted email service.",
   },
   {
     id: 143,
     title: "Email notifications failing intermittently",
     similarity_score: 0.87,
-    resolution: "Fixed by updating email queue processing to handle connection pooling properly."
-  }
+    resolution:
+      "Fixed by updating email queue processing to handle connection pooling properly.",
+  },
 ];
 
 const mockKBArticles: KBArticle[] = [
@@ -119,7 +122,8 @@ const mockKBArticles: KBArticle[] = [
     category: "Email",
     tags: ["smtp", "email", "configuration"],
     relevance_score: 0.95,
-    content_preview: "Step-by-step guide to diagnose and fix SMTP timeout issues, including configuration examples and common pitfalls."
+    content_preview:
+      "Step-by-step guide to diagnose and fix SMTP timeout issues, including configuration examples and common pitfalls.",
   },
   {
     id: 2,
@@ -128,8 +132,9 @@ const mockKBArticles: KBArticle[] = [
     category: "Operations",
     tags: ["email", "restart", "maintenance"],
     relevance_score: 0.78,
-    content_preview: "Safe procedures for restarting email services without losing queued messages."
-  }
+    content_preview:
+      "Safe procedures for restarting email services without losing queued messages.",
+  },
 ];
 
 export default function TicketDetail() {
@@ -139,20 +144,20 @@ export default function TicketDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedResolution, setEditedResolution] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState("details");
 
   const handleProcessTicket = async () => {
     try {
       setLoading(true);
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setTicket(prev => ({
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      setTicket((prev) => ({
         ...prev,
-        status: 'processing',
-        updated_at: new Date().toISOString()
+        status: "processing",
+        updated_at: new Date().toISOString(),
       }));
-      
+
       showSuccess("Started AI processing for this ticket");
     } catch (error) {
       showError("Failed to process ticket");
@@ -165,16 +170,16 @@ export default function TicketDetail() {
     try {
       setLoading(true);
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setTicket(prev => ({
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      setTicket((prev) => ({
         ...prev,
-        status: 'resolved',
+        status: "resolved",
         resolution: editedResolution,
         resolved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       }));
-      
+
       setIsEditing(false);
       setEditedResolution("");
       showSuccess("Ticket resolved successfully");
@@ -195,26 +200,29 @@ export default function TicketDetail() {
             Back to Tickets
           </Button>
         </Link>
-        
+
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-gray-900">
               Ticket #{ticket.id}
             </h1>
-            <StatusBadge status={ticket.status} pulse={ticket.status === 'processing'} />
+            <StatusBadge
+              status={ticket.status}
+              pulse={ticket.status === "processing"}
+            />
             <PriorityBadge priority={ticket.priority} showIcon />
           </div>
           <p className="text-gray-600 mt-1">{ticket.title}</p>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          {ticket.status === 'new' && (
+          {ticket.status === "new" && (
             <Button onClick={handleProcessTicket} disabled={loading}>
               <Bot className="w-4 h-4 mr-2" />
               Process with AI
             </Button>
           )}
-          {ticket.status !== 'resolved' && !isEditing && (
+          {ticket.status !== "resolved" && !isEditing && (
             <Button variant="outline" onClick={() => setIsEditing(true)}>
               <Edit className="w-4 h-4 mr-2" />
               Add Resolution
@@ -228,33 +236,33 @@ export default function TicketDetail() {
         <CardContent className="p-4">
           <div className="flex gap-2">
             <Button
-              variant={activeTab === 'details' ? 'default' : 'outline'}
+              variant={activeTab === "details" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveTab('details')}
+              onClick={() => setActiveTab("details")}
             >
               <FileText className="w-4 h-4 mr-1" />
               Details
             </Button>
             <Button
-              variant={activeTab === 'workflow' ? 'default' : 'outline'}
+              variant={activeTab === "workflow" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveTab('workflow')}
+              onClick={() => setActiveTab("workflow")}
             >
               <Bot className="w-4 h-4 mr-1" />
               AI Workflow
             </Button>
             <Button
-              variant={activeTab === 'timeline' ? 'default' : 'outline'}
+              variant={activeTab === "timeline" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveTab('timeline')}
+              onClick={() => setActiveTab("timeline")}
             >
               <Activity className="w-4 h-4 mr-1" />
               Timeline
             </Button>
             <Button
-              variant={activeTab === 'comments' ? 'default' : 'outline'}
+              variant={activeTab === "comments" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveTab('comments')}
+              onClick={() => setActiveTab("comments")}
             >
               <MessageSquare className="w-4 h-4 mr-1" />
               Comments
@@ -266,7 +274,7 @@ export default function TicketDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {activeTab === 'details' && (
+          {activeTab === "details" && (
             <>
               {/* Ticket Details */}
               <Card>
@@ -275,23 +283,36 @@ export default function TicketDetail() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <h3 className="font-medium text-gray-900 mb-2">Description</h3>
-                    <p className="text-gray-700 leading-relaxed">{ticket.description}</p>
+                    <h3 className="font-medium text-gray-900 mb-2">
+                      Description
+                    </h3>
+                    <p className="text-gray-700 leading-relaxed">
+                      {ticket.description}
+                    </p>
                   </div>
-                  
-                  {ticket.metadata && Object.keys(ticket.metadata).length > 0 && (
-                    <div>
-                      <h3 className="font-medium text-gray-900 mb-2">Additional Information</h3>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        {Object.entries(ticket.metadata).map(([key, value]) => (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-gray-600 capitalize">{key.replace(/_/g, ' ')}:</span>
-                            <span className="font-medium">{String(value)}</span>
-                          </div>
-                        ))}
+
+                  {ticket.metadata &&
+                    Object.keys(ticket.metadata).length > 0 && (
+                      <div>
+                        <h3 className="font-medium text-gray-900 mb-2">
+                          Additional Information
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          {Object.entries(ticket.metadata).map(
+                            ([key, value]) => (
+                              <div key={key} className="flex justify-between">
+                                <span className="text-gray-600 capitalize">
+                                  {key.replace(/_/g, " ")}:
+                                </span>
+                                <span className="font-medium">
+                                  {String(value)}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </CardContent>
               </Card>
 
@@ -307,17 +328,25 @@ export default function TicketDetail() {
                   <CardContent>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Confidence Score</span>
-                        <Badge variant="outline" className="text-blue-700 border-blue-200">
+                        <span className="text-sm font-medium">
+                          Confidence Score
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-blue-700 border-blue-200"
+                        >
                           {(ticket.agent_confidence * 100).toFixed(0)}%
                         </Badge>
                       </div>
-                      
+
                       <div className="p-4 bg-blue-50 rounded-lg">
-                        <h4 className="font-medium text-blue-900 mb-2">Recommended Action</h4>
+                        <h4 className="font-medium text-blue-900 mb-2">
+                          Recommended Action
+                        </h4>
                         <p className="text-sm text-blue-800">
-                          Based on similar cases, this appears to be an SMTP timeout configuration issue. 
-                          Recommend updating timeout values and restarting the email service.
+                          Based on similar cases, this appears to be an SMTP
+                          timeout configuration issue. Recommend updating
+                          timeout values and restarting the email service.
                         </p>
                       </div>
                     </div>
@@ -330,7 +359,7 @@ export default function TicketDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     Resolution
-                    {ticket.status === 'resolved' && (
+                    {ticket.status === "resolved" && (
                       <CheckCircle className="w-5 h-5 text-green-600" />
                     )}
                   </CardTitle>
@@ -345,11 +374,17 @@ export default function TicketDetail() {
                         rows={6}
                       />
                       <div className="flex gap-2">
-                        <Button onClick={handleSaveResolution} disabled={!editedResolution.trim() || loading}>
+                        <Button
+                          onClick={handleSaveResolution}
+                          disabled={!editedResolution.trim() || loading}
+                        >
                           <Save className="w-4 h-4 mr-2" />
                           Save Resolution
                         </Button>
-                        <Button variant="outline" onClick={() => setIsEditing(false)}>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsEditing(false)}
+                        >
                           <X className="w-4 h-4 mr-2" />
                           Cancel
                         </Button>
@@ -357,10 +392,15 @@ export default function TicketDetail() {
                     </div>
                   ) : ticket.resolution ? (
                     <div className="space-y-3">
-                      <p className="text-gray-700 leading-relaxed">{ticket.resolution}</p>
+                      <p className="text-gray-700 leading-relaxed">
+                        {ticket.resolution}
+                      </p>
                       {ticket.resolved_at && (
                         <p className="text-sm text-gray-500">
-                          Resolved {formatDistanceToNow(new Date(ticket.resolved_at), { addSuffix: true })}
+                          Resolved{" "}
+                          {formatDistanceToNow(new Date(ticket.resolved_at), {
+                            addSuffix: true,
+                          })}
                         </p>
                       )}
                     </div>
@@ -368,10 +408,10 @@ export default function TicketDetail() {
                     <div className="text-center py-8 text-gray-500">
                       <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
                       <p>No resolution provided yet</p>
-                      {ticket.status !== 'resolved' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                      {ticket.status !== "resolved" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="mt-2"
                           onClick={() => setIsEditing(true)}
                         >
@@ -391,16 +431,27 @@ export default function TicketDetail() {
                 <CardContent>
                   <div className="space-y-4">
                     {mockSimilarCases.map((case_) => (
-                      <div key={case_.id} className="p-4 border border-gray-200 rounded-lg">
+                      <div
+                        key={case_.id}
+                        className="p-4 border border-gray-200 rounded-lg"
+                      >
                         <div className="flex items-center justify-between mb-2">
-                          <Link to={`/tickets/${case_.id}`} className="font-medium text-blue-600 hover:text-blue-800">
+                          <Link
+                            to={`/tickets/${case_.id}`}
+                            className="font-medium text-blue-600 hover:text-blue-800"
+                          >
                             #{case_.id} {case_.title}
                           </Link>
-                          <Badge variant="outline" className="text-green-700 border-green-200">
+                          <Badge
+                            variant="outline"
+                            className="text-green-700 border-green-200"
+                          >
                             {(case_.similarity_score * 100).toFixed(0)}% match
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-700">{case_.resolution}</p>
+                        <p className="text-sm text-gray-700">
+                          {case_.resolution}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -409,15 +460,15 @@ export default function TicketDetail() {
             </>
           )}
 
-          {activeTab === 'workflow' && (
+          {activeTab === "workflow" && (
             <WorkflowVisualizer workflow={workflow} showDetails />
           )}
 
-          {activeTab === 'timeline' && (
+          {activeTab === "timeline" && (
             <TicketTimeline ticketId={ticket.id} showFilters />
           )}
 
-          {activeTab === 'comments' && (
+          {activeTab === "comments" && (
             <Card>
               <CardHeader>
                 <CardTitle>Comments & Notes</CardTitle>
@@ -447,10 +498,10 @@ export default function TicketDetail() {
                 <User className="w-4 h-4 text-gray-400" />
                 <div>
                   <p className="text-sm font-medium">Customer</p>
-                  <p className="text-sm text-gray-600">{ticket.customer_email}</p>
+                  <p className="text-sm text-gray-600">{ticket.user_email}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <FileText className="w-4 h-4 text-gray-400" />
                 <div>
@@ -458,23 +509,25 @@ export default function TicketDetail() {
                   <Badge variant="outline">{ticket.category}</Badge>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <Calendar className="w-4 h-4 text-gray-400" />
                 <div>
                   <p className="text-sm font-medium">Created</p>
                   <p className="text-sm text-gray-600">
-                    {format(new Date(ticket.created_at), 'MMM d, yyyy HH:mm')}
+                    {format(new Date(ticket.created_at), "MMM d, yyyy HH:mm")}
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <Clock className="w-4 h-4 text-gray-400" />
                 <div>
                   <p className="text-sm font-medium">Last Updated</p>
                   <p className="text-sm text-gray-600">
-                    {formatDistanceToNow(new Date(ticket.updated_at), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(ticket.updated_at), {
+                      addSuffix: true,
+                    })}
                   </p>
                 </div>
               </div>
@@ -489,17 +542,28 @@ export default function TicketDetail() {
             <CardContent>
               <div className="space-y-3">
                 {mockKBArticles.map((article) => (
-                  <div key={article.id} className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                  <div
+                    key={article.id}
+                    className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  >
                     <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-sm text-gray-900">{article.title}</h4>
+                      <h4 className="font-medium text-sm text-gray-900">
+                        {article.title}
+                      </h4>
                       <Badge variant="outline" className="text-xs">
                         {(article.relevance_score! * 100).toFixed(0)}%
                       </Badge>
                     </div>
-                    <p className="text-xs text-gray-600 mb-2">{article.content_preview}</p>
+                    <p className="text-xs text-gray-600 mb-2">
+                      {article.content_preview}
+                    </p>
                     <div className="flex items-center gap-1">
                       {article.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="text-xs"
+                        >
                           {tag}
                         </Badge>
                       ))}
@@ -516,19 +580,35 @@ export default function TicketDetail() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
                 <Bot className="w-4 h-4 mr-2" />
                 Reprocess with AI
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
                 <User className="w-4 h-4 mr-2" />
                 Assign to Human
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
                 <Mail className="w-4 h-4 mr-2" />
                 Send Update Email
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
                 <ExternalLink className="w-4 h-4 mr-2" />
                 View in External System
               </Button>

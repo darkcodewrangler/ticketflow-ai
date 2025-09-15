@@ -18,7 +18,7 @@ from ticketflow.api.response_models import (
 router = APIRouter()
 
 
-@router.get("/dashboard")
+@router.get("/metrics")
 async def get_dashboard_metrics(
     _: bool = Depends(verify_db_connection),
     api_key_data: dict = Depends(require_permissions(["read_analytics"]))

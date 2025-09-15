@@ -2,10 +2,10 @@ export interface Ticket {
   id: number;
   title: string;
   description: string;
-  status: 'new' | 'processing' | 'resolved' | 'escalated';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: "new" | "processing" | "resolved" | "escalated";
+  priority: "low" | "medium" | "high" | "urgent";
   category: string;
-  customer_email: string;
+  user_email: string;
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
@@ -18,8 +18,8 @@ export interface TicketCreateRequest {
   title: string;
   description: string;
   category: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  customer_email: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  user_email: string;
   metadata?: Record<string, any>;
   auto_process?: boolean;
 }
@@ -34,7 +34,7 @@ export interface TicketFilters {
 
 export interface WorkflowStep {
   step: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: "pending" | "processing" | "completed" | "failed";
   message: string;
   data?: Record<string, any>;
   timestamp: string;
@@ -44,29 +44,46 @@ export interface WorkflowStep {
 export interface WorkflowResponse {
   workflow_id: string;
   ticket_id: number;
-  status: 'started' | 'processing' | 'completed' | 'failed';
+  status: "started" | "processing" | "completed" | "failed";
   steps: WorkflowStep[];
 }
 
 export interface DashboardMetrics {
-  total_tickets: number;
-  auto_resolved: number;
-  avg_resolution_time_hours: number;
-  success_rate: number;
   tickets_today: number;
-  processing_time_avg_ms: number;
+  tickets_auto_resolved_today: number;
+  currently_processing: number;
+  pending_tickets: number;
+  avg_confidence: number;
+  avg_processing_time_ms: number;
+  avg_resolution_hours: number;
+  automation_rate: number;
+  resolution_rate: number;
+  customer_satisfaction_avg: number;
+  estimated_time_saved_hours: number;
+  estimated_cost_saved: number;
+  category_breakdown: {
+    [category: string]: number;
+  };
+  priority_breakdown: {
+    [status: string]: number;
+  };
 }
 
 export interface ActivityItem {
   id: string;
-  type: 'ticket_created' | 'agent_update' | 'resolution' | 'escalation';
+  type: "ticket_created" | "agent_update" | "resolution" | "escalation";
   message: string;
   timestamp: string;
   metadata?: Record<string, any>;
 }
 
 export interface WebSocketMessage {
-  type: 'connection_established' | 'agent_update' | 'ticket_created' | 'metrics_update' | 'pong';
+  type:
+    | "connection_established"
+    | "agent_update"
+    | "ticket_created"
+    | "metrics_update"
+    | "pong";
   message?: string;
   ticket_id?: number;
   step?: string;
@@ -77,7 +94,7 @@ export interface WebSocketMessage {
 }
 
 export interface ClientMessage {
-  type: 'ping' | 'subscribe';
+  type: "ping" | "subscribe";
   subscription?: string;
 }
 
@@ -118,7 +135,11 @@ export interface APIResponse<T> {
   data: T;
 }
 
-export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+export type ConnectionStatus =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
 
 // New Settings Interfaces
 
@@ -155,7 +176,7 @@ export interface SlackSettings {
 export interface EmailTemplate {
   enabled: boolean;
   subject: string;
-  template: 'default' | 'custom';
+  template: "default" | "custom";
   customTemplate?: string;
   recipients?: string[];
   sendOnlyOnCompletion?: boolean;

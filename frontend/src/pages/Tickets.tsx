@@ -3,21 +3,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
-import { 
-  Search, 
-  Filter, 
-  Plus, 
-  Eye, 
-  Bot, 
+import {
+  Search,
+  Filter,
+  Plus,
+  Eye,
+  Bot,
   MoreHorizontal,
   Calendar,
   Download,
   RefreshCw,
-  Ticket
+  Ticket,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
@@ -31,78 +44,88 @@ const mockTickets: TicketType[] = [
   {
     id: 1,
     title: "Email integration not working properly",
-    description: "Users are unable to receive email notifications from the system. The SMTP configuration seems to be failing.",
+    description:
+      "Users are unable to receive email notifications from the system. The SMTP configuration seems to be failing.",
     status: "processing",
     priority: "high",
     category: "Integration",
-    customer_email: "user@company.com",
+    user_email: "user@company.com",
     created_at: "2024-01-15T10:30:00Z",
     updated_at: "2024-01-15T11:45:00Z",
     resolved_at: null,
     resolution: null,
     agent_confidence: 0.85,
-    metadata: { source: "web", department: "IT" }
+    metadata: { source: "web", department: "IT" },
   },
   {
     id: 2,
     title: "Password reset functionality broken",
-    description: "The password reset link in emails is not working. Users click the link but get a 404 error.",
+    description:
+      "The password reset link in emails is not working. Users click the link but get a 404 error.",
     status: "resolved",
     priority: "medium",
     category: "Authentication",
-    customer_email: "admin@company.com",
+    user_email: "admin@company.com",
     created_at: "2024-01-15T09:15:00Z",
     updated_at: "2024-01-15T10:30:00Z",
     resolved_at: "2024-01-15T10:30:00Z",
-    resolution: "Fixed broken URL routing in password reset controller. Updated email templates with correct links.",
+    resolution:
+      "Fixed broken URL routing in password reset controller. Updated email templates with correct links.",
     agent_confidence: 0.95,
-    metadata: { source: "email", department: "Security" }
+    metadata: { source: "email", department: "Security" },
   },
   {
     id: 3,
     title: "Dashboard loading slowly",
-    description: "The main dashboard takes over 10 seconds to load. This is affecting user productivity.",
+    description:
+      "The main dashboard takes over 10 seconds to load. This is affecting user productivity.",
     status: "new",
     priority: "low",
     category: "Performance",
-    customer_email: "support@company.com",
+    user_email: "support@company.com",
     created_at: "2024-01-15T08:45:00Z",
     updated_at: "2024-01-15T08:45:00Z",
     resolved_at: null,
     resolution: null,
     agent_confidence: null,
-    metadata: { source: "phone", department: "Operations" }
+    metadata: { source: "phone", department: "Operations" },
   },
   {
     id: 4,
     title: "Critical security vulnerability detected",
-    description: "Automated security scan detected a potential SQL injection vulnerability in the user management module.",
+    description:
+      "Automated security scan detected a potential SQL injection vulnerability in the user management module.",
     status: "escalated",
     priority: "urgent",
     category: "Security",
-    customer_email: "security@company.com",
+    user_email: "security@company.com",
     created_at: "2024-01-15T07:20:00Z",
     updated_at: "2024-01-15T07:25:00Z",
     resolved_at: null,
     resolution: null,
     agent_confidence: 0.98,
-    metadata: { source: "automated", department: "Security", severity: "critical" }
+    metadata: {
+      source: "automated",
+      department: "Security",
+      severity: "critical",
+    },
   },
   {
     id: 5,
     title: "Mobile app crashes on startup",
-    description: "iOS app version 2.1.3 crashes immediately after opening. Affects approximately 15% of users.",
+    description:
+      "iOS app version 2.1.3 crashes immediately after opening. Affects approximately 15% of users.",
     status: "processing",
     priority: "high",
     category: "Mobile",
-    customer_email: "mobile@company.com",
+    user_email: "mobile@company.com",
     created_at: "2024-01-14T16:30:00Z",
     updated_at: "2024-01-15T09:00:00Z",
     resolved_at: null,
     resolution: null,
     agent_confidence: 0.72,
-    metadata: { source: "app_store", department: "Mobile", platform: "iOS" }
-  }
+    metadata: { source: "app_store", department: "Mobile", platform: "iOS" },
+  },
 ];
 
 export default function Tickets() {
@@ -111,59 +134,74 @@ export default function Tickets() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<TicketFilters>({});
   const [selectedTickets, setSelectedTickets] = useState<number[]>([]);
-  
+
   const { addLiveUpdate } = useAppContext();
 
-  const filteredTickets = tickets.filter(ticket => {
-    const matchesSearch = !searchQuery || 
+  const filteredTickets = tickets.filter((ticket) => {
+    const matchesSearch =
+      !searchQuery ||
       ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.customer_email.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = !filters.status?.length || filters.status.includes(ticket.status);
-    const matchesPriority = !filters.priority?.length || filters.priority.includes(ticket.priority);
-    const matchesCategory = !filters.category?.length || filters.category.includes(ticket.category);
-    
+      ticket.user_email.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus =
+      !filters.status?.length || filters.status.includes(ticket.status);
+    const matchesPriority =
+      !filters.priority?.length || filters.priority.includes(ticket.priority);
+    const matchesCategory =
+      !filters.category?.length || filters.category.includes(ticket.category);
+
     return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
   });
 
   const handleProcessTicket = async (ticketId: number) => {
     try {
       setLoading(true);
-      // In a real app, this would call the API
-      // const response = await api.processTicket(ticketId);
-      
-      // Simulate processing
-      setTickets(prev => prev.map(ticket => 
-        ticket.id === ticketId 
-          ? { ...ticket, status: 'processing' as const, updated_at: new Date().toISOString() }
-          : ticket
-      ));
-      
+      const response = await api.processTicket(ticketId);
+
+      // // Simulate processing
+      // setTickets((prev) =>
+      //   prev.map((ticket) =>
+      //     ticket.id === ticketId
+      //       ? {
+      //           ...ticket,
+      //           status: "processing" as const,
+      //           updated_at: new Date().toISOString(),
+      //         }
+      //       : ticket
+      //   )
+      // );
+
       addLiveUpdate({
         id: `process-${ticketId}-${Date.now()}`,
-        type: 'agent_update',
+        type: "agent_update",
         message: `Started AI processing for ticket #${ticketId}`,
         timestamp: new Date().toISOString(),
-        metadata: { ticket_id: ticketId }
+        metadata: { ticket_id: ticketId },
       });
-      
+
       showSuccess(`Started AI processing for ticket #${ticketId}`);
     } catch (error) {
-      showError('Failed to process ticket');
+      showError("Failed to process ticket");
     } finally {
       setLoading(false);
     }
   };
-
+  useEffect(() => {
+    const fetchTickets = async () => {
+      const tickets = await api.getTickets();
+      setTickets(tickets.data);
+    };
+    fetchTickets();
+  }, []);
   const handleBulkAction = (action: string) => {
     if (selectedTickets.length === 0) return;
-    
+
     switch (action) {
-      case 'process':
-        selectedTickets.forEach(id => handleProcessTicket(id));
+      case "process":
+        selectedTickets.forEach((id) => handleProcessTicket(id));
         break;
-      case 'export':
+      case "export":
         showSuccess(`Exported ${selectedTickets.length} tickets`);
         break;
       default:
@@ -173,10 +211,10 @@ export default function Tickets() {
   };
 
   const getConfidenceColor = (confidence: number | null) => {
-    if (!confidence) return 'text-gray-400';
-    if (confidence >= 0.9) return 'text-green-600';
-    if (confidence >= 0.7) return 'text-yellow-600';
-    return 'text-red-600';
+    if (!confidence) return "text-gray-400";
+    if (confidence >= 0.9) return "text-green-600";
+    if (confidence >= 0.7) return "text-yellow-600";
+    return "text-red-600";
   };
 
   return (
@@ -189,13 +227,13 @@ export default function Tickets() {
             Manage and monitor support tickets with AI automation
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <Button variant="outline" className="flex items-center gap-2">
             <Download className="w-4 h-4" />
             Export
           </Button>
-          
+
           <Link to="/tickets/new">
             <Button className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
@@ -221,10 +259,17 @@ export default function Tickets() {
                 />
               </div>
             </div>
-            
+
             {/* Filters */}
             <div className="flex gap-3">
-              <Select onValueChange={(value) => setFilters(prev => ({ ...prev, status: value ? [value] : undefined }))}>
+              <Select
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    status: value ? [value] : undefined,
+                  }))
+                }
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -235,8 +280,15 @@ export default function Tickets() {
                   <SelectItem value="escalated">Escalated</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <Select onValueChange={(value) => setFilters(prev => ({ ...prev, priority: value ? [value] : undefined }))}>
+
+              <Select
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    priority: value ? [value] : undefined,
+                  }))
+                }
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
@@ -247,8 +299,15 @@ export default function Tickets() {
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <Select onValueChange={(value) => setFilters(prev => ({ ...prev, category: value ? [value] : undefined }))}>
+
+              <Select
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    category: value ? [value] : undefined,
+                  }))
+                }
+              >
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -260,7 +319,7 @@ export default function Tickets() {
                   <SelectItem value="Mobile">Mobile</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <Button variant="outline" size="icon">
                 <Filter className="w-4 h-4" />
               </Button>
@@ -275,22 +334,23 @@ export default function Tickets() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-blue-900">
-                {selectedTickets.length} ticket{selectedTickets.length > 1 ? 's' : ''} selected
+                {selectedTickets.length} ticket
+                {selectedTickets.length > 1 ? "s" : ""} selected
               </span>
               <div className="flex gap-2">
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
-                  onClick={() => handleBulkAction('process')}
+                  onClick={() => handleBulkAction("process")}
                   className="border-blue-300 text-blue-700 hover:bg-blue-100"
                 >
                   <Bot className="w-4 h-4 mr-1" />
                   Process with AI
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
-                  onClick={() => handleBulkAction('export')}
+                  onClick={() => handleBulkAction("export")}
                   className="border-blue-300 text-blue-700 hover:bg-blue-100"
                 >
                   <Download className="w-4 h-4 mr-1" />
@@ -306,11 +366,11 @@ export default function Tickets() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>
-              All Tickets ({filteredTickets.length})
-            </CardTitle>
+            <CardTitle>All Tickets ({filteredTickets.length})</CardTitle>
             <Button variant="outline" size="sm" disabled={loading}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+              />
               Refresh
             </Button>
           </div>
@@ -323,10 +383,12 @@ export default function Tickets() {
                   <TableHead className="w-12">
                     <input
                       type="checkbox"
-                      checked={selectedTickets.length === filteredTickets.length}
+                      checked={
+                        selectedTickets.length === filteredTickets.length
+                      }
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedTickets(filteredTickets.map(t => t.id));
+                          setSelectedTickets(filteredTickets.map((t) => t.id));
                         } else {
                           setSelectedTickets([]);
                         }
@@ -354,9 +416,11 @@ export default function Tickets() {
                         checked={selectedTickets.includes(ticket.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedTickets(prev => [...prev, ticket.id]);
+                            setSelectedTickets((prev) => [...prev, ticket.id]);
                           } else {
-                            setSelectedTickets(prev => prev.filter(id => id !== ticket.id));
+                            setSelectedTickets((prev) =>
+                              prev.filter((id) => id !== ticket.id)
+                            );
                           }
                         }}
                         className="rounded"
@@ -365,14 +429,18 @@ export default function Tickets() {
                     <TableCell className="font-medium">#{ticket.id}</TableCell>
                     <TableCell>
                       <div className="max-w-xs">
-                        <p className="font-medium text-gray-900 truncate">{ticket.title}</p>
-                        <p className="text-sm text-gray-500 truncate">{ticket.description}</p>
+                        <p className="font-medium text-gray-900 truncate">
+                          {ticket.title}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">
+                          {ticket.description}
+                        </p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge 
-                        status={ticket.status} 
-                        pulse={ticket.status === 'processing'} 
+                      <StatusBadge
+                        status={ticket.status}
+                        pulse={ticket.status === "processing"}
                       />
                     </TableCell>
                     <TableCell>
@@ -382,11 +450,15 @@ export default function Tickets() {
                       <Badge variant="outline">{ticket.category}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
-                      {ticket.customer_email}
+                      {ticket.user_email}
                     </TableCell>
                     <TableCell>
                       {ticket.agent_confidence ? (
-                        <span className={`text-sm font-medium ${getConfidenceColor(ticket.agent_confidence)}`}>
+                        <span
+                          className={`text-sm font-medium ${getConfidenceColor(
+                            ticket.agent_confidence
+                          )}`}
+                        >
                           {(ticket.agent_confidence * 100).toFixed(0)}%
                         </span>
                       ) : (
@@ -394,7 +466,9 @@ export default function Tickets() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-gray-600">
-                      {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(ticket.created_at), {
+                        addSuffix: true,
+                      })}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -403,9 +477,9 @@ export default function Tickets() {
                             <Eye className="w-4 h-4" />
                           </Button>
                         </Link>
-                        {ticket.status === 'new' && (
-                          <Button 
-                            variant="ghost" 
+                        {ticket.status === "new" && (
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleProcessTicket(ticket.id)}
                             disabled={loading}
@@ -423,7 +497,7 @@ export default function Tickets() {
               </TableBody>
             </Table>
           </div>
-          
+
           {filteredTickets.length === 0 && (
             <div className="text-center py-12">
               <div className="text-gray-500">

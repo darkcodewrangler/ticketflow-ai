@@ -10,19 +10,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PriorityBadge } from "@/components/PriorityBadge";
-import { 
-  RefreshCw, 
-  Plus, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle, 
+import {
+  RefreshCw,
+  Plus,
+  TrendingUp,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   Bot,
   Zap,
   Bell,
-  Eye
+  Eye,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { api } from "@/services/api";
+import { useState } from "react";
+import { Ticket } from "@/types";
 
 // Mock recent tickets data - moved outside component to prevent recreation
 const mockRecentTickets = [
@@ -33,7 +36,7 @@ const mockRecentTickets = [
     priority: "high" as const,
     category: "Integration",
     created_at: "2024-01-15T10:30:00Z",
-    customer_email: "user@company.com"
+    user_email: "user@company.com",
   },
   {
     id: 2,
@@ -42,7 +45,7 @@ const mockRecentTickets = [
     priority: "medium" as const,
     category: "Authentication",
     created_at: "2024-01-15T09:15:00Z",
-    customer_email: "admin@company.com"
+    user_email: "admin@company.com",
   },
   {
     id: 3,
@@ -51,7 +54,7 @@ const mockRecentTickets = [
     priority: "low" as const,
     category: "Performance",
     created_at: "2024-01-15T08:45:00Z",
-    customer_email: "support@company.com"
+    user_email: "support@company.com",
   },
   {
     id: 4,
@@ -60,90 +63,102 @@ const mockRecentTickets = [
     priority: "urgent" as const,
     category: "Security",
     created_at: "2024-01-15T07:20:00Z",
-    customer_email: "security@company.com"
+    user_email: "security@company.com",
   },
 ];
 
 export default function Dashboard() {
-  const { 
-    metrics, 
-    liveUpdates, 
-    refreshMetrics, 
-    metricsLoading, 
+  const {
+    metrics,
+    liveUpdates,
+    refreshMetrics,
+    metricsLoading,
     connectionStatus,
-    connectWebSocket 
+    connectWebSocket,
   } = useAppContext();
 
   // Memoize the refresh handler to prevent unnecessary re-renders
   const handleRefreshMetrics = useCallback(async () => {
     await refreshMetrics();
   }, [refreshMetrics]);
-
+  const [recentTickets, setRecentTickets] =
+    useState<Ticket[]>(mockRecentTickets);
   // Connect to WebSocket only once when component mounts
   useEffect(() => {
     let mounted = true;
-    
-    if (connectionStatus === 'disconnected' && mounted) {
+
+    if (connectionStatus === "disconnected" && mounted) {
       connectWebSocket();
     }
-    
+
     return () => {
       mounted = false;
     };
   }, []); // Remove connectionStatus from dependencies to prevent reconnection loops
 
   // Memoize metric card props to prevent unnecessary re-renders
-  const metricCardProps = useMemo(() => [
-    {
-      title: "Total Tickets",
-      value: metrics?.total_tickets || 0,
-      format: "number" as const,
-      loading: metricsLoading,
-      change: {
-        value: 12,
-        direction: 'up' as const,
-        period: 'last week'
+  const metricCardProps = useMemo(
+    () => [
+      {
+        title: "Total Tickets",
+        value: metrics?.total_tickets || 0,
+        format: "number" as const,
+        loading: metricsLoading,
+        change: {
+          value: 12,
+          direction: "up" as const,
+          period: "last week",
+        },
+        status: "positive" as const,
       },
-      status: "positive" as const
-    },
-    {
-      title: "Auto-Resolved",
-      value: metrics?.success_rate || 0,
-      format: "percentage" as const,
-      loading: metricsLoading,
-      change: {
-        value: 0.05,
-        direction: 'up' as const,
-        period: 'last week'
+      {
+        title: "Auto-Resolved",
+        value: metrics?.success_rate || 0,
+        format: "percentage" as const,
+        loading: metricsLoading,
+        change: {
+          value: 0.05,
+          direction: "up" as const,
+          period: "last week",
+        },
+        status: "positive" as const,
       },
-      status: "positive" as const
-    },
-    {
-      title: "Avg Resolution Time",
-      value: metrics?.avg_resolution_time_hours || 0,
-      format: "duration" as const,
-      loading: metricsLoading,
-      change: {
-        value: 0.3,
-        direction: 'down' as const,
-        period: 'last week'
+      {
+        title: "Avg Resolution Time",
+        value: metrics?.avg_resolution_time_hours || 0,
+        format: "duration" as const,
+        loading: metricsLoading,
+        change: {
+          value: 0.3,
+          direction: "down" as const,
+          period: "last week",
+        },
+        status: "negative" as const,
       },
-      status: "negative" as const
-    },
-    {
-      title: "Today's Tickets",
-      value: metrics?.tickets_today || 0,
-      format: "number" as const,
-      loading: metricsLoading,
-      change: {
-        value: 3,
-        direction: 'up' as const,
-        period: 'yesterday'
+      {
+        title: "Today's Tickets",
+        value: metrics?.tickets_today || 0,
+        format: "number" as const,
+        loading: metricsLoading,
+        change: {
+          value: 3,
+          direction: "up" as const,
+          period: "yesterday",
+        },
+        status: "positive" as const,
       },
-      status: "positive" as const
-    }
-  ], [metrics, metricsLoading]);
-
+    ],
+    [metrics, metricsLoading]
+  );
+  useEffect(() => {
+    const fetchRecentTickets = async () => {
+      const res = await api.getRecentTickets();
+      if (res.success) {
+        setRecentTickets(res.data);
+      }
+    };
+    fetchRecentTickets();
+  }, []);
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -154,7 +169,7 @@ export default function Dashboard() {
             AI-powered support ticket automation system
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -162,10 +177,12 @@ export default function Dashboard() {
             disabled={metricsLoading}
             className="flex items-center gap-2"
           >
-            <RefreshCw className={`w-4 h-4 ${metricsLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 ${metricsLoading ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
-          
+
           <Link to="/tickets/new">
             <Button className="flex items-center gap-2">
               <Plus className="w-4 h-4" />
@@ -176,7 +193,7 @@ export default function Dashboard() {
       </div>
 
       {/* Connection Status Alert */}
-      {connectionStatus !== 'connected' && (
+      {connectionStatus !== "connected" && (
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="flex items-center gap-3 p-4">
             <AlertTriangle className="w-5 h-5 text-yellow-600" />
@@ -185,12 +202,12 @@ export default function Dashboard() {
                 Real-time updates unavailable
               </p>
               <p className="text-xs text-yellow-700">
-                {connectionStatus === 'connecting' 
-                  ? 'Connecting to TicketFlow AI...' 
-                  : 'Unable to connect to the AI agent system'}
+                {connectionStatus === "connecting"
+                  ? "Connecting to TicketFlow AI..."
+                  : "Unable to connect to the AI agent system"}
               </p>
             </div>
-            {connectionStatus === 'disconnected' && (
+            {connectionStatus === "disconnected" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -212,7 +229,7 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Actions */}
-      <QuickActions maxActions={8} />
+      {/* <QuickActions maxActions={8} /> */}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -227,7 +244,9 @@ export default function Dashboard() {
           {/* Recent Tickets */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Recent Tickets</CardTitle>
+              <CardTitle className="text-lg font-semibold">
+                Recent Tickets
+              </CardTitle>
               <Link to="/tickets">
                 <Button variant="outline" size="sm">
                   <Eye className="w-4 h-4 mr-1" />
@@ -237,7 +256,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockRecentTickets.map((ticket) => (
+                {recentTickets.map((ticket) => (
                   <Link key={ticket.id} to={`/tickets/${ticket.id}`}>
                     <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
                       <div className="flex-1">
@@ -249,21 +268,23 @@ export default function Dashboard() {
                             {ticket.title}
                           </h3>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <span>{ticket.category}</span>
                           <span>•</span>
-                          <span>{ticket.customer_email}</span>
+                          <span>{ticket.user_email}</span>
                           <span>•</span>
-                          <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                          <span>
+                            {new Date(ticket.created_at).toLocaleDateString()}
+                          </span>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
                         <PriorityBadge priority={ticket.priority} />
-                        <StatusBadge 
-                          status={ticket.status} 
-                          pulse={ticket.status === 'processing'} 
+                        <StatusBadge
+                          status={ticket.status}
+                          pulse={ticket.status === "processing"}
                         />
                       </div>
                     </div>
@@ -274,7 +295,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Notifications */}
-          <NotificationCenter maxNotifications={5} />
+          {/* <NotificationCenter maxNotifications={5} /> */}
         </div>
       </div>
 

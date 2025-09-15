@@ -193,6 +193,6 @@ class WebSocketManager:
             "timestamp": asyncio.get_event_loop().time()
         }
         await self.broadcast(update)
-
+    
 # Global WebSocket manager instance
 websocket_manager = WebSocketManager()

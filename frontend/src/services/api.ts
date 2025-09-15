@@ -79,6 +79,9 @@ class TicketFlowAPI {
   async getTicket(id: number): Promise<APIResponse<Ticket>> {
     return this.request(`/api/tickets/${id}`);
   }
+  async getRecentTickets(): Promise<APIResponse<Ticket[]>> {
+    return this.request(`/api/tickets/recent?limit=5`);
+  }
 
   async createTicket(data: TicketCreateRequest): Promise<APIResponse<Ticket>> {
     return this.request("/api/tickets", {
