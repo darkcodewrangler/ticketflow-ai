@@ -42,10 +42,9 @@ async def process_ticket(
     """Start processing a ticket with the AI agent"""
     try:
         # Verify ticket exists
-        tickets = await asyncio.to_thread(db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_list())
-        print(tickets)
+        tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
         # tickets = db_manager.tickets.query(filters={"id": int(request.ticket_id)}, limit=1).to_pydantic()
-        
+        print(""" tickets pydantic: {} """.format(tickets))
         if not tickets:
             return error_response(
                 message="Ticket not found",
@@ -53,47 +52,55 @@ async def process_ticket(
                 error_code=ErrorCodes.TICKET_NOT_FOUND
             )
         
-        ticket = TicketResponse.model_dump(tickets[0])
+        # ticket = TicketResponse.model_validate(tickets[0]).model_dump()
     
-        # Create workflow
-        workflow = await WorkflowOperations.create_workflow(int(request.ticket_id))
+        # # Create workflow
+        # workflow = await WorkflowOperations.create_workflow(int(request.ticket_id))
         
         # Convert ticket to dict for processing
+        ticket=TicketResponse.model_validate(tickets[0]).model_dump()
+        print(""" ticket response: {} """.format(ticket))
         ticket_dict = {
             "id": get_value(ticket, "id"),
             "title": get_value(ticket, "title"),
             "description": get_value(ticket, "description"),
-            "category": get_value(ticket, "category"),
+            "category": get_value(ticket, "category"),    
             "priority": get_value(ticket, "priority"),
             "user_email": get_value(ticket, "user_email"),
             "user_type": get_value(ticket, "user_type"),
             "status": get_value(ticket, "status")
         }
-        
+        print(""" ticket dict: {} """.format(ticket_dict))
         # Trigger AI processing in background
-        background_tasks.add_task(
-            _trigger_agent_processing,
-            get_value(ticket, "id"),
+
+        await _trigger_agent_processing(
+            get_value(ticket_dict, "id"),
             ticket_dict,
-            workflow.id
-        )
+            1)
+        
+        # background_tasks.add_task(
+        #     _trigger_agent_processing,
+        #     get_value(ticket_dict, "id"),
+        #     ticket_dict,
+        #     1
+        # )
         try:
             await websocket_manager.send_agent_update(
-                get_value(ticket, "id"), "queued", "Queued for processing", {"workflow_id": workflow.id}
+                get_value(ticket_dict, "id"), "queued", "Queued for processing", {"workflow_id": "workflow.id"}
             )
         except Exception:
             pass
         
         processing_data = {
             "ticket_id": request.ticket_id,
-            "workflow_id": workflow.id,
+            "workflow_id": "workflow.id",
             "status": "processing"
         }
         
         return success_response(
             data=processing_data,
             message=f"Started processing ticket {request.ticket_id}",
-            metadata={"workflow_id": workflow.id}
+            metadata={"workflow_id": "workflow.id"}
         )
         
     except Exception as e:
@@ -255,14 +262,14 @@ async def complete_workflow(
         )
 
 
-def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workflow_id: int):
+async def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workflow_id: int):
     """Background task to trigger agent processing for a ticket"""
     try:
         
         
         logger.info(f"🤖 Starting AI processing for ticket {ticket_id} (workflow {workflow_id})")
         try:
-            asyncio.run(websocket_manager.send_agent_update(ticket_id, "start", "Processing started", {"workflow_id": workflow_id}))
+            await websocket_manager.send_agent_update(ticket_id, "start", "Processing started", {"workflow_id": workflow_id})
         except Exception:
             pass
         
@@ -270,23 +277,23 @@ def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workf
         agent = TicketFlowAgent()
         
         # Process the existing ticket (don't create a new one)
-        result = asyncio.run(agent.process_existing_ticket(ticket_id, workflow_id))
+        result = await agent.process_existing_ticket(ticket_id, workflow_id)
 
-        
+        print(f"""result from _trigger_agent_processing: {result}""")
         if result.get("success"):
             logger.info(f"✅ AI processing completed for ticket {ticket_id}")
             try:
-                asyncio.run(websocket_manager.send_agent_update(ticket_id, "completed", "Processing completed", {
+                await websocket_manager.send_agent_update(ticket_id, "completed", "Processing completed", {
                     "workflow_id": result.get("workflow_id"),
                     "status": result.get("final_status"),
                     "confidence": result.get("confidence")
-                }))
+                })
             except Exception:
                 pass
         else:
             logger.warning(f"⚠️ Agent processing failed for ticket {ticket_id}: {result.get('error')}")
             try:
-                asyncio.run(websocket_manager.send_agent_update(ticket_id, "error", "Processing failed", {"error": result.get('error')}))
+                await websocket_manager.send_agent_update(ticket_id, "error", "Processing failed", {"error": result.get('error')})
             except Exception:
                 pass
             
@@ -294,14 +301,14 @@ def _trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any], workf
         logger.error(f"❌ AI processing error for ticket {ticket_id}: {e}")
         # Update workflow with error
         try:
-           asyncio.run(WorkflowOperations.update_workflow_step(workflow_id, {
+           await WorkflowOperations.update_workflow_step(workflow_id, {
                 "step": "error",
                 "status": "failed",
                 "message": f"AI processing failed: {str(e)}",
                 "error": str(e)
-            }))
+            })
            try:
-               asyncio.run(websocket_manager.send_agent_update(ticket_id, "error", "Processing error", {"error": str(e)}))
+               await websocket_manager.send_agent_update(ticket_id, "error", "Processing error", {"error": str(e)})
            except Exception:
                pass
 

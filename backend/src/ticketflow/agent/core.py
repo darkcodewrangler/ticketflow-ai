@@ -217,11 +217,17 @@ class TicketFlowAgent:
             tickets = await asyncio.to_thread(
             db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_pydantic()
         )
+            tickets2 = await asyncio.to_thread(
+            db_manager.tickets.query(filters={"id": int(ticket_id)}, limit=1).to_list()
+        )
+            print("""all tickets from raw pydantic: {}""".format(tickets))
+            print("""all tickets 2 from raw list: {}""".format(tickets2))
             if not tickets:
                 raise ValueError(f"Ticket {ticket_id} not found")
             
-            ticket = TicketResponse.model_dump(tickets[0])
-            
+            print(f"""ticket from raw: {tickets[0]}""")
+            ticket = TicketResponse.model_validate(tickets[0]).model_dump()
+            print(f"""ticket from TicketResponse model_dump: {ticket}""")
             # Step 1: Log that we're processing existing ticket
             step_data = {
                 "step": AgentStep.INGEST.value,

@@ -121,22 +121,21 @@ class TicketOperations:
             try:
                 # PyTiDB's built-in hybrid search (vector + full-text + reranking)
                 results=await asyncio.to_thread(db_manager.tickets.search(
-                    query_text,
+                    query=query_text,
                     search_type='hybrid', 
-                ).vector_column('description_vector').text_column('title').distance_range(lower_bound=0.4).filter(filters).rerank(reranker,'title').limit(limit).to_list())
+                ).vector_column('description_vector').text_column('description').distance_range(lower_bound=0.4).filter(filters).rerank(reranker,'title').limit(limit).to_list())
 
-                print(results)
+                print(f"""results from hybrid search: {results}""")
                 logger.info(f"🔍 Found {len(results)} similar tickets for query: '{query_text[:50]}...'")
 
             except Exception as vector_error:
                 # If vector search fails, fall back to text-only search
                 logger.warning(f"Vector search failed, falling back to text search: {vector_error}")
-                results = db_manager.tickets.query(
-                    filters=filters,
-                    limit=limit,
-                    order_by={"created_at": "desc"}
-                ).to_list()
-            print(results)
+                results = await asyncio.to_thread(db_manager.tickets.search(
+                   search_type="fulltext",
+                   query=query_text
+                ).limit(limit).text_column('description').to_list())
+            print(f"""results from text search: {results}""")
             # Convert to our expected format - handle both objects and dicts
             similar_tickets = []
             for result in results:
@@ -174,12 +173,11 @@ class TicketOperations:
         """
      
         # Use the ticket's title and description for search
-        search_query = f"{get_value(ticket, 'title', '')} {get_value(ticket, 'description', '')}"
+        search_query = f"{get_value(ticket, 'description', '')}"
         
         # Exclude the source ticket from results
         filters = {"id": {NE: get_value(ticket, 'id', '')}}
-        return await TicketOperations.find_similar_tickets(
-            search_query, 
+        return await TicketOperations.find_similar_tickets(query_text=search_query, 
             limit=limit, 
             include_filters=filters
         )
