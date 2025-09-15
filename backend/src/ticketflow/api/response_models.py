@@ -183,6 +183,8 @@ class ResponseMessages:
     TICKET_CREATED = "Ticket created successfully"
     TICKET_UPDATED = "Ticket updated successfully"
     TICKET_NOT_FOUND = "Ticket not found"
+    TICKET_WORKFLOW_NOT_FOUND = "Ticket workflow not found"
+
     PROCESSING_STARTED = "Ticket processing started"
     PROCESSING_COMPLETED = "Ticket processing completed"
     

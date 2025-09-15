@@ -2,11 +2,13 @@
 Ticket API routes
 """
 
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from typing import List, Optional, Dict, Any
 import logging
 
 from ticketflow.database.operations import TicketOperations
+from ticketflow.database.operations.workflows import WorkflowOperations
 from ticketflow.database.schemas import TicketCreateRequest, TicketResponse
 from ticketflow.api.dependencies import verify_db_connection, get_current_api_key, require_permissions
 from ticketflow.config import config
@@ -65,13 +67,13 @@ def should_auto_process(ticket_data: Dict[str, Any]) -> bool:
     
     return True  # Default to auto-processing
 
-async def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
+def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
     """Background task to trigger agent processing for a ticket"""
     try:
        
         logger.info(f"🤖 Starting auto-processing for ticket {ticket_id}")
         try:
-            await websocket_manager.send_agent_update(ticket_id, "start", "Started auto-processing")
+            asyncio.run(websocket_manager.send_agent_update(ticket_id, "start", "Started auto-processing")) 
         except Exception:
             pass
         
@@ -84,24 +86,24 @@ async def trigger_agent_processing(ticket_id: int, ticket_data: Dict[str, Any]):
         if result.get("success"):
             logger.info(f"Auto-processing completed for ticket {ticket_id}")
             try:
-                await websocket_manager.send_agent_update(ticket_id, "completed", "Auto-processing completed", {
+                asyncio.run(websocket_manager.send_agent_update(ticket_id, "completed", "Auto-processing completed", {
                     "workflow_id": result.get("workflow_id"),
                     "status": result.get("final_status"),
                     "confidence": result.get("confidence")
-                })
+                }))
             except Exception:
                 pass
         else:
             logger.warning(f"Auto-processing failed for ticket {ticket_id}: {result.get('error')}")
             try:
-                await websocket_manager.send_agent_update(ticket_id, "error", "Auto-processing failed", {"error": result.get('error')})
+                asyncio.run(websocket_manager.send_agent_update(ticket_id, "error", "Auto-processing failed", {"error": result.get('error')}))
             except Exception:
                 pass
             
     except Exception as e:
         logger.error(f"Auto-processing error for ticket {ticket_id}: {e}")
         try:
-            await websocket_manager.send_agent_update(ticket_id, "error", "Auto-processing error", {"error": str(e)})
+            asyncio.run(websocket_manager.send_agent_update(ticket_id, "error", "Auto-processing error", {"error": str(e)}))
         except Exception:
             pass
 
@@ -232,7 +234,8 @@ async def get_ticket(
                 error_code=ErrorCodes.TICKET_NOT_FOUND
             )
         
-        ticket_data = TicketResponse.model_dump(tickets[0])
+        ticket_data = TicketResponse.model_validate(tickets[0]).model_dump()
+        
         return success_response(
             data=ticket_data,
             message=ResponseMessages.RETRIEVED,
@@ -241,6 +244,44 @@ async def get_ticket(
     except Exception as e:
         return error_response(
             message="Failed to retrieve ticket",
+            error=str(e),
+            error_code=ErrorCodes.INTERNAL_ERROR
+        )
+@router.get("/{ticket_id}/workflow")
+async def get_ticket_workflow(
+    ticket_id: int,
+    _: bool = Depends(verify_db_connection),
+    api_key_data: dict = Depends(require_permissions(["read_tickets"]))
+):
+    """Get a specific ticket workflow by ID"""
+    try:
+        # PyTiDB query for specific ticket
+        tickets = db_manager.tickets.query(filters={"id": ticket_id}, limit=1).to_pydantic()
+        
+        if not tickets:
+            return error_response(
+                message=ResponseMessages.TICKET_NOT_FOUND,
+                error="Ticket not found",
+                error_code=ErrorCodes.TICKET_NOT_FOUND
+            )
+        workflow = WorkflowOperations.get_ticket_workflow(ticket_id)
+        
+        if not workflow:
+            return error_response(
+                message=ResponseMessages.TICKET_WORKFLOW_NOT_FOUND,
+                error="Workflow not found",
+                error_code=ErrorCodes.WORKFLOW_NOT_FOUND
+            )
+        
+        
+        return success_response(
+            data=workflow,
+            message=ResponseMessages.RETRIEVED,
+            metadata={"ticket_id": ticket_id}
+        )
+    except Exception as e:
+        return error_response(
+            message="Failed to retrieve ticket workflow",
             error=str(e),
             error_code=ErrorCodes.INTERNAL_ERROR
         )

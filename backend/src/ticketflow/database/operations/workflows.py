@@ -33,7 +33,30 @@ class WorkflowOperations:
         except Exception as e:
             logger.error(f"Failed to create workflow: {e}")
             raise
-
+    @staticmethod
+    def get_workflow(workflow_id: int) -> AgentWorkflow:
+        """Get workflow by ID"""
+        try:
+            workflows = db_manager.agent_workflows.query(filters={"id": workflow_id}, limit=1).to_list()
+            if not workflows:
+                logger.warning(f"Workflow {workflow_id} not found")
+                return None
+            return workflows[0]
+        except Exception as e:
+            logger.error(f"Failed to get workflow: {e}")
+            raise
+    @staticmethod
+    def get_ticket_workflow(ticket_id: int) -> AgentWorkflow:
+        """Get workflow by ticket ID"""
+        try:
+            workflows = db_manager.agent_workflows.query(filters={"ticket_id": ticket_id},order_by={"completed_at":"desc"}, limit=1).to_list()
+            if not workflows:
+                logger.warning(f"Workflow for ticket {ticket_id} not found")
+                return None
+            return workflows[0]
+        except Exception as e:
+            logger.error(f"Failed to get ticket workflow: {e}")
+            raise
     @staticmethod
     def update_workflow_step(workflow_id: int, step_data: Dict[str, Any]) -> bool:
 
