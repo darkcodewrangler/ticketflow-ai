@@ -23,7 +23,7 @@ async def create_workflow(
 ):
     """Create a new agent workflow for a ticket"""
     try:
-        workflow = await WorkflowOperations.create_workflow(int(ticket_id))
+        workflow = WorkflowOperations.create_workflow(int(ticket_id))
         workflow_data = AgentWorkflowResponse.model_validate(workflow).model_dump()
         
         return success_response(
@@ -106,7 +106,7 @@ async def update_workflow_step(
 ):
     """Add a step to a workflow"""
     try:
-        success = await WorkflowOperations.update_workflow_step(int(workflow_id), step_data)
+        success = WorkflowOperations.update_workflow_step(int(workflow_id), step_data)
         if success:
             return success_response(
                 data={"workflow_id": workflow_id, "step_added": True},

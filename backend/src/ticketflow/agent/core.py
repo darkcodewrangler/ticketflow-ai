@@ -458,7 +458,7 @@ class TicketFlowAgent:
                 "confidence_score": combined_analysis["overall_confidence"],
                 "root_cause": root_cause.get("primary_cause", "Unknown"),
                 "solution_count": len(solutions.get("options", [])),
-                "analysis_chain_length": len(analysis_tasks)
+                "analysis_chain_length": 4
             },
             "duration_ms": int((time.time() - step_start) * 1000)
         }
