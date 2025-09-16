@@ -4,6 +4,8 @@ An intelligent ticket management system powered by AI that automatically process
 
 ## 🚀 Quick Start
 
+> **Note**: This project is API-first, so the `backend` can run independently.
+
 ### Prerequisites
 
 - Python 3.12 or higher
