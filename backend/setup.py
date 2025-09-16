@@ -21,11 +21,11 @@ import logging
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.ticketflow.config import config
-from src.ticketflow.database.connection import db_manager
-from src.ticketflow.database.settings_manager import SettingsManager
-from src.ticketflow.database.operations import TicketOperations, KnowledgeBaseOperations
-from src.ticketflow.database.schemas import TicketCreateRequest, KnowledgeBaseCreateRequest
+from ticketflow.config import config
+from ticketflow.database.connection import db_manager
+from ticketflow.database.settings_manager import SettingsManager
+from ticketflow.database.operations import TicketOperations, KnowledgeBaseOperations
+from ticketflow.database.schemas import TicketCreateRequest, KnowledgeBaseCreateRequest
 
 # Configure logging
 logging.basicConfig(
