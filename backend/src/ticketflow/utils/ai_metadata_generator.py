@@ -18,7 +18,7 @@ class AIMetadataGenerator:
         self.chat_client = self.ai_client.chat_client
         self.model = 'openai/gpt-4o' if self.ai_client.can_use_openrouter else 'gpt-4o'
     
-    async def generate_metadata(
+    def generate_metadata(
         self, 
         title: str, 
         content: str, 
@@ -31,7 +31,7 @@ class AIMetadataGenerator:
             
             prompt = self._build_metadata_prompt(title, truncated_content, existing_categories)
             
-            response = await self._make_llm_request(prompt)
+            response = self._make_llm_request(prompt)
             metadata = self._parse_metadata_response(response)
             
             return metadata
@@ -79,10 +79,10 @@ Respond with valid JSON only:
 }}
 """
     
-    async def _make_llm_request(self, prompt: str) -> str:
+    def _make_llm_request(self, prompt: str) -> str:
         """Make request to LLM"""
         try:
-            response = await self.chat_client.chat.completions.create(
+            response = self.chat_client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {

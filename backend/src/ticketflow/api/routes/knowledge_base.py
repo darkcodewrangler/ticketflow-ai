@@ -273,10 +273,10 @@ def _process_url_source(
             
             # Generate AI metadata if not provided
             if not all([category, author]) or not tags:
-                ai_metadata = asyncio.run( ai_generator.generate_metadata(
+                ai_metadata = ai_generator.generate_metadata(
                     page_data['title'],
                     page_data['content']
-                ))
+                )
                 
                 page_category = category or ai_metadata.get('category', 'web_content')
                 page_author = author or ai_metadata.get('author', 'Web Source')
@@ -298,7 +298,7 @@ def _process_url_source(
                 'author': page_author
             }
             
-            article = asyncio.run( KnowledgeBaseOperations.create_article(article_data))
+            article = KnowledgeBaseOperations.create_article(article_data)
             articles_created.append({
                 'id': article.id,
                 'title': article.title,
