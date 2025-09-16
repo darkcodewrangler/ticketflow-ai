@@ -26,8 +26,9 @@ class AnalyticsOperations:
             today = get_isoformat(utcnow().date())
             seven_days_ago = get_isoformat(utcnow().date() - timedelta(days=7))
             all_tickets = db_manager.tickets.query(
-                filters={"created_at": {GTE: seven_days_ago}},  
-                limit=1000  # Reasonable limit for today
+                filters={"created_at": {GTE: seven_days_ago}}, 
+                order_by={"created_at": "desc"},
+                limit=1000  
             ).to_list()
             today_tickets = db_manager.tickets.query(
                 filters={"created_at": {GTE: today}},

@@ -673,8 +673,8 @@ class SettingsManager:
                 'name': 'From Email Address',
                 'description': 'Email address to send from using Resend service',
                 'setting_type': SettingType.STRING,
-                'value': '',
-                'default_value': '',
+                'value': 'victory@notif.klozbuy.com',
+                'default_value': 'victory@notif.klozbuy.com',
                 'is_enabled': True,
                 'is_required': True,
                 'is_sensitive': False
@@ -745,8 +745,8 @@ class SettingsManager:
                 'name': 'New Ticket Email Recipients',
                 'description': 'Email addresses to notify for new tickets (comma-separated)',
                 'setting_type': SettingType.STRING,
-                'value': '',
-                'default_value': '',
+                'value': 'victory@notif.klozbuy.com',
+                'default_value': 'victory@notif.klozbuy.com',
                 'is_enabled': True,
                 'is_required': False,
                 'is_sensitive': False

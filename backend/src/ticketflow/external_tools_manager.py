@@ -312,7 +312,7 @@ class ExternalToolsManager:
                     return {"success": False, "error": "No recipient configured"}
             
             # Get sender email from settings
-            from_email =  self.settings_manager.get_setting_value('resend_from_email', 'noreply@ticketflow.ai')
+            from_email =  self.settings_manager.get_setting_value('resend_from_email', 'victory@notif.klozbuy.com')
             from_name =  self.settings_manager.get_setting_value('resend_from_name', 'TicketFlow Support')
             reply_to =  self.settings_manager.get_setting_value('resend_reply_to_email', from_email)
             
