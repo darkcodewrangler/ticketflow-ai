@@ -8,7 +8,7 @@ import asyncio
 
 from ticketflow.database.operations import KnowledgeBaseOperations
 from ticketflow.database.operations.processing_tasks import ProcessingTaskOperations
-from ticketflow.database.schemas import KnowledgeBaseCreateRequest, KnowledgeBaseResponse
+from ticketflow.database.schemas import KnowledgeBaseCreateRequest, KnowledgeBaseResponse, URLProcessingRequest
 from ticketflow.api.dependencies import verify_db_connection
 from ticketflow.api.response_models import (
     success_response, error_response, paginated_response,
@@ -101,28 +101,16 @@ async def upload_knowledge_source(
 @router.post("/crawl-url")
 async def process_url_source(
     background_tasks: BackgroundTasks,
-    url: str = Form(...),
-    category: Optional[str] = Form(None),
-    tags: Optional[str] = Form(None),
-    author: Optional[str] = Form(None),
+    request: URLProcessingRequest,
     _: bool = Depends(verify_db_connection)
 ):
     """Process URL as knowledge base source with optional link following"""
     try:
-        # Validate URL format
-        if not url.startswith(('http://', 'https://')):
-            return error_response(
-                message="Invalid URL format. URL must start with http:// or https://",
-                error_code=ErrorCodes.BAD_REQUEST
-            )
-        
-
-        
         # Create processing task
         task_info = ProcessingTaskOperations.create_task(
             task_type="url_scraping",
-            source_name=url,
-            user_metadata={"category": category, "tags": tags, "author": author}
+            source_name=request.url,
+            user_metadata={"category": request.category, "tags": request.tags, "author": request.author}
         )
         task_id = task_info["task_id"]
         
@@ -130,15 +118,15 @@ async def process_url_source(
         background_tasks.add_task(
             _process_url_source,
             task_id,
-            url,
-            category,
-            tags.split(',') if tags else None,
-            author
+            request.url,
+            request.category,
+            request.tags.split(',') if request.tags else None,
+            request.author
         )
         
         return success_response(
             message="URL processing started. Content will be extracted and processed in background.",
-            data={"url": url, "status": "processing", "task_id": task_id}
+            data={"url": request.url, "status": "processing", "task_id": task_id}
         )
         
     except Exception as e:

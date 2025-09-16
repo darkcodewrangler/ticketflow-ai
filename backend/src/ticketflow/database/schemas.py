@@ -84,7 +84,7 @@ class KnowledgeBaseCreateRequest(BaseModel):
         return v.strip().lower()
 
 class KnowledgeBaseUpdateRequest(BaseModel):
-    """Schema for updating knowledge base articles"""
+    """Schema for updating an existing knowledge base article"""
     title: Optional[str] = Field(None, min_length=1, max_length=500)
     content: Optional[str] = Field(None, min_length=1)
     summary: Optional[str] = Field(None, max_length=1000)
@@ -92,6 +92,27 @@ class KnowledgeBaseUpdateRequest(BaseModel):
     tags: Optional[List[str]] = None
     source_url: Optional[str] = Field(None, max_length=1000)
     author: Optional[str] = Field(None, max_length=255)
+
+class URLProcessingRequest(BaseModel):
+    """Schema for processing URL as knowledge base source"""
+    url: str = Field(..., min_length=1, max_length=1000, description="URL to process")
+    category: Optional[str] = Field(None, min_length=1, max_length=100, description="Article category")
+    tags: Optional[str] = Field(None, description="Comma-separated tags")
+    author: Optional[str] = Field(None, max_length=255, description="Article author")
+    
+    @validator('url')
+    def validate_url_format(cls, v):
+        """Validate URL format"""
+        if not v.startswith(('http://', 'https://')):
+            raise ValueError('URL must start with http:// or https://')
+        return v.strip()
+    
+    @validator('category')
+    def validate_category(cls, v):
+        """Validate category if provided"""
+        if v is not None:
+            return v.strip().lower()
+        return v
 
 # Response schemas (data going out from API)
 class TicketResponse(BaseModel):
@@ -437,6 +458,7 @@ __all__ = [
     "TicketUpdateRequest",
     "KnowledgeBaseCreateRequest",
     "KnowledgeBaseUpdateRequest",
+    "URLProcessingRequest",
     "WebhookTicketRequest",
     "SettingCreateRequest",
     "SettingUpdateRequest",

@@ -48,14 +48,14 @@ def validate_environment():
     # Check if .env file exists
     env_file = Path(".env")
     if not env_file.exists():
-        logger.error("❌ .env file not found!")
+        logger.error(".env file not found!")
         logger.info("📝 Please create a .env file with the required environment variables.")
         logger.info("   See .env.example or README.md for required variables.")
         return False
     
     # Validate configuration
     if not config.validate():
-        logger.error("❌ Environment configuration validation failed!")
+        logger.error(" Environment configuration validation failed!")
         logger.info("📝 Please check your .env file and ensure all required variables are set.")
         return False
     
@@ -72,10 +72,17 @@ async def initialize_database():
         if not db_manager.connect():
             logger.error("❌ Failed to connect to database")
             return False
+        # Drop existing database (if any)
+        if db_manager.drop_db():
+            print("  Dropped existing database (if any)")
+    
+        # Create new database
+        if db_manager.create_db():
+            print("  Created new database")
         
         # Initialize tables
         logger.info("   Creating database tables...")
-        if not await db_manager.initialize_tables():
+        if not db_manager.initialize_tables(drop_existing=True):
             logger.error("❌ Failed to initialize database tables")
             return False
         
@@ -96,7 +103,7 @@ async def initialize_settings():
         
         # Initialize default settings
         logger.info("   Creating default settings...")
-        await settings_manager.initialize_default_settings()
+        settings_manager.initialize_default_settings()
         
         # Verify critical settings
         critical_settings = [
@@ -107,7 +114,7 @@ async def initialize_settings():
         
         logger.info("   Verifying critical settings...")
         for setting_key in critical_settings:
-            setting = await settings_manager.get_setting(setting_key)
+            setting = settings_manager.get_setting(setting_key)
             if setting:
                 logger.info(f"     ✓ {setting_key}: {setting['value']}")
             else:
@@ -173,24 +180,24 @@ async def create_sample_data():
         ]
         
         # Create tickets
-        ticket_ops = TicketOperations(db_manager)
+        ticket_ops = TicketOperations()
         logger.info(f"   Creating {len(sample_tickets)} sample tickets...")
         
         for ticket_data in sample_tickets:
             ticket_request = TicketCreateRequest(**ticket_data)
-            ticket = await ticket_ops.create_ticket(ticket_request)
+            ticket =  ticket_ops.create_ticket(ticket_request)
             if ticket:
                 logger.info(f"     ✓ Created ticket: {ticket['title']}")
             else:
                 logger.warning(f"     ⚠️  Failed to create ticket: {ticket_data['title']}")
         
         # Create knowledge base articles
-        kb_ops = KnowledgeBaseOperations(db_manager)
+        kb_ops = KnowledgeBaseOperations()
         logger.info(f"   Creating {len(sample_kb_articles)} sample KB articles...")
         
         for kb_data in sample_kb_articles:
             kb_request = KnowledgeBaseCreateRequest(**kb_data)
-            article = await kb_ops.create_article(kb_request)
+            article = kb_ops.create_article(kb_request)
             if article:
                 logger.info(f"     ✓ Created KB article: {article['title']}")
             else:
