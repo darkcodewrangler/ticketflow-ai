@@ -30,8 +30,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import type { Ticket, WorkflowResponse, SimilarCase, KBArticle } from "@/types";
 import { showSuccess, showError } from "@/utils/toast";
 // Import React Query hooks
-import { useTicket, useProcessTicket, useUpdateTicket } from "@/hooks/useTickets";
-import { useWorkflowStatus } from "@/hooks/useWorkflows";
+import { useTicket, useProcessTicket, useUpdateTicket, useTicketWorkflows } from "@/hooks/useTickets";
 import { useKBArticles } from "@/hooks/useKnowledgeBase";
 
 // Mock data for demonstration - kept as backup
@@ -155,12 +154,12 @@ export default function TicketDetail() {
   const { 
     data: apiWorkflow, 
     isLoading: workflowLoading 
-  } = useWorkflowStatus(ticketId);
+  } = useTicketWorkflows(ticketId);
   
   const { 
     data: apiKBArticles, 
     isLoading: kbLoading 
-  } = useKnowledgeBaseArticles();
+  } = useKBArticles();
   
   const processTicketMutation = useProcessTicket();
   const updateTicketMutation = useUpdateTicket();

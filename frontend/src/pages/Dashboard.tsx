@@ -81,23 +81,23 @@ export default function Dashboard() {
   } = useAppContext();
 
   // React Query hooks for API data
-  const { 
-    data: apiMetrics, 
-    isLoading: apiMetricsLoading, 
+  const {
+    data: apiMetrics,
+    isLoading: apiMetricsLoading,
     error: metricsError,
-    refetch: refetchMetrics 
+    refetch: refetchMetrics,
   } = useDashboardMetrics();
-  
-  const { 
-    data: apiRecentTickets, 
-    isLoading: ticketsLoading, 
+
+  const {
+    data: recentTickets,
+    isLoading: ticketsLoading,
     error: ticketsError,
-    refetch: refetchTickets 
+    refetch: refetchTickets,
   } = useRecentTickets();
 
   // Use API data if available, fallback to context metrics or mock data
   const displayMetrics = apiMetrics || metrics;
-  const displayRecentTickets = apiRecentTickets || mockRecentTickets;
+  const displayRecentTickets = recentTickets || mockRecentTickets;
   const isLoadingMetrics = apiMetricsLoading || metricsLoading;
 
   // Connect to WebSocket only once when component mounts
@@ -116,11 +116,7 @@ export default function Dashboard() {
   // Memoize the refresh handler to prevent unnecessary re-renders
   const handleRefreshMetrics = useCallback(async () => {
     // Refetch both API data and context metrics
-    await Promise.all([
-      refetchMetrics(),
-      refetchTickets(),
-      refreshMetrics()
-    ]);
+    await Promise.all([refetchMetrics(), refetchTickets(), refreshMetrics()]);
   }, [refetchMetrics, refetchTickets, refreshMetrics]);
 
   // Memoize metric card props to prevent unnecessary re-renders
@@ -274,7 +270,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentTickets.map((ticket) => (
+                {displayRecentTickets.map((ticket) => (
                   <Link key={ticket.id} to={`/tickets/${ticket.id}`}>
                     <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
                       <div className="flex-1">

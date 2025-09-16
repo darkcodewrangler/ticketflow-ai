@@ -132,13 +132,13 @@ const mockTickets: TicketType[] = [
 
 export default function Tickets() {
   // React Query hooks for API data
-  const { 
-    data: apiTickets, 
-    isLoading: ticketsLoading, 
+  const {
+    data: apiTickets,
+    isLoading: ticketsLoading,
     error: ticketsError,
-    refetch: refetchTickets 
+    refetch: refetchTickets,
   } = useTickets();
-  
+
   const processTicketMutation = useProcessTicket();
 
   // Local state for UI
@@ -171,7 +171,7 @@ export default function Tickets() {
 
   const handleProcessTicket = async (ticketId: number) => {
     try {
-      await processTicketMutation.mutateAsync(ticketId);
+      await processTicketMutation.mutateAsync({ ticketId });
 
       addLiveUpdate({
         id: `process-${ticketId}-${Date.now()}`,
@@ -357,17 +357,17 @@ export default function Tickets() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>All Tickets ({filteredTickets.length})</CardTitle>
-            <Button 
-               variant="outline" 
-               size="sm" 
-               disabled={isLoading}
-               onClick={() => refetchTickets()}
-             >
-               <RefreshCw
-                 className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
-               />
-               Refresh
-             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              onClick={() => refetchTickets()}
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -473,15 +473,15 @@ export default function Tickets() {
                           </Button>
                         </Link>
                         {ticket.status === "new" && (
-                           <Button
-                             variant="ghost"
-                             size="sm"
-                             onClick={() => handleProcessTicket(ticket.id)}
-                             disabled={isLoading}
-                           >
-                             <Bot className="w-4 h-4" />
-                           </Button>
-                         )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleProcessTicket(ticket.id)}
+                            disabled={isLoading}
+                          >
+                            <Bot className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm">
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
