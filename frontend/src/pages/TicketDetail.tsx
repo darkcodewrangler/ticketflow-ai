@@ -29,8 +29,12 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import type { Ticket, WorkflowResponse, SimilarCase, KBArticle } from "@/types";
 import { showSuccess, showError } from "@/utils/toast";
+// Import React Query hooks
+import { useTicket, useProcessTicket, useUpdateTicket } from "@/hooks/useTickets";
+import { useWorkflowStatus } from "@/hooks/useWorkflows";
+import { useKBArticles } from "@/hooks/useKnowledgeBase";
 
-// Mock data for demonstration
+// Mock data for demonstration - kept as backup
 const mockTicket: Ticket = {
   id: 1,
   title: "Email integration not working properly",
@@ -139,54 +143,64 @@ const mockKBArticles: KBArticle[] = [
 
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>();
-  const [ticket, setTicket] = useState<Ticket>(mockTicket);
-  const [workflow, setWorkflow] = useState<WorkflowResponse>(mockWorkflow);
+  const ticketId = id ? parseInt(id) : 1;
+
+  // React Query hooks for API data
+  const { 
+    data: apiTicket, 
+    isLoading: ticketLoading, 
+    error: ticketError 
+  } = useTicket(ticketId);
+  
+  const { 
+    data: apiWorkflow, 
+    isLoading: workflowLoading 
+  } = useWorkflowStatus(ticketId);
+  
+  const { 
+    data: apiKBArticles, 
+    isLoading: kbLoading 
+  } = useKnowledgeBaseArticles();
+  
+  const processTicketMutation = useProcessTicket();
+  const updateTicketMutation = useUpdateTicket();
+
+  // Local state for UI
   const [isEditing, setIsEditing] = useState(false);
   const [editedResolution, setEditedResolution] = useState("");
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
+
+  // Use API data if available, fallback to mock data
+  const displayTicket = apiTicket || mockTicket;
+  const displayWorkflow = apiWorkflow || mockWorkflow;
+  const displayKBArticles = apiKBArticles || mockKBArticles;
+  
+  const isLoading = ticketLoading || workflowLoading || kbLoading || 
+                   processTicketMutation.isPending || updateTicketMutation.isPending;
 
   const handleProcessTicket = async () => {
     try {
-      setLoading(true);
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      setTicket((prev) => ({
-        ...prev,
-        status: "processing",
-        updated_at: new Date().toISOString(),
-      }));
-
-      showSuccess("Started AI processing for this ticket");
+      await processTicketMutation.mutateAsync(ticketId);
     } catch (error) {
-      showError("Failed to process ticket");
-    } finally {
-      setLoading(false);
+      // Error handling is done in the mutation
     }
   };
 
   const handleSaveResolution = async () => {
     try {
-      setLoading(true);
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      setTicket((prev) => ({
-        ...prev,
-        status: "resolved",
-        resolution: editedResolution,
-        resolved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }));
+      await updateTicketMutation.mutateAsync({
+        id: ticketId,
+        updates: {
+          status: "resolved",
+          resolution: editedResolution,
+          resolved_at: new Date().toISOString(),
+        }
+      });
 
       setIsEditing(false);
       setEditedResolution("");
-      showSuccess("Ticket resolved successfully");
     } catch (error) {
-      showError("Failed to save resolution");
-    } finally {
-      setLoading(false);
+      // Error handling is done in the mutation
     }
   };
 
@@ -202,33 +216,33 @@ export default function TicketDetail() {
         </Link>
 
         <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Ticket #{ticket.id}
-            </h1>
-            <StatusBadge
-              status={ticket.status}
-              pulse={ticket.status === "processing"}
-            />
-            <PriorityBadge priority={ticket.priority} showIcon />
-          </div>
-          <p className="text-gray-600 mt-1">{ticket.title}</p>
-        </div>
+           <div className="flex items-center gap-3">
+             <h1 className="text-2xl font-bold text-gray-900">
+               Ticket #{displayTicket.id}
+             </h1>
+             <StatusBadge
+               status={displayTicket.status}
+               pulse={displayTicket.status === "processing"}
+             />
+             <PriorityBadge priority={displayTicket.priority} showIcon />
+           </div>
+           <p className="text-gray-600 mt-1">{displayTicket.title}</p>
+         </div>
 
-        <div className="flex items-center gap-2">
-          {ticket.status === "new" && (
-            <Button onClick={handleProcessTicket} disabled={loading}>
-              <Bot className="w-4 h-4 mr-2" />
-              Process with AI
-            </Button>
-          )}
-          {ticket.status !== "resolved" && !isEditing && (
-            <Button variant="outline" onClick={() => setIsEditing(true)}>
-              <Edit className="w-4 h-4 mr-2" />
-              Add Resolution
-            </Button>
-          )}
-        </div>
+         <div className="flex items-center gap-2">
+           {displayTicket.status === "new" && (
+             <Button onClick={handleProcessTicket} disabled={isLoading}>
+               <Bot className="w-4 h-4 mr-2" />
+               Process with AI
+             </Button>
+           )}
+           {displayTicket.status !== "resolved" && !isEditing && (
+             <Button variant="outline" onClick={() => setIsEditing(true)}>
+               <Edit className="w-4 h-4 mr-2" />
+               Add Resolution
+             </Button>
+           )}
+         </div>
       </div>
 
       {/* Tab Navigation */}
@@ -284,60 +298,60 @@ export default function TicketDetail() {
                 <CardContent className="space-y-4">
                   <div>
                     <h3 className="font-medium text-gray-900 mb-2">
-                      Description
-                    </h3>
-                    <p className="text-gray-700 leading-relaxed">
-                      {ticket.description}
-                    </p>
-                  </div>
+                       Description
+                     </h3>
+                     <p className="text-gray-700 leading-relaxed">
+                       {displayTicket.description}
+                     </p>
+                   </div>
 
-                  {ticket.metadata &&
-                    Object.keys(ticket.metadata).length > 0 && (
-                      <div>
-                        <h3 className="font-medium text-gray-900 mb-2">
-                          Additional Information
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          {Object.entries(ticket.metadata).map(
-                            ([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="text-gray-600 capitalize">
-                                  {key.replace(/_/g, " ")}:
-                                </span>
-                                <span className="font-medium">
-                                  {String(value)}
-                                </span>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )}
+                   {displayTicket.metadata &&
+                     Object.keys(displayTicket.metadata).length > 0 && (
+                       <div>
+                         <h3 className="font-medium text-gray-900 mb-2">
+                           Additional Information
+                         </h3>
+                         <div className="grid grid-cols-2 gap-4 text-sm">
+                           {Object.entries(displayTicket.metadata).map(
+                             ([key, value]) => (
+                               <div key={key} className="flex justify-between">
+                                 <span className="text-gray-600 capitalize">
+                                   {key.replace(/_/g, " ")}:
+                                 </span>
+                                 <span className="font-medium">
+                                   {String(value)}
+                                 </span>
+                               </div>
+                             )
+                           )}
+                         </div>
+                       </div>
+                     )}
                 </CardContent>
               </Card>
 
               {/* AI Analysis */}
-              {ticket.agent_confidence && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Bot className="w-5 h-5 text-blue-600" />
-                      AI Analysis
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">
-                          Confidence Score
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="text-blue-700 border-blue-200"
-                        >
-                          {(ticket.agent_confidence * 100).toFixed(0)}%
-                        </Badge>
-                      </div>
+               {displayTicket.agent_confidence && (
+                 <Card>
+                   <CardHeader>
+                     <CardTitle className="flex items-center gap-2">
+                       <Bot className="w-5 h-5 text-blue-600" />
+                       AI Analysis
+                     </CardTitle>
+                   </CardHeader>
+                   <CardContent>
+                     <div className="space-y-4">
+                       <div className="flex items-center justify-between">
+                         <span className="text-sm font-medium">
+                           Confidence Score
+                         </span>
+                         <Badge
+                           variant="outline"
+                           className="text-blue-700 border-blue-200"
+                         >
+                           {(displayTicket.agent_confidence * 100).toFixed(0)}%
+                         </Badge>
+                       </div>
 
                       <div className="p-4 bg-blue-50 rounded-lg">
                         <h4 className="font-medium text-blue-900 mb-2">
@@ -357,69 +371,69 @@ export default function TicketDetail() {
               {/* Resolution */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    Resolution
-                    {ticket.status === "resolved" && (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isEditing ? (
-                    <div className="space-y-4">
-                      <Textarea
-                        placeholder="Enter the resolution details..."
-                        value={editedResolution}
-                        onChange={(e) => setEditedResolution(e.target.value)}
-                        rows={6}
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={handleSaveResolution}
-                          disabled={!editedResolution.trim() || loading}
-                        >
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Resolution
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsEditing(false)}
-                        >
-                          <X className="w-4 h-4 mr-2" />
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : ticket.resolution ? (
-                    <div className="space-y-3">
-                      <p className="text-gray-700 leading-relaxed">
-                        {ticket.resolution}
-                      </p>
-                      {ticket.resolved_at && (
-                        <p className="text-sm text-gray-500">
-                          Resolved{" "}
-                          {formatDistanceToNow(new Date(ticket.resolved_at), {
-                            addSuffix: true,
-                          })}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p>No resolution provided yet</p>
-                      {ticket.status !== "resolved" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => setIsEditing(true)}
-                        >
-                          Add Resolution
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                   <CardTitle className="flex items-center justify-between">
+                     Resolution
+                     {displayTicket.status === "resolved" && (
+                       <CheckCircle className="w-5 h-5 text-green-600" />
+                     )}
+                   </CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   {isEditing ? (
+                     <div className="space-y-4">
+                       <Textarea
+                         placeholder="Enter the resolution details..."
+                         value={editedResolution}
+                         onChange={(e) => setEditedResolution(e.target.value)}
+                         rows={6}
+                       />
+                       <div className="flex gap-2">
+                         <Button
+                           onClick={handleSaveResolution}
+                           disabled={!editedResolution.trim() || isLoading}
+                         >
+                           <Save className="w-4 h-4 mr-2" />
+                           Save Resolution
+                         </Button>
+                         <Button
+                           variant="outline"
+                           onClick={() => setIsEditing(false)}
+                         >
+                           <X className="w-4 h-4 mr-2" />
+                           Cancel
+                         </Button>
+                       </div>
+                     </div>
+                   ) : displayTicket.resolution ? (
+                     <div className="space-y-3">
+                       <p className="text-gray-700 leading-relaxed">
+                         {displayTicket.resolution}
+                       </p>
+                       {displayTicket.resolved_at && (
+                         <p className="text-sm text-gray-500">
+                           Resolved{" "}
+                           {formatDistanceToNow(new Date(displayTicket.resolved_at), {
+                             addSuffix: true,
+                           })}
+                         </p>
+                       )}
+                     </div>
+                   ) : (
+                     <div className="text-center py-8 text-gray-500">
+                       <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                       <p>No resolution provided yet</p>
+                       {displayTicket.status !== "resolved" && (
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           className="mt-2"
+                           onClick={() => setIsEditing(true)}
+                         >
+                           Add Resolution
+                         </Button>
+                       )}
+                     </div>
+                   )}
                 </CardContent>
               </Card>
 
@@ -429,44 +443,44 @@ export default function TicketDetail() {
                   <CardTitle>Similar Resolved Cases</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {mockSimilarCases.map((case_) => (
-                      <div
-                        key={case_.id}
-                        className="p-4 border border-gray-200 rounded-lg"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <Link
-                            to={`/tickets/${case_.id}`}
-                            className="font-medium text-blue-600 hover:text-blue-800"
-                          >
-                            #{case_.id} {case_.title}
-                          </Link>
-                          <Badge
-                            variant="outline"
-                            className="text-green-700 border-green-200"
-                          >
-                            {(case_.similarity_score * 100).toFixed(0)}% match
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-700">
-                          {case_.resolution}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
+                   <div className="space-y-4">
+                     {mockSimilarCases.map((case_) => (
+                       <div
+                         key={case_.id}
+                         className="p-4 border border-gray-200 rounded-lg"
+                       >
+                         <div className="flex items-center justify-between mb-2">
+                           <Link
+                             to={`/tickets/${case_.id}`}
+                             className="font-medium text-blue-600 hover:text-blue-800"
+                           >
+                             #{case_.id} {case_.title}
+                           </Link>
+                           <Badge
+                             variant="outline"
+                             className="text-green-700 border-green-200"
+                           >
+                             {(case_.similarity_score * 100).toFixed(0)}% match
+                           </Badge>
+                         </div>
+                         <p className="text-sm text-gray-700">
+                           {case_.resolution}
+                         </p>
+                       </div>
+                     ))}
+                   </div>
+                 </CardContent>
+               </Card>
+             </>
+           )}
 
-          {activeTab === "workflow" && (
-            <WorkflowVisualizer workflow={workflow} showDetails />
-          )}
+           {activeTab === "workflow" && (
+             <WorkflowVisualizer workflow={displayWorkflow} showDetails />
+           )}
 
-          {activeTab === "timeline" && (
-            <TicketTimeline ticketId={ticket.id} showFilters />
-          )}
+           {activeTab === "timeline" && (
+             <TicketTimeline ticketId={displayTicket.id} showFilters />
+           )}
 
           {activeTab === "comments" && (
             <Card>
@@ -495,42 +509,42 @@ export default function TicketDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <User className="w-4 h-4 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium">Customer</p>
-                  <p className="text-sm text-gray-600">{ticket.user_email}</p>
-                </div>
-              </div>
+                 <User className="w-4 h-4 text-gray-400" />
+                 <div>
+                   <p className="text-sm font-medium">Customer</p>
+                   <p className="text-sm text-gray-600">{displayTicket.user_email}</p>
+                 </div>
+               </div>
 
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium">Category</p>
-                  <Badge variant="outline">{ticket.category}</Badge>
-                </div>
-              </div>
+               <div className="flex items-center gap-3">
+                 <FileText className="w-4 h-4 text-gray-400" />
+                 <div>
+                   <p className="text-sm font-medium">Category</p>
+                   <Badge variant="outline">{displayTicket.category}</Badge>
+                 </div>
+               </div>
 
-              <div className="flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium">Created</p>
-                  <p className="text-sm text-gray-600">
-                    {format(new Date(ticket.created_at), "MMM d, yyyy HH:mm")}
-                  </p>
-                </div>
-              </div>
+               <div className="flex items-center gap-3">
+                 <Calendar className="w-4 h-4 text-gray-400" />
+                 <div>
+                   <p className="text-sm font-medium">Created</p>
+                   <p className="text-sm text-gray-600">
+                     {format(new Date(displayTicket.created_at), "MMM d, yyyy HH:mm")}
+                   </p>
+                 </div>
+               </div>
 
-              <div className="flex items-center gap-3">
-                <Clock className="w-4 h-4 text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium">Last Updated</p>
-                  <p className="text-sm text-gray-600">
-                    {formatDistanceToNow(new Date(ticket.updated_at), {
-                      addSuffix: true,
-                    })}
-                  </p>
-                </div>
-              </div>
+               <div className="flex items-center gap-3">
+                 <Clock className="w-4 h-4 text-gray-400" />
+                 <div>
+                   <p className="text-sm font-medium">Last Updated</p>
+                   <p className="text-sm text-gray-600">
+                     {formatDistanceToNow(new Date(displayTicket.updated_at), {
+                       addSuffix: true,
+                     })}
+                   </p>
+                 </div>
+               </div>
             </CardContent>
           </Card>
 
@@ -540,38 +554,38 @@ export default function TicketDetail() {
               <CardTitle>Related Articles</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {mockKBArticles.map((article) => (
-                  <div
-                    key={article.id}
-                    className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-sm text-gray-900">
-                        {article.title}
-                      </h4>
-                      <Badge variant="outline" className="text-xs">
-                        {(article.relevance_score! * 100).toFixed(0)}%
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-gray-600 mb-2">
-                      {article.content_preview}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      {article.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
+               <div className="space-y-3">
+                 {displayKBArticles.map((article) => (
+                   <div
+                     key={article.id}
+                     className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                   >
+                     <div className="flex items-start justify-between mb-2">
+                       <h4 className="font-medium text-sm text-gray-900">
+                         {article.title}
+                       </h4>
+                       <Badge variant="outline" className="text-xs">
+                         {(article.relevance_score! * 100).toFixed(0)}%
+                       </Badge>
+                     </div>
+                     <p className="text-xs text-gray-600 mb-2">
+                       {article.content_preview}
+                     </p>
+                     <div className="flex items-center gap-1">
+                       {article.tags.map((tag) => (
+                         <Badge
+                           key={tag}
+                           variant="secondary"
+                           className="text-xs"
+                         >
+                           {tag}
+                         </Badge>
+                       ))}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </CardContent>
           </Card>
 
           {/* Quick Actions */}

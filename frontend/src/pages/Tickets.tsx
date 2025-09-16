@@ -38,8 +38,10 @@ import type { Ticket as TicketType, TicketFilters } from "@/types";
 import { api } from "@/services/api";
 import { useAppContext } from "@/contexts/AppContext";
 import { showError, showSuccess } from "@/utils/toast";
+// Import React Query hooks
+import { useTickets, useProcessTicket } from "@/hooks/useTickets";
 
-// Mock tickets data for demonstration
+// Mock tickets data for demonstration - kept as sample
 const mockTickets: TicketType[] = [
   {
     id: 1,
@@ -129,15 +131,28 @@ const mockTickets: TicketType[] = [
 ];
 
 export default function Tickets() {
-  const [tickets, setTickets] = useState<TicketType[]>(mockTickets);
-  const [loading, setLoading] = useState(false);
+  // React Query hooks for API data
+  const { 
+    data: apiTickets, 
+    isLoading: ticketsLoading, 
+    error: ticketsError,
+    refetch: refetchTickets 
+  } = useTickets();
+  
+  const processTicketMutation = useProcessTicket();
+
+  // Local state for UI
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<TicketFilters>({});
   const [selectedTickets, setSelectedTickets] = useState<number[]>([]);
 
   const { addLiveUpdate } = useAppContext();
 
-  const filteredTickets = tickets.filter((ticket) => {
+  // Use API data if available, fallback to mock data
+  const displayTickets = apiTickets || mockTickets;
+  const isLoading = ticketsLoading || processTicketMutation.isPending;
+
+  const filteredTickets = displayTickets.filter((ticket) => {
     const matchesSearch =
       !searchQuery ||
       ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -156,21 +171,7 @@ export default function Tickets() {
 
   const handleProcessTicket = async (ticketId: number) => {
     try {
-      setLoading(true);
-      const response = await api.processTicket(ticketId);
-
-      // // Simulate processing
-      // setTickets((prev) =>
-      //   prev.map((ticket) =>
-      //     ticket.id === ticketId
-      //       ? {
-      //           ...ticket,
-      //           status: "processing" as const,
-      //           updated_at: new Date().toISOString(),
-      //         }
-      //       : ticket
-      //   )
-      // );
+      await processTicketMutation.mutateAsync(ticketId);
 
       addLiveUpdate({
         id: `process-${ticketId}-${Date.now()}`,
@@ -179,21 +180,10 @@ export default function Tickets() {
         timestamp: new Date().toISOString(),
         metadata: { ticket_id: ticketId },
       });
-
-      showSuccess(`Started AI processing for ticket #${ticketId}`);
     } catch (error) {
-      showError("Failed to process ticket");
-    } finally {
-      setLoading(false);
+      // Error handling is done in the mutation
     }
   };
-  useEffect(() => {
-    const fetchTickets = async () => {
-      const tickets = await api.getTickets();
-      setTickets(tickets.data);
-    };
-    fetchTickets();
-  }, []);
   const handleBulkAction = (action: string) => {
     if (selectedTickets.length === 0) return;
 
@@ -367,12 +357,17 @@ export default function Tickets() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>All Tickets ({filteredTickets.length})</CardTitle>
-            <Button variant="outline" size="sm" disabled={loading}>
-              <RefreshCw
-                className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </Button>
+            <Button 
+               variant="outline" 
+               size="sm" 
+               disabled={isLoading}
+               onClick={() => refetchTickets()}
+             >
+               <RefreshCw
+                 className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+               />
+               Refresh
+             </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -478,15 +473,15 @@ export default function Tickets() {
                           </Button>
                         </Link>
                         {ticket.status === "new" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleProcessTicket(ticket.id)}
-                            disabled={loading}
-                          >
-                            <Bot className="w-4 h-4" />
-                          </Button>
-                        )}
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => handleProcessTicket(ticket.id)}
+                             disabled={isLoading}
+                           >
+                             <Bot className="w-4 h-4" />
+                           </Button>
+                         )}
                         <Button variant="ghost" size="sm">
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>

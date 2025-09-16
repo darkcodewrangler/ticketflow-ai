@@ -26,8 +26,11 @@ import { Link } from "react-router-dom";
 import { api } from "@/services/api";
 import { useState } from "react";
 import { Ticket } from "@/types";
+// Import React Query hooks
+import { useDashboardMetrics } from "@/hooks/useAnalytics";
+import { useRecentTickets } from "@/hooks/useTickets";
 
-// Mock recent tickets data - moved outside component to prevent recreation
+// Mock recent tickets data - kept as backup
 const mockRecentTickets = [
   {
     id: 1,
@@ -77,12 +80,26 @@ export default function Dashboard() {
     connectWebSocket,
   } = useAppContext();
 
-  // Memoize the refresh handler to prevent unnecessary re-renders
-  const handleRefreshMetrics = useCallback(async () => {
-    await refreshMetrics();
-  }, [refreshMetrics]);
-  const [recentTickets, setRecentTickets] =
-    useState<Ticket[]>(mockRecentTickets);
+  // React Query hooks for API data
+  const { 
+    data: apiMetrics, 
+    isLoading: apiMetricsLoading, 
+    error: metricsError,
+    refetch: refetchMetrics 
+  } = useDashboardMetrics();
+  
+  const { 
+    data: apiRecentTickets, 
+    isLoading: ticketsLoading, 
+    error: ticketsError,
+    refetch: refetchTickets 
+  } = useRecentTickets();
+
+  // Use API data if available, fallback to context metrics or mock data
+  const displayMetrics = apiMetrics || metrics;
+  const displayRecentTickets = apiRecentTickets || mockRecentTickets;
+  const isLoadingMetrics = apiMetricsLoading || metricsLoading;
+
   // Connect to WebSocket only once when component mounts
   useEffect(() => {
     let mounted = true;
@@ -96,14 +113,24 @@ export default function Dashboard() {
     };
   }, []); // Remove connectionStatus from dependencies to prevent reconnection loops
 
+  // Memoize the refresh handler to prevent unnecessary re-renders
+  const handleRefreshMetrics = useCallback(async () => {
+    // Refetch both API data and context metrics
+    await Promise.all([
+      refetchMetrics(),
+      refetchTickets(),
+      refreshMetrics()
+    ]);
+  }, [refetchMetrics, refetchTickets, refreshMetrics]);
+
   // Memoize metric card props to prevent unnecessary re-renders
   const metricCardProps = useMemo(
     () => [
       {
         title: "Total Tickets",
-        value: metrics?.total_tickets || 0,
+        value: displayMetrics?.total_tickets || 0,
         format: "number" as const,
-        loading: metricsLoading,
+        loading: isLoadingMetrics,
         change: {
           value: 12,
           direction: "up" as const,
@@ -113,9 +140,9 @@ export default function Dashboard() {
       },
       {
         title: "Auto-Resolved",
-        value: metrics?.success_rate || 0,
+        value: displayMetrics?.success_rate || 0,
         format: "percentage" as const,
-        loading: metricsLoading,
+        loading: isLoadingMetrics,
         change: {
           value: 0.05,
           direction: "up" as const,
@@ -125,9 +152,9 @@ export default function Dashboard() {
       },
       {
         title: "Avg Resolution Time",
-        value: metrics?.avg_resolution_time_hours || 0,
+        value: displayMetrics?.avg_resolution_time_hours || 0,
         format: "duration" as const,
-        loading: metricsLoading,
+        loading: isLoadingMetrics,
         change: {
           value: 0.3,
           direction: "down" as const,
@@ -137,9 +164,9 @@ export default function Dashboard() {
       },
       {
         title: "Today's Tickets",
-        value: metrics?.tickets_today || 0,
+        value: displayMetrics?.tickets_today || 0,
         format: "number" as const,
-        loading: metricsLoading,
+        loading: isLoadingMetrics,
         change: {
           value: 3,
           direction: "up" as const,
@@ -148,17 +175,8 @@ export default function Dashboard() {
         status: "positive" as const,
       },
     ],
-    [metrics, metricsLoading]
+    [displayMetrics, isLoadingMetrics]
   );
-  useEffect(() => {
-    const fetchRecentTickets = async () => {
-      const res = await api.getRecentTickets();
-      if (res.success) {
-        setRecentTickets(res.data);
-      }
-    };
-    fetchRecentTickets();
-  }, []);
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -174,11 +192,11 @@ export default function Dashboard() {
           <Button
             variant="outline"
             onClick={handleRefreshMetrics}
-            disabled={metricsLoading}
+            disabled={isLoadingMetrics}
             className="flex items-center gap-2"
           >
             <RefreshCw
-              className={`w-4 h-4 ${metricsLoading ? "animate-spin" : ""}`}
+              className={`w-4 h-4 ${isLoadingMetrics ? "animate-spin" : ""}`}
             />
             Refresh
           </Button>
