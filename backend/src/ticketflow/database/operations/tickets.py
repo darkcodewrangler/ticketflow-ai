@@ -19,6 +19,7 @@ from ticketflow.database.models import (
 from ticketflow.database.connection import db_manager
 from pytidb.filters import GTE, NE
 logger = logging.getLogger(__name__)
+from ticketflow.database.schemas import TicketResponse
 from ticketflow.utils.helpers import get_isoformat, get_value,utcnow
 
 
@@ -65,7 +66,19 @@ class TicketOperations:
         except Exception as e:
             logger.error(f"Failed to create ticket: {e}")
             raise
-
+    @staticmethod
+    def get_ticket(ticket_id: str) -> Ticket:
+        """Get ticket by ID using PyTiDB query"""
+        try:
+            tickets= db_manager.tickets.query(
+                filters={"id": ticket_id},
+                limit=1,
+                order_by={"created_at": "desc"}
+            ).to_list()
+            return tickets[0]
+        except Exception as e:
+            logger.error(f"Failed to get ticket: {e}")
+            raise
     @staticmethod
     def get_tickets_by_status(status: str, limit: int = 50) -> List[Ticket]:
         """Get tickets by status using PyTiDB query"""
