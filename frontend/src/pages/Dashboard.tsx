@@ -124,7 +124,7 @@ export default function Dashboard() {
     () => [
       {
         title: "Total Tickets",
-        value: displayMetrics?.total_tickets || 0,
+        value: displayMetrics?.all_tickets || 0,
         format: "number" as const,
         loading: isLoadingMetrics,
         change: {

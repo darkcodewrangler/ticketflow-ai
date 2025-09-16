@@ -127,6 +127,7 @@ async def create_ticket(
         should_process = auto_process_bool and should_auto_process(ticket_dict)
         
         # Create the ticket
+        
         ticket = TicketOperations.create_ticket(ticket_dict)
         ticket_data = TicketResponse.model_validate(ticket).model_dump()
         try:
@@ -147,7 +148,7 @@ async def create_ticket(
         ticket_data["auto_processing"] = should_process
         
         return success_response(
-            data=ticket_data,
+            data=ticket_dict,
             message=ResponseMessages.TICKET_CREATED,
             metadata={"auto_processing_enabled": should_process}
         )

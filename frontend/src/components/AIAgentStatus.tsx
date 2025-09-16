@@ -25,6 +25,7 @@ import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { api } from "@/services/api";
 import { DashboardMetrics } from "@/types";
+import { useDashboardMetrics } from "@/hooks";
 
 interface AgentMetrics {
   cpu_usage: number;
@@ -60,11 +61,11 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
   compact = false,
   className = "",
 }) => {
-  const [metrics, setMetrics] = useState<DashboardMetrics>(mockMetrics);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { connectionStatus, connectWebSocket, disconnectWebSocket } =
     useAppContext();
-
+  const { data: apiMetrics, error } = useDashboardMetrics();
+  const metrics = apiMetrics || mockMetrics;
   // Simulate real-time metrics updates
   // useEffect(() => {
   //   const interval = setInterval(() => {
@@ -118,20 +119,12 @@ export const AIAgentStatus: React.FC<AIAgentStatusProps> = ({
 
   const getHealthStatus = () => {
     if (connectionStatus !== "connected") return "offline";
-    if (metrics.cpu_usage > 80 || metrics.memory_usage > 85) return "warning";
+    if (metrics?.cpu_usage > 80 || metrics?.memory_usage > 85) return "warning";
     return "healthy";
   };
 
   const healthStatus = getHealthStatus();
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      const res = await api.getDashboardMetrics();
-      if (res.success) {
-        setMetrics(res.data);
-      }
-    };
-    fetchMetrics();
-  });
+
   if (compact) {
     return (
       <Card className={cn("w-full", className)}>

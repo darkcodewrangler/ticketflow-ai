@@ -2,7 +2,7 @@
 
 import logging
 from typing import Any, Dict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from pytidb.filters import GTE, NE
 
@@ -24,6 +24,11 @@ class AnalyticsOperations:
             
             
             today = get_isoformat(utcnow().date())
+            seven_days_ago = get_isoformat(utcnow().date() - timedelta(days=7))
+            all_tickets = db_manager.tickets.query(
+                filters={"created_at": {GTE: seven_days_ago}},  
+                limit=1000  # Reasonable limit for today
+            ).to_list()
             today_tickets = db_manager.tickets.query(
                 filters={"created_at": {GTE: today}},
                 limit=1000  # Reasonable limit for today
@@ -111,7 +116,7 @@ class AnalyticsOperations:
             estimated_cost_saved = auto_resolved_today * 12.5 # $50/hr * 0.25
 
             return {
-               
+                "total_tickets": len(all_tickets),
                 "tickets_today": total_today,
                 "tickets_auto_resolved_today": auto_resolved_today,
                 "currently_processing": processing,
@@ -132,6 +137,7 @@ class AnalyticsOperations:
             logger.error(f"Failed to get dashboard metrics: {e}")
             # Return a default structure matching the schema on error
             return {
+                "total_tickets": 0,
                 "tickets_today": 0,
                 "tickets_auto_resolved_today": 0,
                 "currently_processing": 0,

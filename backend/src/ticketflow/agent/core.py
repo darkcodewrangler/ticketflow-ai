@@ -375,9 +375,9 @@ class TicketFlowAgent:
         """Step 1: Ingest and index the ticket"""
         step_start = time.time()
         
-        # Create ticket (PyTiDB auto-generates embeddings)
-        ticket = TicketOperations.create_ticket(ticket_data)
-        
+        # # Create ticket (PyTiDB auto-generates embeddings)
+        # ticket = TicketOperations.create_ticket(ticket_data)
+        ticket=ticket_data
         # Create workflow tracking
         initial_step = {
             "step": AgentStep.INGEST.value,
@@ -394,7 +394,7 @@ class TicketFlowAgent:
         
         workflow =  WorkflowOperations.create_workflow(ticket.id, [initial_step])
         
-        logger.info(f"Agent ingested ticket {ticket.id}")
+        logger.info(f"Agent ingested ticket {get_value(ticket,'id')}")
         
         # Convert ticket to dict for consistent handling throughout the workflow
         ticket_dict = TicketResponse.model_validate(ticket).model_dump()
