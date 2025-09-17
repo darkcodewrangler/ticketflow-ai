@@ -96,7 +96,7 @@ If you prefer to run the services individually or don't have Docker:
 ### For Manual Setup
 
 - **Backend**: Python 3.12+, TiDB database, API keys (OpenAI/OpenRouter, Jina AI, etc.)
-- **Frontend**: Node.js 18+, pnpm (recommended) or npm
+- **Frontend**: Node.js 22+, pnpm (recommended) or npm
 
 ## 📚 Documentation
 
